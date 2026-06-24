@@ -1,0 +1,59 @@
+{
+  "Button": {
+    "component": "Button",
+    "controls": [
+      { "prop": "label", "kind": "text", "required": true },
+      { "prop": "href", "kind": "text", "required": false },
+      {
+        "prop": "variant",
+        "kind": "select",
+        "options": ["primary", "secondary"],
+        "required": false
+      }
+    ]
+  },
+  "Callout": {
+    "component": "Callout",
+    "controls": [
+      {
+        "prop": "variant",
+        "kind": "select",
+        "options": ["info", "warn", "tip"],
+        "required": true
+      }
+    ]
+  },
+  "Hero": {
+    "component": "Hero",
+    "controls": [
+      { "prop": "title", "kind": "text", "required": true },
+      { "prop": "subtitle", "kind": "text", "required": false }
+    ]
+  },
+  "Card": {
+    "component": "Card",
+    "controls": [
+      { "prop": "title", "kind": "text", "required": false },
+      { "prop": "href", "kind": "text", "required": false }
+    ]
+  },
+  "Counter": {
+    "component": "Counter",
+    "controls": [
+      { "prop": "label", "kind": "text", "required": false },
+      { "prop": "start", "kind": "number", "required": false },
+      { "prop": "step", "kind": "number", "required": false }
+    ]
+  },
+  "Badge": {
+    "component": "Badge",
+    "controls": [
+      {
+        "prop": "variant",
+        "kind": "select",
+        "options": ["neutral", "new", "success", "warn"],
+        "required": false
+      }
+    ]
+  }
+}

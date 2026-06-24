@@ -19,6 +19,20 @@ export interface PrerenderOptions {
      * only into pages that actually contain an island, so island-free pages ship no JS.
      */
     islandClientSrc?: string;
+    /**
+     * Ships the in-site editor with the static page so `?edit` opens it in the browser. Each
+     * page inlines its own MDX source + tokens + schemas as inert JSON, and a tiny bootstrap
+     * lazy-loads the (heavy) editor bundle only when `?edit` is present — readers never download
+     * it. Editing is in-memory here (no persistence); saving to GitHub is a separate seam.
+     */
+    editor?: {
+        /** URL of the editor client bundle, imported on demand. */
+        clientSrc: string;
+        /** flat token source the design panel themes from. */
+        tokens?: string;
+        /** per-component controls, injected (not discovered live in the browser). */
+        schemas?: Record<string, unknown>;
+    };
 }
 export interface PrerenderedPage {
     path: string;

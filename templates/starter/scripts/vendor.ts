@@ -21,11 +21,11 @@ interface VendoredPackage {
    */
   target?: "browser" | "node";
   /**
-   * An extra browser-target client bundle emitted into the same vendor dir, with preact
-   * inlined (the published static site serves a flat file with no module resolver). The
-   * island client lives here — the only client JS a published page ships.
+   * Extra browser-target client bundles emitted into the same vendor dir, with preact inlined
+   * (the published static site serves flat files with no module resolver). The island client
+   * and the (lazy, edit-only) editor client live here — the client JS a published page ships.
    */
-  clientBundle?: { entry: string; outFile: string };
+  clientBundles?: { entry: string; outFile: string }[];
 }
 
 const PACKAGES: VendoredPackage[] = [
@@ -36,7 +36,10 @@ const PACKAGES: VendoredPackage[] = [
     name: "@nocms/build",
     dir: "build",
     target: "node",
-    clientBundle: { entry: "island-client.ts", outFile: "islands.client.js" },
+    clientBundles: [
+      { entry: "island-client.ts", outFile: "islands.client.js" },
+      { entry: "editor-client.ts", outFile: "editor.client.js" },
+    ],
   },
 ];
 
@@ -95,7 +98,9 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
   if (!artifact) throw new Error(`vendor: no output for ${pkg.name}`);
   await writeFile(join(outDir, "index.js"), await artifact.text());
 
-  if (pkg.clientBundle) await vendorClientBundle(pkg, srcDir, outDir);
+  for (const bundle of pkg.clientBundles ?? []) {
+    await vendorClientBundle(pkg, srcDir, outDir, bundle);
+  }
 
   await emitDeclarations(srcDir, outDir);
 
@@ -115,16 +120,16 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
   console.log(`vendor: ${pkg.name} → vendor/${pkg.dir}`);
 }
 
-// The island client runs in the browser on a static page, so preact is inlined (no resolver
-// at runtime) and the entry's MDX-compiler-laden imports tree-shake away (it pulls only the
-// component registry + the renderer's `hydrateIslands`). buildSite copies this into `dist`.
+// A client bundle runs in the browser on a static page, so preact is inlined (no resolver at
+// runtime). Unused heavy imports tree-shake away — the island client keeps only the registry +
+// `hydrateIslands`; the editor client necessarily carries the MDX compiler + prose editor, so
+// it's the heavy one (lazy-loaded on `?edit`). buildSite copies these into `dist`.
 async function vendorClientBundle(
   pkg: VendoredPackage,
   srcDir: string,
   outDir: string,
+  bundle: { entry: string; outFile: string },
 ): Promise<void> {
-  const bundle = pkg.clientBundle;
-  if (!bundle) return;
   const built = await Bun.build({
     entrypoints: [join(srcDir, bundle.entry)],
     target: "browser",
@@ -133,13 +138,13 @@ async function vendorClientBundle(
   });
   if (!built.success) {
     throw new Error(
-      `vendor: failed to bundle ${pkg.name} client\n${built.logs.join("\n")}`,
+      `vendor: failed to bundle ${pkg.name} ${bundle.outFile}\n${built.logs.join("\n")}`,
     );
   }
   const artifact = built.outputs[0];
-  if (!artifact) throw new Error(`vendor: no client output for ${pkg.name}`);
+  if (!artifact) throw new Error(`vendor: no output for ${pkg.name} ${bundle.outFile}`);
   await writeFile(join(outDir, bundle.outFile), await artifact.text());
-  console.log(`vendor: ${pkg.name} client → vendor/${pkg.dir}/${bundle.outFile}`);
+  console.log(`vendor: ${pkg.name} → vendor/${pkg.dir}/${bundle.outFile}`);
 }
 
 if (!existsSync(packagesDir)) {
