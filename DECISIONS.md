@@ -52,6 +52,25 @@ git, never as a string, self-hosted; **Onlook** — DOM element ↔ source-locat
 in-site editing; **Puck** — cleanest field-config + DropZone WYSIWYG UX; **GrapesJS** —
 builder panel/trait UX.
 
+**Editor build status (resume here):**
+1. ✅ Document seam — `parseMdx`/`serializeMdx` (D2b verified).
+2. ✅ Selection mapping core — `position.ts` (`nodeAtOffset`/`deepestNodeAtOffset`/
+   `nearestOfType`): a click's source offset → the mdast node path. Pure + tested.
+3. ⏭ **NEXT — renderer editor-mode DOM annotation.** Belongs in `@nocms/renderer` (the one
+   renderer owns MDX evaluation; the editor can't import `@mdx-js/mdx`), as an editor-only
+   option that leaves the publish path untouched. **Verified mechanism:** evaluate with
+   `{ development: true }` + a wrapped `jsxDEV(type, props, key, isStatic, source, self)` —
+   `source` carries `{ lineNumber, columnNumber }` mapping to the *original MDX source* for
+   **every** element, intrinsic and component. Plan: for intrinsic elements inject
+   `data-mdx-pos` into props (lands on the DOM directly); for components (our library does
+   not forward unknown props) wrap the returned vnode in a `display:contents` carrier
+   stamped with `data-mdx-pos`. Convert `line:col → start offset` in the renderer (it has
+   the source) so the DOM carries an offset and the editor's `nodeAtOffset` resolves it
+   directly. Known edge: wrapping a component that renders e.g. an `<li>` — `display:contents`
+   keeps layout but not HTML-nesting validity; acceptable for v1, revisit if it bites.
+4. ⏭ Then: canvas mount (renderer in an iframe/shadow sandbox + click→select overlay),
+   props panel, the ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
+
 ---
 
 WYSIWYG over MDX with lossless round-trip. Reference studied (props-philosophy only,
