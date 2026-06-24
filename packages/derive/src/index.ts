@@ -4,6 +4,7 @@
 
 import type { CollectionEntry } from "@nocms/core";
 import { runManifest } from "./manifest";
+import { runSearch } from "./search";
 
 export interface DeriveInput {
   entries: CollectionEntry[];
@@ -24,15 +25,10 @@ export interface DeriveJob {
 
 export const manifestJob: DeriveJob = { name: "manifest", run: runManifest };
 
-// Search index and i18n bundles depend on tool/format choices still being made,
-// so they are not wired into deriveAll yet.
-export const searchJob: DeriveJob = {
-  name: "search",
-  run: () => {
-    throw new Error("not implemented: sharded search index (pending tool choice)");
-  },
-};
+export const searchJob: DeriveJob = { name: "search", run: runSearch };
 
+// i18n bundles depend on a format choice still being made (how content declares
+// translations), so this job is not wired into deriveAll yet.
 export const i18nJob: DeriveJob = {
   name: "i18n",
   run: () => {
@@ -41,7 +37,7 @@ export const i18nJob: DeriveJob = {
 };
 
 /** The jobs that run today. */
-export const jobs: DeriveJob[] = [manifestJob];
+export const jobs: DeriveJob[] = [manifestJob, searchJob];
 
 export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> {
   const out: DerivedArtifact[] = [];
@@ -50,3 +46,10 @@ export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> 
 }
 
 export { buildManifest, type Manifest, type ManifestEntry } from "./manifest";
+export {
+  buildSearchIndex,
+  plainText,
+  SEARCH_OPTIONS,
+  type SearchDocument,
+  toSearchDocument,
+} from "./search";
