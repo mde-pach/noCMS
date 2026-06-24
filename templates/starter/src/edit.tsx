@@ -20,21 +20,60 @@ import themeTokens from "../theme.tokens?raw";
 // than touch the build config, this dev harness mirrors `content/index.mdx` as text;
 // loading real content from GitHub is the integration follow-up (see DECISIONS D2).
 const content = `---
-title: Welcome
-description: The starter home page.
+title: A CMS that lives in your repo
+description: Build a real website on GitHub, edit it in place, and publish with one click.
 ---
 
-# Welcome to your noCMS site
-
-Edit this content in-site. It is plain **MDX** — Markdown plus components from your library.
+<Hero title="A CMS that lives in your repo" subtitle="Build a real website on GitHub, edit it in place, and publish with one click. The repo is the database — there is nothing centralized to maintain.">
+  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1.25rem" }}>
+    <Button label="Edit this page" href="?edit" variant="primary" />
+    <Button label="View on GitHub" href="https://github.com/mde-pach/noCMS" variant="secondary" />
+  </div>
+</Hero>
 
 <Callout variant="tip">
-  Components like this one come from \`@nocms/components\` and are composed visually in the editor.
+  **This whole page is editable.** Select any block to tweak its props, restyle the site with
+  design tokens, or double-click text to rewrite it. What you preview is exactly what publishes.
 </Callout>
 
-Publishing commits your changes and builds the public site in GitHub Actions.
+<Divider spacing="lg" />
 
-<Button label="Read the docs" href="https://github.com" variant="primary" />
+## One curated component library
+
+Everything here is composed from \`@nocms/components\` — plain, typed Preact components. The
+editor reads their prop types to generate controls automatically.
+
+<Grid columns={3} gap="md">
+  <Card title="Layout">
+    Hero, Section, Container, Grid and Stack establish page structure and rhythm.
+  </Card>
+  <Card title="Content">
+    Card, Callout, Badge, Image and Divider for editorial blocks.
+  </Card>
+  <Card title="Forms">
+    Form, Input, Textarea and Select, wired to any endpoint you like.
+  </Card>
+</Grid>
+
+<Divider spacing="lg" />
+
+## Interactive islands
+
+Components that need interactivity are declared with a single \`island: true\` flag and
+hydrated in the browser, reusing the very same component.
+
+<Counter label="You've clicked" start={0} />
+
+<Divider spacing="lg" />
+
+## Theming is tokens, not code
+
+Colors, fonts, spacing and radius live in a flat \`theme.tokens\` file and compile to CSS
+variables at runtime. Try the Theming panel — every block updates live, with no rebuild.
+
+<Callout variant="info">
+  Change the brand color or body font and watch the whole page restyle instantly.
+</Callout>
 `;
 
 const schemas: Record<string, ComponentSchema> = {
@@ -67,6 +106,32 @@ const schemas: Record<string, ComponentSchema> = {
     controls: [
       { prop: "title", kind: "text", required: true },
       { prop: "subtitle", kind: "text", required: false },
+    ],
+  },
+  Card: {
+    component: "Card",
+    controls: [
+      { prop: "title", kind: "text", required: false },
+      { prop: "href", kind: "text", required: false },
+    ],
+  },
+  Counter: {
+    component: "Counter",
+    controls: [
+      { prop: "label", kind: "text", required: false },
+      { prop: "start", kind: "number", required: false },
+      { prop: "step", kind: "number", required: false },
+    ],
+  },
+  Badge: {
+    component: "Badge",
+    controls: [
+      {
+        prop: "variant",
+        kind: "select",
+        options: ["neutral", "new", "success", "warn"],
+        required: false,
+      },
     ],
   },
 };
