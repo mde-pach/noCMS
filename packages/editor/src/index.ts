@@ -7,6 +7,7 @@ import type { ComponentRegistry } from "@nocms/components";
 import type { RepoRef } from "@nocms/core";
 
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
+export { deepestNodeAtOffset, nearestOfType, nodeAtOffset } from "./position.js";
 
 export interface EditorOptions {
   repo: RepoRef;
