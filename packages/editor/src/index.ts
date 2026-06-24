@@ -14,8 +14,17 @@ export {
   offsetFromElement,
   selectionAtElement,
 } from "./canvas.js";
+export {
+  getProp,
+  isJsxElement,
+  type JsxElement,
+  type PropValue,
+  removeProp,
+  setProp,
+} from "./jsx-attributes.js";
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 export { deepestNodeAtOffset, nearestOfType, nodeAtOffset } from "./position.js";
+export { PropsPanel, type PropsPanelProps } from "./props-panel.js";
 
 export interface EditorOptions {
   repo: RepoRef;
