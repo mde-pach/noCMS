@@ -87,6 +87,7 @@ export async function buildSite(options: BuildOptions): Promise<void> {
     ? `<link rel="icon" type="image/svg+xml" href="${base}favicon.svg"/>`
     : "";
   const head = await collectHead(root, faviconHref);
+  const editor = await collectEditor(root, base);
 
   const pages = await prerenderRoutes(routes, {
     components,
@@ -94,12 +95,14 @@ export async function buildSite(options: BuildOptions): Promise<void> {
     head: head || undefined,
     islands,
     islandClientSrc: `${base}${ISLAND_CLIENT_FILE}`,
+    editor,
   });
 
   await rm(outDir, { recursive: true, force: true });
   await Promise.all(pages.map((page) => writePage(outDir, page)));
 
   if (pages.some((page) => page.islands.length)) await writeIslandClient(root, outDir);
+  if (editor) await writeEditorClient(root, outDir);
   if (existsSync(publicDir)) await cp(publicDir, outDir, { recursive: true });
 }
 
@@ -120,6 +123,46 @@ function islandClientBundlePath(root: string): string | undefined {
   const candidates = [
     join(root, "vendor", "build", "islands.client.js"),
     fileURLToPath(new URL("./islands.client.js", import.meta.url)),
+  ];
+  return candidates.find((p) => existsSync(p));
+}
+
+// The in-site editor, opt-in: only when the site provides `editor.json` (the per-component
+// schemas) AND the prebuilt editor bundle is present. The bundle is heavy (MDX compiler + prose
+// editor) but lazy-loaded on `?edit`, so readers never download it.
+const EDITOR_CLIENT_FILE = "_nocms/editor.js";
+
+async function collectEditor(
+  root: string,
+  base: string,
+): Promise<
+  { clientSrc: string; tokens?: string; schemas?: Record<string, unknown> } | undefined
+> {
+  const schemasFile = join(root, "editor.json");
+  if (!existsSync(schemasFile) || !editorClientBundlePath(root)) return undefined;
+  const schemas = JSON.parse(await readFile(schemasFile, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  const tokensFile = join(root, "theme.tokens");
+  const tokens = existsSync(tokensFile)
+    ? await readFile(tokensFile, "utf8")
+    : undefined;
+  return { clientSrc: `${base}${EDITOR_CLIENT_FILE}`, tokens, schemas };
+}
+
+async function writeEditorClient(root: string, outDir: string): Promise<void> {
+  const source = editorClientBundlePath(root);
+  if (!source) return;
+  const dest = join(outDir, EDITOR_CLIENT_FILE);
+  await mkdir(dirname(dest), { recursive: true });
+  await cp(source, dest);
+}
+
+function editorClientBundlePath(root: string): string | undefined {
+  const candidates = [
+    join(root, "vendor", "build", "editor.client.js"),
+    fileURLToPath(new URL("./editor.client.js", import.meta.url)),
   ];
   return candidates.find((p) => existsSync(p));
 }

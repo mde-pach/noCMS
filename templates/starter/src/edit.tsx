@@ -3,14 +3,14 @@
 // renderer the build prerenders with, so what you edit is what publishes.
 //
 // Schemas are injected, not discovered live (props-discovery parses TS source via the
-// compiler — a Node step, impractical in-browser). These are hand-authored for the
-// starter's three components; wiring build-time discovery + vendoring the editor into a
-// fork is the open follow-up. Loading the editor (it pulls the MDX compiler) is gated
-// behind `?edit`, so the reader bundle never carries it.
+// compiler — a Node step, impractical in-browser). They're hand-authored in `editor.json`,
+// shared with the published deploy editor. Loading the editor (it pulls the MDX compiler) is
+// gated behind `?edit`, so the reader bundle never carries it.
 
 import { registry } from "@nocms/components";
 import { mountEditor } from "@nocms/editor";
 import type { ComponentSchema } from "@nocms/props-discovery";
+import schemasJson from "../editor.json";
 import themeTokens from "../theme.tokens?raw";
 
 // The editor edits MDX *text*. In the real editor that text comes from the GitHub API
@@ -76,65 +76,9 @@ variables at runtime. Try the Theming panel — every block updates live, with n
 </Callout>
 `;
 
-const schemas: Record<string, ComponentSchema> = {
-  Button: {
-    component: "Button",
-    controls: [
-      { prop: "label", kind: "text", required: true },
-      { prop: "href", kind: "text", required: false },
-      {
-        prop: "variant",
-        kind: "select",
-        options: ["primary", "secondary"],
-        required: false,
-      },
-    ],
-  },
-  Callout: {
-    component: "Callout",
-    controls: [
-      {
-        prop: "variant",
-        kind: "select",
-        options: ["info", "warn", "tip"],
-        required: true,
-      },
-    ],
-  },
-  Hero: {
-    component: "Hero",
-    controls: [
-      { prop: "title", kind: "text", required: true },
-      { prop: "subtitle", kind: "text", required: false },
-    ],
-  },
-  Card: {
-    component: "Card",
-    controls: [
-      { prop: "title", kind: "text", required: false },
-      { prop: "href", kind: "text", required: false },
-    ],
-  },
-  Counter: {
-    component: "Counter",
-    controls: [
-      { prop: "label", kind: "text", required: false },
-      { prop: "start", kind: "number", required: false },
-      { prop: "step", kind: "number", required: false },
-    ],
-  },
-  Badge: {
-    component: "Badge",
-    controls: [
-      {
-        prop: "variant",
-        kind: "select",
-        options: ["neutral", "new", "success", "warn"],
-        required: false,
-      },
-    ],
-  },
-};
+// Schemas live in `editor.json` so the dev `?edit` flow and the published deploy editor
+// (buildSite inlines the same file) share one source.
+const schemas = schemasJson as Record<string, ComponentSchema>;
 
 const root = document.getElementById("app");
 if (root) {

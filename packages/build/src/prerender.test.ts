@@ -76,3 +76,46 @@ describe("island prerendering", () => {
     expect(page?.islands).toEqual(["Widget"]);
   });
 });
+
+describe("editor prerendering", () => {
+  const editor = {
+    clientSrc: "/_nocms/editor.js",
+    tokens: "color.brand: #f00\n",
+    schemas: { Box: { component: "Box", controls: [] } },
+  };
+
+  it("inlines the page's MDX + tokens + schemas and a lazy ?edit bootstrap", async () => {
+    const [page] = await prerenderRoutes(
+      [{ path: "/", mdx: "# Hi", data: { title: "T" } }],
+      { editor },
+    );
+    expect(page?.html).toContain(
+      '<script type="application/json" id="nocms-editor-data">',
+    );
+    const data = JSON.parse(
+      page?.html.match(/id="nocms-editor-data">(.*?)<\/script>/)?.[1] ?? "{}",
+    );
+    expect(data.mdx).toBe("# Hi");
+    expect(data.tokens).toBe("color.brand: #f00\n");
+    expect(data.schemas).toEqual({ Box: { component: "Box", controls: [] } });
+    // the editor bundle is imported only when ?edit is present, never eagerly
+    expect(page?.html).toContain('import("/_nocms/editor.js")');
+    expect(page?.html).toContain('has("edit")');
+  });
+
+  it("escapes `<` in the inlined data so MDX can't break out of the script", async () => {
+    // a code span carrying the dangerous sequence in the MDX source
+    const mdx = "Inline `</script>` snippet";
+    const [page] = await prerenderRoutes([{ path: "/", mdx, data: {} }], { editor });
+    expect(page?.html).toContain("\\u003c");
+    // the data script's content has no raw early-closing `</script>`
+    const raw = page?.html.match(/id="nocms-editor-data">(.*?)<\/script>/)?.[1] ?? "{}";
+    expect(JSON.parse(raw).mdx).toBe(mdx);
+  });
+
+  it("adds no editor scripts when the editor option is absent", async () => {
+    const [page] = await prerenderRoutes([{ path: "/", mdx: "# Hi", data: {} }]);
+    expect(page?.html).not.toContain("nocms-editor-data");
+    expect(page?.html).not.toContain("<script");
+  });
+});
