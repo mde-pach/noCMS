@@ -1,10 +1,18 @@
-// The publish pipeline: Vite + Preact SSG, run asynchronously in Actions. It
-// prerenders the same component tree the editor previews and hydrates islands —
-// not a second renderer. Astro is deliberately avoided here: its component model
-// would reintroduce the preview/publish drift this design eliminates.
+// The publish pipeline: Vite + Preact SSG, run asynchronously in GitHub Actions.
+// It prerenders the same component tree the editor previews and hydrates the
+// interactive parts as islands — not a second renderer. prerenderRoutes is the
+// pure content→HTML core; the surrounding Vite/asset/island wiring builds on it.
 
 import type { RepoRef } from "@nocms/core";
 import type { Plugin } from "vite";
+
+export type { ComponentMap } from "@nocms/renderer";
+export {
+  type PrerenderedPage,
+  type PrerenderOptions,
+  prerenderRoutes,
+  type Route,
+} from "./prerender";
 
 export interface BuildOptions {
   repo: RepoRef;
@@ -22,5 +30,5 @@ export function nocmsVitePlugins(): Plugin[] {
 }
 
 export async function buildSite(_options: BuildOptions): Promise<void> {
-  throw new Error("not implemented: Vite + Preact SSG build");
+  throw new Error("not implemented: full Vite + Preact SSG build");
 }
