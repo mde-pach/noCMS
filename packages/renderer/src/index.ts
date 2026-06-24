@@ -52,11 +52,16 @@ export async function renderToHtml(input: RenderInput): Promise<string> {
 
 export { renderEditableToVNode } from "./editable.js";
 
-/** Interactive sub-trees to hydrate as islands after prerender. */
-export interface IslandManifest {
-  islands: string[];
-}
-
-export function collectIslands(_tree: VNode): IslandManifest {
-  return { islands: [] };
-}
+export {
+  collectIslands,
+  deserializeIslandProps,
+  hydrateIslands,
+  type IdentifyIsland,
+  ISLAND_ATTR,
+  ISLAND_PROPS_ATTR,
+  type IslandInstance,
+  type IslandManifest,
+  islandNamesFromHtml,
+  serializeIslandProps,
+  wrapIslandComponents,
+} from "./islands.js";
