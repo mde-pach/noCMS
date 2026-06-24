@@ -7,7 +7,15 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!dist", "!.vite", "!node_modules", "!.claude", "!**/*.gen.ts"]
+    "includes": [
+      "**",
+      "!dist",
+      "!.vite",
+      "!node_modules",
+      "!.claude",
+      "!**/*.gen.ts",
+      "!**/vendor"
+    ]
   },
   "formatter": {
     "enabled": true,

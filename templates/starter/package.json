@@ -6,14 +6,17 @@
   "license": "MIT",
   "description": "The fork-and-go starter site. Fork it, sign in with GitHub, and edit in-site.",
   "scripts": {
+    "vendor": "bun scripts/vendor.ts",
+    "predev": "bun scripts/vendor.ts",
     "dev": "vite",
+    "prebuild": "bun scripts/vendor.ts",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@nocms/components": "workspace:*",
-    "@nocms/tokens": "workspace:*",
+    "@nocms/components": "file:./vendor/components",
+    "@nocms/tokens": "file:./vendor/tokens",
     "preact": "^10.27.0"
   },
   "devDependencies": {

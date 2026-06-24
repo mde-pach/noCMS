@@ -63,7 +63,9 @@ API** — cross-package use goes through that seam only.
 - `packages/derive` — ② tier: search, i18n, manifests, feeds.
 - `packages/sandbox` — plugin sandbox host.
 - `apps/relay` — the only infra: stateless PKCE exchange. See @.claude/rules/relay.md.
-- `templates/starter` — the fork-and-go starter site that ships the editor.
+- `templates/starter` — the fork-and-go starter site that ships the editor. Depends on
+  `@nocms/*` via committed `file:./vendor/*` built bundles, not `workspace:*`, so a fork
+  is self-contained (D1); `scripts/vendor.ts` regenerates them in the monorepo.
 
 ## Code style
 

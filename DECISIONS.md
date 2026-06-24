@@ -6,15 +6,6 @@ resolved, record the choice + rationale and move it to the "Resolved" section.
 
 ## Open
 
-### D1 — Package distribution model (gates standalone fork)
-A forked `templates/starter` must install `@nocms/*` outside this monorepo. Today
-they are `private` + `workspace:*`, so a fork can't resolve them.
-- Options: (a) publish packages to npm; (b) vendor a built editor/runtime bundle
-  into the template; (c) the template *is* a thin app that fetches a pinned,
-  integrity-hashed editor build at runtime.
-- Blocks: standalone fork, the editor mount in the starter, the real publish CI
-  for forks.
-
 ### D2 — Editor engine architecture
 WYSIWYG over MDX with lossless round-trip. Reference studied (engine approach only,
 a POC): cat-next TipTap editor at
@@ -95,4 +86,26 @@ straightforward, but the island/hydration boundary is a real design choice.
 
 ## Resolved
 
-_(none yet)_
+### D1 — Package distribution model → **vendor a built bundle**
+A fork of `templates/starter` lives outside the monorepo and can't resolve
+`workspace:*`. **Decision: vendor built `@nocms/*` bundles into the template.** Most
+aligned with invariant #2 (fully decentralized — the fork is self-contained, nothing
+the project runs can break a site, no external resolution at install or runtime).
+Rejected: npm publish (adds a live dependency on external infra) and runtime-fetch
+(reintroduces a hosted artifact the site depends on).
+
+Mechanics (`templates/starter/scripts/vendor.ts`): each needed package is built into a
+self-contained, installable `file:` package under `templates/starter/vendor/<pkg>/`
+(`index.js` via `Bun.build`, browser ESM, `preact` external; `index.d.ts` tree via
+`tsc --emitDeclarationOnly`; a small `package.json`). The starter depends on them via
+`file:./vendor/<pkg>` — pure node resolution, no Vite alias or tsconfig paths, so the
+in-repo starter is identical to a fork. The bundles are **committed** (a fork has no
+monorepo to build from). `predev`/`prebuild` run the vendor script: in the monorepo it
+regenerates (contributor package edits flow in on next run); in a fork the sources are
+absent so it's a no-op and the committed bundles are authoritative.
+
+Currently vendored: `@nocms/tokens`, `@nocms/components` (what the starter consumes at
+runtime). As the editor mounts (D2) and SSG/islands land (D6), add their packages to
+`PACKAGES` in the vendor script. Known follow-up: the bundle imports
+`preact/jsx-dev-runtime` (Bun's default) rather than the production runtime — correct
+but slightly heavier; switch when a production-JSX build path is wired.
