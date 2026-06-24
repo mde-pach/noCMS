@@ -1,0 +1,46 @@
+# Deploys the starter site to GitHub Pages as a live demo of a published noCMS site.
+# It prerenders templates/starter to static HTML (the same render-and-emit path a fork
+# runs) and serves it at https://<owner>.github.io/noCMS/. Project Pages serve under
+# /<repo>/, so BASE_PATH carries the repo name into asset URLs.
+name: Deploy starter to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - uses: actions/configure-pages@v5
+      - run: bun run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: templates/starter/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
