@@ -77,9 +77,51 @@ builder panel/trait UX.
    mutate the node in place and fire `onChange` for the shell to re-serialize + re-render.
    happy-dom tested. Remaining: media control = plain text field (real media picker later);
    the editor shell that wires canvas selection → schema lookup → panel → re-render loop.
-6. ⏭ **NEXT — the editor shell loop.** Wire `mountCanvas` selection → discover/cache the
-   selected component's schema → render `PropsPanel` → on change `serializeMdx` + re-mount
-   the canvas. Then the ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
+6. ✅ **Editor shell loop — `mountEditor` (`shell.tsx`).** Lays out a canvas region beside a
+   side panel, keeps one live `MdxDocument` (`parseMdx` once), mounts `mountCanvas`, and on
+   select resolves the meaningful node (`selectableNode` — nearest JSX component or block,
+   `selectable.ts`), looks up its **injected** schema by component name, and renders
+   `PropsPanel`. A panel edit mutates the node in place; the shell re-serializes, calls
+   `canvas.update(mdx)`, re-highlights by **index-path** (`indexPathOf`/`nodeAtIndexPath`,
+   offset-stable across edits — raw offsets shift), and fires `onChange(mdx)`. Schemas are
+   injected, not discovered live (`discoverControls` parses TS source via the compiler — a
+   Node step, impractical in-browser). Canvas gained a structural **selection overlay**
+   (`highlight(indexPath)`, non-interactive layer) and now `preventDefault`s clicks (an
+   editing surface selects, never navigates). Full click→panel→edit→live-update→`onChange`
+   loop unit-tested (happy-dom) and **browser-verified** in the starter.
+7. ✅ **Tokens-as-bricks panel — `TokensPanel` (`tokens-panel.tsx`).** Edits design tokens as
+   semantic, opinionated, human-labeled choices (brand color, fonts, spacing, radius) grouped
+   by concept, never raw var names; an edit emits updated tokens + flat source + CSS-var
+   block. Wired into `mountEditor` behind an optional `tokens` source: the shell rewrites one
+   `<style>` live on each theme edit (no rebuild — invariant #3) and surfaces the flat text
+   via `onTokensChange`. Added `formatTokens` to `@nocms/tokens` (the missing flat-text
+   serializer, inverse of `parseTokens`, round-trip tested). Browser-verified live theming.
+8. ✅ **Starter `?edit` mount + browser verification.** `?edit` lazily imports `src/edit.tsx`
+   (separate entry) → `mountEditor` with the starter's content, registry, injected schemas,
+   and tokens; the reader path and the prerender build (`scripts/build.ts`) are untouched.
+   `@nocms/editor` is a **workspace devDep** of the starter (dev-only; not in the reader
+   bundle, not vendored yet).
+
+**Open seams for the merge (this lane):**
+- *Prose editing (Session B / `@nocms/prose`).* The shell leaves "double-click text to edit"
+  unbuilt. Integration seam: a block source range → `mountProseEditor` → edited MDX text back;
+  the shell already tracks the selected node by index-path, so it can hand a block's range in
+  and splice the returned text. Wire after merge.
+- *Schema production.* Schemas are injected; the starter's are **hand-authored** in
+  `edit.tsx`. The real source is `discoverControls` over component TS at build/vendor time,
+  shipped as a `Record<name, ComponentSchema>` — unbuilt, out of scope this lane.
+- *Fork-vendoring the editor.* `@nocms/editor` isn't in the vendor `PACKAGES`, so `?edit`
+  works only in the monorepo. Vendoring it (browser target; it pulls the MDX compiler — heavy,
+  loads only in edit mode) so a fork is self-contained is the D1 follow-up.
+- *Editor content source.* `edit.tsx` **inlines** the MDX as text because the build lane's
+  `@mdx-js/rollup` plugin (enforce:pre, in the off-limits `vite.config.ts`) compiles every
+  `.mdx` request — `?raw` included — so a raw-text import is impossible without touching it.
+  The real editor loads content as text from the **GitHub API** (the repo is the database),
+  so this is a dev-harness shim, not the intended path.
+- *Dev-flow wrinkle (D1).* `predev` regenerates `vendor/*`, but bun's `file:` store keeps the
+  copy from the last `bun install`, so a new vendored export (e.g. `formatTokens`) needs a
+  `bun install` to surface in Vite dev. Harmless for forks (bundles are committed,
+  never regenerated); a monorepo-dev paper cut worth smoothing later.
 
 ---
 
