@@ -7,7 +7,54 @@ resolved, record the choice + rationale and move it to the "Resolved" section.
 ## Open
 
 ### D2 — Editor engine architecture
-WYSIWYG over MDX with lossless round-trip. Reference studied (engine approach only,
+
+**Product vision (Maxime, the north star).** A flexible, versatile website builder that
+*feels Figma-like* but targets **non-developers/non-designers**: assemble sites from
+pre-built **layouts + components**, with an **opinionated** way of building (e.g. design
+**tokens-as-bricks**), every concept understandable with **zero web/design knowledge** —
+"standard-user-proof." The cat-next TipTap editor below was a reference for the
+**props-discovery philosophy only**, not an editor recommendation.
+
+**Key finding from verified library research (2026-06-24): no full builder is adoptable.**
+Every component-based visual builder is disqualified by a locked JSON-tree data model
+(Puck, Craft.js, Plasmic, Builder), a copyleft/SaaS license (Gutenberg GPL, Plasmic/
+Webstudio AGPL, Builder closed-SaaS), or dormancy (Craft.js) — all against noCMS's
+MDX-text-source / MIT / Preact / decentralized constraints. So the editor is **bespoke
+composition of packages noCMS already has**, on top of a few small, permissively-licensed
+primitives. The big builders are **UX/architecture references only**.
+
+**Feature map (capability → what powers it):**
+1. *Canvas* — the live site is the editing surface → `@nocms/renderer` (invariant #1) +
+   DOM↔mdast mapping via source positions + iframe/shadow sandbox (kills the
+   React-context-barrier pitfall).
+2. *Insert bricks* — components + pre-built **layout sections** by drag-drop → a DnD
+   primitive + a curated layout-brick library (MDX snippets + metadata) + AST insert.
+3. *Configure* — friendly property controls → `@nocms/props-discovery` + a control-widget
+   set (prop-type → widget); never expose JSON.
+4. *Edit text in place* — see D2a.
+5. *Design: tokens-as-bricks* — semantic, opinionated token panel + presets → `@nocms/
+   tokens` (runtime CSS vars, no rebuild — invariant #3) + a color picker.
+6. *Structure* — pages, nav, a layers/outline tree from mdast → `@nocms/core` + routing (D5).
+7. *Media* — image upload/picker + alt text → `@nocms/github` + build-tier optimization (D6).
+8. *History* — one unified undo/redo over mdast/text (avoid cat-next's per-region isolation).
+9. *Save & publish* — branch-per-session + async publish → `@nocms/github`, `@nocms/auth`.
+10. *Guardrails* (cross-cutting) — valibot validation + constrained choices → `@nocms/core`.
+11. *Plugins* (later) — sandboxed extra bricks/controls → `@nocms/sandbox` (D4).
+
+**The only genuine "adopt a dependency" slots (all MIT/permissive, Preact-feasible):**
+- *Canvas drag-and-drop:* **Pragmatic DnD** (`@atlaskit/pragmatic-drag-and-drop`,
+  Apache-2.0, ~4.7kB vanilla — top pick) or **dnd-kit/dom** (MIT, richer, pre-1.0).
+- *Prose text widget:* **ProseMirror core** (MIT, vanilla) — see D2a.
+- *Small UI:* a color picker; minimal popover/menu primitives (build or license-check).
+
+**References to study (do NOT adopt):** **TinaCMS** (Apache-2.0) — the blueprint: edits
+MDX as an AST in git, never as a string, self-hosted; **Onlook** (Apache-2.0) — DOM
+element ↔ source-location mapping for in-site editing; **Puck** — cleanest field-config +
+DropZone WYSIWYG UX; **GrapesJS** — builder panel/trait UX.
+
+---
+
+WYSIWYG over MDX with lossless round-trip. Reference studied (props-philosophy only,
 a POC): cat-next TipTap editor at
 `/Users/maximedepachtere/project/papernest/cat-next/apps/front/features/editor`.
 
@@ -46,10 +93,47 @@ views (each preview island is its own root — keep components context-light or
 provide context at the canvas root), heuristic async-render timing.
 
 **Sub-decisions still open:**
-- D2a — rich-text prose editing widget: ProseMirror/TipTap scoped to a block and
-  serialized to markdown, vs CodeMirror source+preview, vs contentEditable mapped
-  to mdast. (Editor-only bundle, never shipped to readers — bundle weight matters
-  but only for the owner.)
+- D2a — prose editing widget. **Refined with verified library research (2026-06-24) —
+  awaiting Maxime's confirmation.** A prose paragraph parses to mdast inline nodes that
+  interleave standard marks (`strong`/`emphasis`/`inlineCode`/`link`/`text`) with **MDX
+  inline atoms** — `mdxJsxTextElement` (inline `<Badge/>`) and `mdxTextExpression`
+  (`{expr}`). Preserving those atoms while editing is the whole problem. The widget sits
+  behind a small region-edit seam (block source range in, edited MDX text out), so the
+  two options compose rather than compete.
+
+  Verified facts: **no** WYSIWYG framework treats mdast as the source of truth — every one
+  (ProseMirror, Lexical, Slate) owns its own JSON model and *drops inline constructs it
+  has no explicit handler for*. Generic converters (`prosemirror-markdown`,
+  `@lexical/markdown`) confirm the data-loss trap. So a mdast-authoritative editor must be
+  built, not adopted. **TipTap licensing is a non-issue** (basic editor is MIT, no license
+  key/phone-home; only Cloud/Comments/AI/version-history are paid) — but we **avoid TipTap
+  anyway** and use **ProseMirror core directly** (MIT, vanilla, © M. Haverbeke): same
+  engine, no commercial-vendor steering (invariant #2 governance).
+
+  - **(A) CodeMirror 6 source + live preview.** MIT, vanilla, ~days. *Lossless by
+    construction* — edits the MDX text, so the verified `mdx-document` round-trip stays
+    authoritative and inline atoms are literally just text. Downside: **source editing**
+    (owner sees `**bold**` / `<Badge>`), which **contradicts the non-developer, "no web
+    knowledge" vision** — so not the primary surface. Good as a dev scaffold and/or an
+    optional power-user "code view." (MDX-aware highlighting is DIY; CommonMark/GFM is
+    turn-key.)
+  - **(B) ProseMirror core as a transient edit view over mdast — RECOMMENDED target.**
+    MIT, vanilla, zero vendor surface. Build the PM doc *from* a prose span's mdast and
+    serialize *back* to mdast on commit, so mdast stays the truth (inverting Milkdown's
+    PM-as-truth default). Because we own the schema, `mdxJsxTextElement` /
+    `mdxTextExpression` are modeled as inline **atom** nodes and survive deterministically.
+    This is the only path that delivers the Figma-like "click and type like a doc" feel
+    for non-devs *and* preserves inline atoms. ~weeks; the bidirectional mdast↔PM-schema
+    transformer for prose spans is the entire risk — prototype + round-trip-test it the
+    way D2b proved the mdast↔MDX round-trip. References to mine (not depend on): Milkdown's
+    `$node`/`parseMarkdown`/`toMarkdown` transformer design and MDXEditor's inline-vs-flow
+    `jsxComponentDescriptor` split.
+
+  **Recommendation:** target **(B)** ProseMirror-core-over-mdast for the non-dev WYSIWYG
+  surface; optionally ship **(A)** CodeMirror first as a low-risk scaffold and keep it as a
+  power-user code view. Both keep mdast authoritative, so they coexist. Avoid TipTap (use
+  the core), Lexical/MDXEditor/Plate (React + JSON-model mismatch), `prosemirror-markdown`
+  (schema-discards unknown nodes).
 - D2b — **VERIFIED.** Toolchain: `unified` + `remark-parse` + `remark-frontmatter`
   + `remark-mdx` + `remark-stringify`, one processor for both directions
   (`@nocms/editor`'s `parseMdx`/`serializeMdx`, see `mdx-document.ts`). A
