@@ -123,6 +123,7 @@
       "name": "@nocms/starter",
       "version": "0.0.0",
       "dependencies": {
+        "@nocms/components": "workspace:*",
         "@nocms/tokens": "workspace:*",
         "preact": "^10.27.0",
       },
