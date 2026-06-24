@@ -1,7 +1,13 @@
 import type { CollectionEntry, RepoPath } from "@nocms/core";
+import MiniSearch from "minisearch";
 import { describe, expect, it } from "vitest";
 import { deriveAll } from "./index";
-import { buildSearchIndex, plainText, type SearchIndex, tokenize } from "./search";
+import {
+  buildSearchIndex,
+  plainText,
+  SEARCH_OPTIONS,
+  type SearchDocument,
+} from "./search";
 
 const entry = (
   collection: string,
@@ -34,20 +40,6 @@ describe("plainText", () => {
   });
 });
 
-describe("tokenize", () => {
-  it("lowercases and splits on non-word characters", () => {
-    expect(tokenize("Hello, WORLD! foo-bar")).toEqual(["hello", "world", "foo", "bar"]);
-  });
-
-  it("drops single-character tokens", () => {
-    expect(tokenize("a ab abc")).toEqual(["ab", "abc"]);
-  });
-
-  it("handles unicode letters and digits", () => {
-    expect(tokenize("café 2026 naïve")).toEqual(["café", "2026", "naïve"]);
-  });
-});
-
 describe("buildSearchIndex", () => {
   const entries = [
     entry(
@@ -56,73 +48,68 @@ describe("buildSearchIndex", () => {
       { title: "All About Cats" },
       "Cats purr and nap.",
     ),
-    entry(
-      "posts",
-      "content/posts/dogs.mdx",
-      { title: "Dogs" },
-      "Dogs bark. Cats and dogs differ.",
-    ),
+    entry("posts", "content/posts/dogs.mdx", { title: "Dogs" }, "Dogs bark loudly."),
   ];
 
-  it("produces one document per entry with title, path, and excerpt", () => {
+  it("finds the matching document and stores display fields", () => {
     const index = buildSearchIndex(entries);
-    expect(index.documents).toHaveLength(2);
-    expect(index.documents[0]).toMatchObject({
-      id: 0,
-      collection: "posts",
+    const results = index.search("purr");
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
       path: "content/posts/cats.mdx",
       title: "All About Cats",
     });
-    expect(index.documents[0]?.excerpt).toBe("Cats purr and nap.");
+    expect(results[0]?.excerpt).toBe("Cats purr and nap.");
   });
 
-  it("maps a token to every document that contains it, body and title", () => {
+  it("matches the title as well as the body", () => {
     const index = buildSearchIndex(entries);
-    // "cats" appears in both bodies and in doc 0's title.
-    expect(index.postings.cats).toEqual([0, 1]);
-    // "purr" only in doc 0.
-    expect(index.postings.purr).toEqual([0]);
-    // "bark" only in doc 1.
-    expect(index.postings.bark).toEqual([1]);
+    const paths = index.search("dogs").map((r) => r.path);
+    expect(paths).toContain("content/posts/dogs.mdx");
+  });
+
+  it("supports prefix and fuzzy queries (the point of a real engine)", () => {
+    const index = buildSearchIndex(entries);
+    expect(index.search("pur", { prefix: true }).map((r) => r.path)).toContain(
+      "content/posts/cats.mdx",
+    );
+    expect(index.search("bark", { fuzzy: 0.3 }).map((r) => r.path)).toContain(
+      "content/posts/dogs.mdx",
+    );
   });
 
   it("derives a title from the filename when frontmatter has none", () => {
     const index = buildSearchIndex([
-      entry("pages", "content/pages/about.mdx", {}, "hello"),
+      entry("pages", "content/pages/about.mdx", {}, "hello world"),
     ]);
-    expect(index.documents[0]?.title).toBe("about");
-  });
-
-  it("truncates a long excerpt with an ellipsis", () => {
-    const long = "word ".repeat(100);
-    const index = buildSearchIndex([
-      entry("p", "content/p/x.mdx", { title: "X" }, long),
-    ]);
-    const excerpt = index.documents[0]?.excerpt ?? "";
-    expect(excerpt.length).toBeLessThanOrEqual(201);
-    expect(excerpt.endsWith("…")).toBe(true);
-  });
-
-  it("emits postings sorted by token with ascending id lists", () => {
-    const index = buildSearchIndex(entries);
-    const tokens = Object.keys(index.postings);
-    expect(tokens).toEqual([...tokens].sort());
-    for (const ids of Object.values(index.postings)) {
-      expect(ids).toEqual([...ids].sort((a, b) => a - b));
-    }
+    expect(index.search("hello")[0]?.title).toBe("about");
   });
 });
 
-describe("deriveAll", () => {
-  it("emits a parseable search.json artifact", async () => {
-    const entries = [
-      entry("posts", "content/posts/a.mdx", { title: "Alpha" }, "alpha beta"),
-    ];
+describe("deriveAll → search.json", () => {
+  const entries = [
+    entry("posts", "content/posts/a.mdx", { title: "Alpha" }, "alpha beta gamma"),
+    entry("posts", "content/posts/b.mdx", { title: "Beta" }, "beta delta"),
+  ];
+
+  it("emits a serialized index that reloads and queries identically", async () => {
     const artifacts = await deriveAll({ entries });
     const search = artifacts.find((a) => a.path === "search.json");
     expect(search).toBeDefined();
-    const index = JSON.parse(search?.contents ?? "{}") as SearchIndex;
-    expect(index.documents[0]?.title).toBe("Alpha");
-    expect(index.postings.beta).toEqual([0]);
+
+    // The runtime path: fetch the JSON and reload with the shared options.
+    const reloaded = MiniSearch.loadJSON<SearchDocument>(
+      search?.contents ?? "",
+      SEARCH_OPTIONS,
+    );
+    const results = reloaded.search("beta");
+    expect(results.map((r) => r.path).sort()).toEqual([
+      "content/posts/a.mdx",
+      "content/posts/b.mdx",
+    ]);
+    // "delta" only in doc b.
+    expect(reloaded.search("delta").map((r) => r.path)).toEqual([
+      "content/posts/b.mdx",
+    ]);
   });
 });

@@ -49,7 +49,7 @@ export { buildManifest, type Manifest, type ManifestEntry } from "./manifest";
 export {
   buildSearchIndex,
   plainText,
+  SEARCH_OPTIONS,
   type SearchDocument,
-  type SearchIndex,
-  tokenize,
+  toSearchDocument,
 } from "./search";
