@@ -9,6 +9,11 @@ export {
   routeToContentPath,
 } from "@nocms/core";
 export {
+  type Navigation,
+  type NavigationOptions,
+  startNavigation,
+} from "./navigation";
+export {
   createRouteTable,
   matchRoute,
   type RouteDef,
