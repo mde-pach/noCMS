@@ -8,6 +8,7 @@ import { Button } from "./primitives/Button";
 import { Callout } from "./primitives/Callout";
 import { Card } from "./primitives/Card";
 import { Container } from "./primitives/Container";
+import { Counter } from "./primitives/Counter";
 import { Divider } from "./primitives/Divider";
 import { Form } from "./primitives/Form";
 import { Grid } from "./primitives/Grid";
@@ -32,6 +33,10 @@ export type ComponentRegistry = Record<
 >;
 
 const entry = (component: unknown) => ({ component: component as AnyComponent });
+const island = (component: unknown) => ({
+  component: component as AnyComponent,
+  island: true,
+});
 
 export const registry: ComponentRegistry = {
   Hero: entry(Hero),
@@ -49,6 +54,7 @@ export const registry: ComponentRegistry = {
   Input: entry(Input),
   Textarea: entry(Textarea),
   Select: entry(Select),
+  Counter: island(Counter),
 };
 
 export { Badge, type BadgeProps } from "./primitives/Badge";
@@ -56,6 +62,7 @@ export { Button, type ButtonProps } from "./primitives/Button";
 export { Callout, type CalloutProps } from "./primitives/Callout";
 export { Card, type CardProps } from "./primitives/Card";
 export { Container, type ContainerProps } from "./primitives/Container";
+export { Counter, type CounterProps } from "./primitives/Counter";
 export { Divider, type DividerProps } from "./primitives/Divider";
 export { Form, type FormProps } from "./primitives/Form";
 export { Grid, type GridProps } from "./primitives/Grid";

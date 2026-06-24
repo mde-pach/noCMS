@@ -26,14 +26,19 @@ type MDXContent = ComponentType<
 // against; its types are structurally compatible but declared separately.
 // remark-frontmatter recognizes leading `---` blocks so they aren't rendered as
 // content — collection `data` is supplied separately via `RenderInput.data`.
-const options: EvaluateOptions = {
-  ...(jsxRuntime as unknown as EvaluateOptions),
-  remarkPlugins: [remarkFrontmatter],
-};
+// Built lazily so a consumer that imports only the hydration seam (the island client)
+// tree-shakes the MDX compiler + remark stack out instead of pulling them in via a
+// module-level const.
+function evaluateOptions(): EvaluateOptions {
+  return {
+    ...(jsxRuntime as unknown as EvaluateOptions),
+    remarkPlugins: [remarkFrontmatter],
+  };
+}
 
 /** Compile MDX to a Preact tree (the runtime preview path). */
 export async function renderToVNode(input: RenderInput): Promise<VNode> {
-  const { default: Content } = (await evaluate(input.mdx, options)) as {
+  const { default: Content } = (await evaluate(input.mdx, evaluateOptions())) as {
     default: MDXContent;
   };
   return h(Content, { components: input.components, ...input.data });
@@ -52,11 +57,16 @@ export async function renderToHtml(input: RenderInput): Promise<string> {
 
 export { renderEditableToVNode } from "./editable.js";
 
-/** Interactive sub-trees to hydrate as islands after prerender. */
-export interface IslandManifest {
-  islands: string[];
-}
-
-export function collectIslands(_tree: VNode): IslandManifest {
-  return { islands: [] };
-}
+export {
+  collectIslands,
+  deserializeIslandProps,
+  hydrateIslands,
+  type IdentifyIsland,
+  ISLAND_ATTR,
+  ISLAND_PROPS_ATTR,
+  type IslandInstance,
+  type IslandManifest,
+  islandNamesFromHtml,
+  serializeIslandProps,
+  wrapIslandComponents,
+} from "./islands.js";

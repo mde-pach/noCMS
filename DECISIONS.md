@@ -371,10 +371,53 @@ SSG would add a second toolchain for no gain on the static path. `@nocms/build` 
 build bundle) into the starter so a fork builds with no monorepo (D1) — verified against a
 monorepo-less copy.
 
-**Still open (the real design choices):**
-- *Island hydration / client JS.* Curated components are static today, so a prerender-only
-  site is fully correct and testable. Interactive islands — and the client-JS bundling +
-  `nocmsVitePlugins` they imply — are unbuilt; this is where the Vite tier likely returns.
+**Island hydration / client JS — RESOLVED (the interactivity layer over the static path).**
+Curated components prerender static; an interactive subset hydrates in the browser, reusing
+the one renderer's component model (Preact `hydrate` over the same components — never a second
+renderer or component registry). The contract:
+
+- *How an island boundary is declared → the registry `island: true` flag (per-component).* A
+  component is interactive because of what it *is*, declared once on its `@nocms/components`
+  registry entry (`{ component, island?: boolean }`) — not per usage. **Rejected: per-usage MDX
+  annotation** (Astro-style `<Counter client:load/>`). Per-usage would scatter the decision
+  across every call site and add an annotation DSL, against the project's component-defined
+  philosophy (props-discovery already derives behavior from the component, not from
+  annotations). Trade-off accepted: every instance of an island hydrates; per-instance opt-out
+  (e.g. a static `<Counter/>` in a context that never interacts) is a future escape hatch, not
+  v1. A thin per-usage override could layer on later without changing the marker/hydration
+  format.
+- *Marker + props format.* At prerender each island root is wrapped in a layout-neutral
+  (`display:contents`) `<div data-island="<Name>" data-island-props="<json>">` around the real
+  component's SSR output. Props serialization is **JSON in the `data-island-props` attribute**;
+  only JSON-serializable props travel. `children` and non-serializable props (functions, VNodes)
+  are dropped — children are reconstructed from the marker's SSR HTML at hydration. **v1 limit:**
+  islands that need their children (slotted content) re-rendered client-side aren't supported
+  yet (the proof island, `Counter`, is configured purely by serializable props); richer
+  slot-preserving hydration is a follow-up. Detection/serialization/wrapping live in
+  `@nocms/renderer` (`islands.ts`) and are pure (no DOM, no MDX) so they test without a browser;
+  `hydrateIslands` is the only DOM-touching seam.
+- *Manifest.* `collectIslands(tree, identify)` is the pure VNode-tree walk (names + per-instance
+  props) for a consumer holding a resolved tree (the editor). The **prerender path can't walk**
+  the tree (an MDX document renders lazily — there's no resolved tree before output), so the
+  per-page manifest is read back from the emitted markers (`islandNamesFromHtml`). Both compute
+  the same island-name set from the two representations a caller actually has (tree vs HTML).
+- *Partial, not full, hydration.* Only island sub-trees ship interactivity; island-free pages
+  emit **zero** client JS and stay byte-identical to the static-only output. (Decided against
+  whole-page hydration: it would force all content through client JS and defeat the
+  view-source-able static guarantee.)
+- *Client-JS bundling strategy → bundle once at vendor time (D1), serve a committed artifact.*
+  The island client entry (`@nocms/build`'s `island-client.ts`: import the registry +
+  `hydrateIslands`, run on load) is bundled to a self-contained browser ESM file at *vendor*
+  time in the monorepo — `Bun.build`, `target: browser`, preact **inlined** (Pages serves static
+  files, no resolver), tree-shaking the MDX compiler out — and **committed** alongside the
+  vendored `@nocms/build` bundle. `buildSite` copies it to `dist/_nocms/islands.js` and injects
+  `<script type="module">` only into pages with islands. This keeps the publish path one
+  toolchain (the Bun-based render-and-emit loop, no Vite SSG) and self-contained for forks (the
+  fork serves the committed bundle, never rebuilds it). **Rejected: bundling at site-build time**
+  (re-introduces a per-build bundler step and, in a fork resolving `@nocms/renderer` to the
+  node-target vendored bundle, would risk shipping the MDX compiler to readers).
+  `nocmsVitePlugins()` exposes the same client entry as a Vite virtual module so the dev server
+  and the publish bundle share one island entry.
 - *Page shell / layout.* The prerender emits only the content tree. The starter's dev runtime
   (`src/main.tsx`) wraps content in an `App` shell (centered container, body font/color); the
   static output does not, so dev and publish diverge on chrome. Where layout lives (a

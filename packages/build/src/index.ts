@@ -4,8 +4,6 @@
 // in GitHub Actions; `prerenderRoutes` is its pure content→HTML core. Island hydration
 // and the Vite-tier plugins (`nocmsVitePlugins`) are the eventual interactivity story (D6).
 
-import type { Plugin } from "vite";
-
 export type { ComponentMap } from "@nocms/renderer";
 export { type BuildOptions, buildSite } from "./build-site";
 export {
@@ -14,8 +12,8 @@ export {
   prerenderRoutes,
   type Route,
 } from "./prerender";
-
-/** MDX, image optimization, sitemap/RSS, and island-hydration plugins. */
-export function nocmsVitePlugins(): Plugin[] {
-  return [];
-}
+export {
+  ISLAND_VIRTUAL_ID,
+  islandClientEntry,
+  nocmsVitePlugins,
+} from "./vite-plugins";

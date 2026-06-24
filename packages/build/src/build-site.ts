@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { registry } from "@nocms/components";
 import { parseFrontmatter } from "@nocms/core";
 import type { ComponentMap } from "@nocms/renderer";
@@ -80,18 +81,49 @@ export async function buildSite(options: BuildOptions): Promise<void> {
   const components: ComponentMap = Object.fromEntries(
     Object.entries(registry).map(([name, entry]) => [name, entry.component]),
   );
+  const islands = Object.entries(registry)
+    .filter(([, entry]) => entry.island)
+    .map(([name]) => name);
 
   const publicDir = join(root, "public");
   const faviconHref = existsSync(join(publicDir, "favicon.svg"))
     ? `<link rel="icon" type="image/svg+xml" href="${base}favicon.svg"/>`
     : undefined;
 
-  const pages = await prerenderRoutes(routes, { components, css, head: faviconHref });
+  const pages = await prerenderRoutes(routes, {
+    components,
+    css,
+    head: faviconHref,
+    islands,
+    islandClientSrc: `${base}${ISLAND_CLIENT_FILE}`,
+  });
 
   await rm(outDir, { recursive: true, force: true });
   await Promise.all(pages.map((page) => writePage(outDir, page)));
 
+  if (pages.some((page) => page.islands.length)) await writeIslandClient(root, outDir);
   if (existsSync(publicDir)) await cp(publicDir, outDir, { recursive: true });
+}
+
+// The committed, prebuilt island client bundle a fork serves verbatim (D1), copied into the
+// output only when a page actually hydrates an island. Resolved from the vendored package so a
+// fork — which has no monorepo to rebuild it from — ships the same artifact it was forked with.
+const ISLAND_CLIENT_FILE = "_nocms/islands.js";
+
+async function writeIslandClient(root: string, outDir: string): Promise<void> {
+  const source = islandClientBundlePath(root);
+  if (!source || !existsSync(source)) return;
+  const dest = join(outDir, ISLAND_CLIENT_FILE);
+  await mkdir(dirname(dest), { recursive: true });
+  await cp(source, dest);
+}
+
+function islandClientBundlePath(root: string): string | undefined {
+  const candidates = [
+    join(root, "vendor", "build", "islands.client.js"),
+    fileURLToPath(new URL("./islands.client.js", import.meta.url)),
+  ];
+  return candidates.find((p) => existsSync(p));
 }
 
 async function writePage(outDir: string, page: PrerenderedPage): Promise<void> {
