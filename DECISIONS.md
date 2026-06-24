@@ -59,8 +59,16 @@ provide context at the canvas root), heuristic async-render timing.
   serialized to markdown, vs CodeMirror source+preview, vs contentEditable mapped
   to mdast. (Editor-only bundle, never shipped to readers — bundle weight matters
   but only for the owner.)
-- D2b — verify a chosen MDX round-trip toolchain is genuinely lossless on JSX
-  blocks, attributes, and expressions before committing.
+- D2b — **VERIFIED.** Toolchain: `unified` + `remark-parse` + `remark-frontmatter`
+  + `remark-mdx` + `remark-stringify`, one processor for both directions
+  (`@nocms/editor`'s `parseMdx`/`serializeMdx`, see `mdx-document.ts`). A
+  parse→serialize→parse cycle is **structurally lossless** on JSX flow/inline
+  elements, all attribute kinds (string, `={expr}`, boolean shorthand, `{...spread}`),
+  flow/text expressions, comments, and frontmatter, and serialization is a stable
+  fixpoint (`mdx-document.test.ts`, 14 cases). The *only* change is cosmetic
+  formatting normalization (e.g. list bullet `-`→`*`) — which is D2c's problem, not
+  a losslessness failure. Conclusion: persisting MDX text (not ProseMirror JSON) is
+  sound; the riskiest assumption holds.
 - D2c — how AST mutations re-serialize while preserving unrelated formatting
   (minimize diff noise so git line-merges stay clean).
 
