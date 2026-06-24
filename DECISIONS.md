@@ -452,3 +452,69 @@ pulls the MDX compiler). `vendor.ts` takes a per-package `target`. As the editor
 add its package to `PACKAGES`. Known follow-up: the bundle imports
 `preact/jsx-dev-runtime` (Bun's default) rather than the production runtime — correct
 but slightly heavier; switch when a production-JSX build path is wired.
+
+### D7 — Editing-session & content-sync model → **RESOLVED**
+
+The orchestration that turns the low-level `@nocms/github` + `@nocms/auth` pieces into the
+usable spine: **sign in → load repo content → branch-per-session → commit → publish**.
+
+**Where the orchestration lives → a new `packages/session`** (depends on github + auth + core).
+Rejected: extending `@nocms/github`. The GitHub client is the minimal browser seam over
+`api.github.com`; folding auth + content orchestration into it would pull `@nocms/auth` into
+github's dependency graph and blur a clean boundary. A dedicated package keeps each seam
+minimal (`index.ts` is the contract) and lets the orchestration be tested over an **injected**
+client with no real network. `connectGitHub` is the one place auth and github meet.
+
+**Content-tree loading → the recursive git-trees API, then per-file blob fetch.** `listTree`
+issues one `GET /git/trees/{branch}?recursive=1` (cheap on rate limit — a single request lists
+the whole repo); `loadEntries` then claims each MDX blob for the first collection whose glob
+matches and fetches its source via the contents API (`readFile`), one request per file.
+Rejected: the **contents API for listing** (one request per directory — more round-trips, worse
+on rate limit). Tradeoff accepted: N content fetches for N MDX files; fine at starter scale.
+A **truncated** tree (GitHub caps the recursive listing at 100k entries / 7MB) is refused with
+an error rather than silently returning partial content — escalation to a paginated subtree
+listing or a batched GraphQL blob fetch is the documented large-repo follow-up. A small,
+dependency-free glob matcher (`glob.ts`) avoids a glob library in the browser client.
+
+**Token-store interface → `SessionStore { get?(): Session|null; set(session): void }`,
+async-friendly.** `createTokenProvider` returns the current access token, refreshes the
+rotating token just before `isExpired` (respecting skew), and persists the rotated session
+through `store.set` so a reload resumes signed in. `get` is optional: when present it seeds the
+provider and a **fresher** persisted session (rotated in another tab) is adopted. One shared
+in-flight refresh prevents concurrent requests from each consuming the (single-use) refresh
+token. A PAT (`expiresAt: Infinity`, no refresh token) never refreshes.
+
+**Publish trigger → merge the session branch into the publish target; the push is the
+trigger.** `publish()` calls the github client's `publish` (a `/merges` REST merge) into the
+forked-from branch (default `base.branch`, e.g. `main`); pushing to that branch is what fires
+the **existing** Pages/Actions deploy workflow. Rejected: a client-side **`workflow_dispatch`**
+call — it couples the client to a named workflow and needs the `actions` permission scope,
+against invariant #2 (nothing the project runs may break a site; a universal "push to publish
+branch" trigger is the most decentralized). DEFERRED: if a site protects its default branch so
+a direct client merge is blocked, an explicit `workflow_dispatch` (or a PR-then-merge) path is
+the escalation — flagged, not built (no consumer yet).
+
+**Session-branch naming & cleanup → `nocms/session-<now()>`, deleted after a successful
+merge (best-effort).** The name is derived from the injected clock (unique per session) and is
+overridable via `branchName`. After the merge, `publish()` deletes the session ref
+(`deleteBranch`); a failed delete is swallowed — the content already published, so cleanup must
+not surface as a publish failure (and everything is public per invariant #9, so a stray branch
+is cosmetic, not a leak). Rejected: leaving session branches to accumulate.
+
+**Serialization seam → `serializeEntry` in `packages/session`, the inverse of core's
+`parseEntry`.** The MDX body stays **verbatim text** (the source of truth — invariant #5); only
+YAML front-matter is re-emitted (via the `yaml` lib core already uses). The editor's richer
+body re-serialization (mdast→MDX, D2b) is *not* reachably exported from a package this lane may
+touch (`@nocms/editor` is off-limits), so the session also accepts ready `FileChange[]` via
+`stage()` for callers that hold serialized text. core was left untouched — `serializeEntry`
+lives in session rather than appending a writer to core, keeping the new surface in this lane.
+
+**Deferred sub-decisions (recorded, decision-free core built around them):**
+- *Resume an existing session branch.* `open()` always **creates** a fresh branch. Re-opening a
+  named, already-existing branch (crash recovery, multi-device) would need an ensure-or-create
+  path — deferred; reuse the `EditingSession` object within a session for now.
+- *Stale-head / conflict handling on commit & merge.* `commit` uses GraphQL
+  `createCommitOnBranch` with `expectedHeadOid` (it throws on a stale head) and `publish`'s
+  `/merges` can 409 on a conflict. Retry/rebase/surfacing strategy is the integrator's to
+  define — the seam throws a `GitHubError` the host can catch.
+- *Large-repo tree escalation* (paginated subtree vs batched GraphQL blob fetch) — see above.
