@@ -3,6 +3,7 @@
 // createCommitOnBranch). The OAuth exchange is the relay's job, not this client's.
 
 import type { RepoPath, RepoRef } from "@nocms/core";
+import { createClient } from "./client";
 
 /** Supplies a short-lived user token per request (from @nocms/auth). */
 export type TokenProvider = () => Promise<string>;
@@ -15,16 +16,25 @@ export interface FileChange {
 }
 
 export interface GitHubClient {
-  /** repos where the App is installed */
-  listRepos(): Promise<RepoRef[]>;
   readFile(repo: RepoRef, path: RepoPath): Promise<string>;
-  /** create a session branch off `main` */
+  /** create a session branch off the repo's current branch */
   createSessionBranch(repo: RepoRef, name: string): Promise<RepoRef>;
   commit(repo: RepoRef, message: string, files: FileChange[]): Promise<string>;
-  /** publish: merge the session branch into `main` */
-  publish(repo: RepoRef, fromBranch: string): Promise<void>;
+  /** publish: merge a session branch into the target branch (default `main`) */
+  publish(repo: RepoRef, fromBranch: string, into?: string): Promise<void>;
 }
 
-export function createGitHubClient(_token: TokenProvider): GitHubClient {
-  throw new Error("not implemented: browser GitHub client");
+export interface ClientOptions {
+  fetch?: typeof fetch;
+  apiBase?: string;
+  graphqlUrl?: string;
 }
+
+export function createGitHubClient(
+  token: TokenProvider,
+  options: ClientOptions = {},
+): GitHubClient {
+  return createClient(token, options);
+}
+
+export { GitHubError } from "./http";
