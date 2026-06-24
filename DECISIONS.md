@@ -102,11 +102,23 @@ builder panel/trait UX.
    `@nocms/editor` is a **workspace devDep** of the starter (dev-only; not in the reader
    bundle, not vendored yet).
 
+9. ✅ **In-place prose editing — `@nocms/prose` wired into the shell (post-merge).**
+   Double-clicking a paragraph/heading (`isProseEditable`, `prose-edit.ts`) mounts a transient
+   `mountProseEditor` view over the block's DOM, seeded with the block's mdast inline children;
+   the widget's `onChange(nodes)` splices `block.children` live and fires the shell `onChange`.
+   The canvas is **not** re-rendered mid-edit (that would tear the view out) — only on commit
+   (a click outside the block, or Escape), which re-serializes, re-renders via the one renderer,
+   and re-selects the block by index-path. The canvas's new `suppressWhen` guard hands clicks
+   inside the live editor to ProseMirror untouched (no `preventDefault`, no reselect). The
+   active view is exposed via `EditorHandle.proseView()` (the escape hatch for a future
+   formatting toolbar). Full loop unit-tested (happy-dom) and **browser-verified** (double-click
+   → type → Escape re-renders the edited text through the one renderer).
+
 **Open seams for the merge (this lane):**
-- *Prose editing (Session B / `@nocms/prose`).* The shell leaves "double-click text to edit"
-  unbuilt. Integration seam: a block source range → `mountProseEditor` → edited MDX text back;
-  the shell already tracks the selected node by index-path, so it can hand a block's range in
-  and splice the returned text. Wire after merge.
+- *Prose: block-level structure.* The widget edits one block's *inline* content; creating /
+  splitting / merging / deleting blocks (Enter at a paragraph end, Backspace-merge) and
+  editing list items or blockquote bodies are not wired yet — `isProseEditable` is paragraph
+  + heading only. A block-structure layer over mdast is the next prose increment.
 - *Schema production.* Schemas are injected; the starter's are **hand-authored** in
   `edit.tsx`. The real source is `discoverControls` over component TS at build/vendor time,
   shipped as a `Record<name, ComponentSchema>` — unbuilt, out of scope this lane.

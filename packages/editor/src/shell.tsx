@@ -4,18 +4,36 @@
 // props panel. A panel edit mutates the node in place; the shell re-serializes, re-renders
 // the canvas from the updated source, and re-highlights the same node by its index-path —
 // never by raw offset, which shifts when the edit changes the source length.
+//
+// Double-clicking a paragraph or heading edits its text in place via @nocms/prose: a
+// transient ProseMirror view mounts over the block, edits splice into the live document,
+// and the canvas re-renders only on commit (a click elsewhere, or Escape) — re-rendering
+// mid-edit would tear the view out.
 
 import type { ComponentRegistry } from "@nocms/components";
 import type { ComponentSchema } from "@nocms/props-discovery";
+import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
-import type { Nodes } from "mdast";
+import type { Nodes, PhrasingContent } from "mdast";
 import { render } from "preact";
-import { type CanvasHandle, type CanvasSelection, mountCanvas } from "./canvas.js";
+import {
+  type CanvasHandle,
+  type CanvasSelection,
+  mountCanvas,
+  offsetFromElement,
+} from "./canvas.js";
 import { isJsxElement } from "./jsx-attributes.js";
 import { parseMdx, serializeMdx } from "./mdx-document.js";
-import { type IndexPath, indexPathOf, nodeAtIndexPath } from "./position.js";
+import {
+  type IndexPath,
+  indexPathOf,
+  nearestOfType,
+  nodeAtIndexPath,
+  nodeAtOffset,
+} from "./position.js";
 import { PropsPanel } from "./props-panel.js";
+import { isProseEditable, type ProseBlock } from "./prose-edit.js";
 import { selectableNode } from "./selectable.js";
 import { TokensPanel } from "./tokens-panel.js";
 
@@ -39,6 +57,9 @@ export interface EditorOptions {
 }
 
 export interface EditorHandle {
+  /** The live prose view when a text block is being edited in place, else undefined.
+   *  The escape hatch for host UI (a formatting toolbar) and tests. */
+  proseView(): ProseEditorHandle["view"] | undefined;
   dispose(): void;
 }
 
@@ -89,11 +110,41 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   let selectedPath: IndexPath | undefined;
 
+  // A live in-place prose edit. While one is active the canvas hands clicks inside `el`
+  // to the ProseMirror view untouched (see `suppressWhen`), and the canvas is not
+  // re-rendered (that would tear the view out); edits splice into `doc` live and the
+  // canvas only re-renders on commit.
+  let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
+
   const handleEdit = async (): Promise<void> => {
     const next = serializeMdx(doc);
     await canvas.update(next);
     canvas.highlight(selectedPath);
     onChange?.(next);
+  };
+
+  const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
+    canvas.highlight(undefined);
+    showPanel(undefined);
+    el.replaceChildren();
+    const handle = mountProseEditor(el, {
+      nodes: block.children,
+      onChange: (nodes: PhrasingContent[]) => {
+        block.children = nodes;
+        onChange?.(serializeMdx(doc));
+      },
+    });
+    handle.view.focus();
+    prose = { handle, el, path };
+  };
+
+  const commitProse = async (): Promise<IndexPath | undefined> => {
+    if (!prose) return undefined;
+    const { handle, path } = prose;
+    prose = undefined;
+    handle.destroy();
+    await canvas.update(serializeMdx(doc));
+    return path;
   };
 
   function showPanel(node: Nodes | undefined): void {
@@ -115,11 +166,47 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
-  const handleSelect = (selection: CanvasSelection | undefined): void => {
+  const select = (path: IndexPath | undefined): void => {
+    selectedPath = path;
+    canvas.highlight(path);
+    showPanel(path ? nodeAtIndexPath(doc, path) : undefined);
+  };
+
+  const handleSelect = async (
+    selection: CanvasSelection | undefined,
+  ): Promise<void> => {
+    // A click outside the active prose block reaches here (clicks inside it are
+    // suppressed): commit the edit first, then select what was clicked.
+    if (prose) await commitProse();
     const node = selection ? selectableNode(selection.path) : undefined;
-    selectedPath = node ? indexPathOf(selection?.path ?? [], node) : undefined;
-    canvas.highlight(selectedPath);
-    showPanel(selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined);
+    select(node ? indexPathOf(selection?.path ?? [], node) : undefined);
+  };
+
+  // Double-click a paragraph or heading to edit its text in place via the prose widget.
+  const handleActivate = (event: Event): void => {
+    if (prose) return; // inside an active edit — let ProseMirror handle the double-click
+    const el = event.target;
+    if (!(el instanceof Element)) return;
+    const offset = offsetFromElement(el);
+    if (offset === undefined) return;
+    const path = nodeAtOffset(doc, offset);
+    const block = nearestOfType(path, ["paragraph", "heading"]);
+    if (!block || !isProseEditable(block)) return;
+    const indexPath = indexPathOf(path, block);
+    if (!indexPath) return;
+    const blockOffset = block.position?.start.offset;
+    const blockEl =
+      blockOffset === undefined
+        ? null
+        : canvasRegion.querySelector(`[data-mdx-pos="${blockOffset}"]`);
+    if (blockEl) startProse(block, blockEl, indexPath);
+  };
+
+  const handleKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && prose) {
+      event.preventDefault();
+      void commitProse().then(select);
+    }
   };
 
   const canvas: CanvasHandle = await mountCanvas({
@@ -128,12 +215,21 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     components: toComponentMap(components),
     data,
     onSelect: handleSelect,
+    suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
+
+  canvasRegion.addEventListener("dblclick", handleActivate);
+  canvasRegion.addEventListener("keydown", handleKeydown);
 
   showPanel(undefined);
 
   return {
+    proseView: () => prose?.handle.view,
     dispose() {
+      prose?.handle.destroy();
+      prose = undefined;
+      canvasRegion.removeEventListener("dblclick", handleActivate);
+      canvasRegion.removeEventListener("keydown", handleKeydown);
       canvas.dispose();
       render(null, propsHost);
       render(null, tokensHost);
@@ -152,6 +248,7 @@ const EDITOR_CSS = `
   border-left: 1px solid #e5e7eb; font: 14px/1.4 system-ui, sans-serif; color: #111827;
 }
 .nocms-overlay { outline: 2px solid #3b82f6; border-radius: 3px; background: rgba(59,130,246,0.08); }
+.nocms-editor-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid #3b82f6; outline-offset: 2px; border-radius: 3px; }
 .nocms-props-title { font-size: 14px; margin: 0 0 0.75rem; }
 .nocms-field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
 .nocms-field label { font-weight: 600; font-size: 12px; }

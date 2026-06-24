@@ -129,6 +129,81 @@ describe("mountEditor", () => {
     handle.dispose();
   });
 
+  test("double-click a paragraph → edit text in place → commit updates the doc", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+
+    const handle = await mountEditor({
+      target,
+      mdx: `Edit me here.\n`,
+      components,
+      schemas,
+      onChange,
+    });
+
+    const canvas = target.querySelector(".nocms-editor-canvas");
+    if (!canvas) throw new Error("no canvas");
+    const para = canvas.querySelector("p");
+    if (!para) throw new Error("paragraph did not render");
+
+    para.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    // A prose editor mounts in place; the props overlay steps aside.
+    expect(canvas.querySelector(".ProseMirror")).not.toBeNull();
+    expect(handle.proseView()).toBeDefined();
+    expect(target.querySelector(".nocms-overlay")).toBeNull();
+
+    // Edit through the live view (the host's escape hatch); the doc splices live.
+    const view = handle.proseView();
+    if (!view) throw new Error("no prose view");
+    const end = view.state.doc.content.size;
+    view.dispatch(view.state.tr.insertText(" Edited!", end, end));
+    expect(onChange).toHaveBeenCalled();
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("Edit me here. Edited!");
+
+    // Escape commits: the view tears down, the canvas re-renders, the block re-selects.
+    canvas.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+    await vi.waitFor(() => {
+      expect(target.querySelector(".ProseMirror")).toBeNull();
+      expect(target.querySelector(".nocms-editor-canvas p")?.textContent).toBe(
+        "Edit me here. Edited!",
+      );
+    });
+    expect(handle.proseView()).toBeUndefined();
+    expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+
+    handle.dispose();
+  });
+
+  test("clicking another element commits an active prose edit", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+
+    const handle = await mountEditor({
+      target,
+      mdx: `# A heading\n\nSome prose.\n`,
+      components,
+      schemas,
+    });
+
+    const canvas = target.querySelector(".nocms-editor-canvas");
+    const para = canvas?.querySelector("p");
+    para?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(canvas?.querySelector(".ProseMirror")).not.toBeNull();
+
+    // Clicking the heading (outside the active block) commits, then selects it.
+    const heading = canvas?.querySelector("h1");
+    heading?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await vi.waitFor(() => {
+      expect(target.querySelector(".ProseMirror")).toBeNull();
+      expect(handle.proseView()).toBeUndefined();
+    });
+
+    handle.dispose();
+  });
+
   test("selecting a block with no schema shows the empty state", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
