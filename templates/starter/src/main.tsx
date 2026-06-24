@@ -4,6 +4,7 @@ import type { ComponentType } from "preact";
 import { render } from "preact";
 import Content from "../content/index.mdx";
 import themeTokens from "../theme.tokens?raw";
+import "../styles.css";
 import { App } from "./app";
 
 // `?edit` loads the in-site editor instead of the reader. It's a separate, lazily

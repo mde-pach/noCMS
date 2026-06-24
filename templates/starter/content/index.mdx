@@ -1,21 +1,103 @@
 ---
-title: Welcome
-description: The starter home page.
+title: A CMS that lives in your repo
+description: Build a real website on GitHub, edit it in place, and publish with one click — nothing centralized to maintain.
 ---
 
-# Welcome to your noCMS site
-
-Edit this content in-site. It is plain **MDX** — Markdown plus components from your library.
+<Hero title="A CMS that lives in your repo" subtitle="Build a real website on GitHub, edit it in place, and publish with one click. The repo is the database — there is nothing centralized to maintain.">
+  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1.25rem" }}>
+    <Button label="Edit this page" href="?edit" variant="primary" />
+    <Button label="View on GitHub" href="https://github.com/mde-pach/noCMS" variant="secondary" />
+  </div>
+</Hero>
 
 <Callout variant="tip">
-  Components like this one come from `@nocms/components` and are composed visually in the editor.
+  **This whole page is editable.** Open the in-site editor: select any block to tweak its
+  props, restyle the site with design tokens, or double-click text to rewrite it. What you
+  preview is exactly what publishes.
 </Callout>
 
-Publishing commits your changes and builds the public site in GitHub Actions.
+<Divider spacing="lg" />
 
-Most components are static, but some are interactive **islands** — prerendered for instant
-first paint, then hydrated in the browser:
+<div id="components" />
 
-<Counter label="Clicks" start={0} />
+## One curated component library
 
-<Button label="Read the docs" href="https://github.com" variant="primary" />
+Everything on this page is composed from `@nocms/components` — plain, typed Preact
+components. The editor reads their prop types to generate controls automatically, so there's
+no annotation language to learn and no JSON tree to hand-edit.
+
+<Grid columns={3} gap="md">
+  <Card title="Layout">
+    Hero, Section, Container, Grid and Stack establish page structure and rhythm.
+  </Card>
+  <Card title="Content">
+    Card, Callout, Badge, Image and Divider for editorial blocks.
+  </Card>
+  <Card title="Forms">
+    Form, Input, Textarea and Select, wired to any endpoint you like.
+  </Card>
+</Grid>
+
+<div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginTop: "1.5rem" }}>
+  <Badge variant="new">New</Badge>
+  <Badge variant="success">Stable</Badge>
+  <Badge variant="warn">Beta</Badge>
+  <Badge variant="neutral">Docs</Badge>
+  <span style={{ fontSize: "0.85rem", opacity: 0.6 }}>— inline Badges, one of the primitives</span>
+</div>
+
+<Divider spacing="lg" />
+
+## Interactive islands
+
+Most components render to static HTML for an instant first paint. The few that need
+interactivity — declared with a single `island: true` flag — are hydrated in the browser
+afterward, reusing the very same component. No second framework, no rerender of the whole
+page.
+
+<Stack gap="sm" align="start">
+  <Counter label="You've clicked" start={0} />
+  <span style={{ fontSize: "0.85rem", opacity: 0.65 }}>
+    Prerendered as text, then hydrated — view source and you'll find the `data-island` marker.
+  </span>
+</Stack>
+
+<Divider spacing="lg" />
+
+<div id="theming" />
+
+## Theming is tokens, not code
+
+Colors, fonts, spacing and radius live in a flat `theme.tokens` file and compile to CSS
+variables at runtime. Editing a token restyles the whole site instantly — with no rebuild.
+
+<Grid columns={2} gap="md">
+  <Card title="Color">
+    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+      <span style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.4rem", background: "var(--color-brand-500)" }} />
+      <span style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.4rem", background: "var(--color-brand-600)" }} />
+      <span style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.4rem", background: "var(--color-text)" }} />
+      <span style={{ width: "2.25rem", height: "2.25rem", borderRadius: "0.4rem", background: "var(--color-bg)", border: "1px solid color-mix(in srgb, var(--color-text) 20%, transparent)" }} />
+    </div>
+  </Card>
+  <Card title="Type">
+    <div style={{ fontFamily: "var(--font-heading)", fontSize: "1.6rem", lineHeight: 1.1 }}>Fraunces display</div>
+    <div style={{ fontFamily: "var(--font-body)", opacity: 0.8 }}>IBM Plex Sans body text</div>
+  </Card>
+</Grid>
+
+<Callout variant="info">
+  Open the editor and try the **Theming** panel — change the brand color or body font and
+  watch every block on the page update live.
+</Callout>
+
+<Divider spacing="lg" />
+
+## Composable forms
+
+<Form action="https://example.com/subscribe">
+  <Input name="email" label="Email" type="email" placeholder="you@example.com" required />
+  <Select name="interest" label="I'm interested in" options="Building a site, Contributing, Just exploring" />
+  <Textarea name="note" label="Anything else?" rows={3} placeholder="Optional" />
+  <Button label="Subscribe" />
+</Form>

@@ -1,0 +1,105 @@
+/* Site theme: base typography + interaction polish, all driven by the design tokens
+   (theme.tokens → CSS variables). Components ship their own structural styles; this layer
+   adds page-level rhythm and the hover/focus states inline styles can't express. Loaded in
+   dev via main.tsx and inlined into the published <head> by @nocms/build. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Keep anchored sections clear of the sticky header. */
+[id] {
+  scroll-margin-top: 5rem;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+}
+
+h2 {
+  font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--color-brand-600);
+  text-underline-offset: 0.2em;
+}
+
+:where(p, li) code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.86em;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  padding: 0.12em 0.4em;
+  border-radius: 0.35em;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--color-brand-500) 32%, transparent);
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  box-shadow: none;
+}
+
+.btn:focus-visible,
+.counter:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+
+.card {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+a.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.counter {
+  transition:
+    background 140ms ease,
+    transform 120ms ease;
+}
+
+.counter:hover {
+  background: color-mix(in srgb, var(--color-brand-500) 12%, transparent) !important;
+  transform: translateY(-1px);
+}
