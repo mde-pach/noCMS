@@ -277,7 +277,54 @@ Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manife
     (`fields: [title, text]`, `storeFields: [collection, path, title, excerpt]`). Wired into
     `deriveAll`. The one dependency added is justified: search relevance is hard, MiniSearch is
     tiny + MIT + zero-dep, and reimplementing it well is disproportionate.
-- *i18n bundle format* and *feed shapes* remain open (see `i18nJob`, still a stub).
+- **i18n declaration → RESOLVED: locale directory (`content/<locale>/…`), default locale at the
+  content root.** Content declares a translation by *where the file lives*: the default locale
+  (the first entry in `locales`) is authored at the root (`content/about.mdx` → `/about`); every
+  other locale lives under its own directory (`content/fr/about.mdx` → `/fr/about`). Two files are
+  translations of each other when their locale-stripped path matches. Three forks were weighed
+  against the shared route mapping (invariant #5: text, line-mergeable) and editor-authorability:
+  - *Filename locale suffix* (`about.fr.mdx`): `contentPathToRoute` is shared, unchanged, across
+    all three tiers — it would map `about.fr.mdx` to `/about.fr`, an ugly route, unless locale
+    special-casing were pushed *into* core's mapping (forbidden here, and it would couple every
+    tier to a locale convention). Locale buried in a filename is also the least scannable.
+  - *Frontmatter `lang` + shared `translationKey`*: decouples locale from route (flexible) but
+    introduces a hidden, typo-prone shared-key invariant (a mistyped key silently unlinks a
+    translation) and requires parsing frontmatter just to learn a file's locale/group. Kept as the
+    escape hatch if non-parallel locale structures are ever needed.
+  - **Locale directory** wins because the locale is *structural* — the first path segment — so the
+    route falls out of core's existing `contentPathToRoute` with **zero core changes** and yields
+    the clean, real, prefix-based URLs (`/fr/about`) the rest of the site already serves. The
+    translation key is the canonical default-locale route (`contentPathToRoute` of the
+    locale-stripped path), so grouping reuses the one shared mapping instead of inventing a second.
+    Limitation (documented): the default locale must be authored at the root, not under
+    `content/<defaultLocale>/`.
+  - `i18nJob` (`i18n.ts`) is a no-op unless `locales` has ≥2 entries (a default + ≥1 translation).
+    It emits per-locale bundles `i18n/<locale>.json` (`{ locale, entries: [{ key, route, path,
+    data }] }` — the locale's content index, sorted by key) and a `i18n/translations.json`
+    (`{ defaultLocale, locales, groups: [{ key, translations: { <locale>: <route> } }] }`, groups
+    sorted by key) so the runtime can render a language switcher from a page's other-locale URLs.
+    Pure; missing translations simply omit that locale from the group.
+- **Feed shape → RESOLVED: JSON Feed 1.1, single format (hand-emitted, no dependency).** A feed is
+  a small, stable spec, so it is hand-emitted per the project dependency bar. Three forks:
+  - *RSS 2.0* is the most widely consumed but the loosest spec, and its RFC-822 dates need
+    locale-independent English month/day names — bug-prone to hand-roll correctly.
+  - *Atom 1.0* is the strictest/most-correct (RFC-3339 dates, required stable `id`/`updated`) but
+    the most verbose, and still carries XML-escaping pitfalls.
+  - **JSON Feed 1.1** wins on two project-specific axes: (1) the ②→① handoff — the runtime reads
+    it with plain `fetch`+`JSON.parse` (no XML parser), so the same file doubles as a syndication
+    feed *and* the data source for an in-site "latest" island; (2) hand-emission correctness —
+    `JSON.stringify` eliminates the entire class of XML-escaping and RFC-822 date bugs, and dates
+    are ISO-8601/RFC-3339, which we already produce. RSS/Atom XML syndication is the documented
+    escalation path (a second builder behind the same conditional-job seam), mirroring how Search
+    documented sharding rather than over-building v1.
+  - `feedJob` (`feed.ts`) is a no-op unless both `siteUrl` and a `feed` config (`{ collections,
+    title, description? }`) are present. Item URLs are absolute via `contentPathToRoute` + `siteUrl`
+    (identical to the sitemap, so feed and site agree). Field conventions (all tolerant of missing
+    values): `title` ← `data.title` (else filename-derived); `date_published` ← `data.date` then
+    `data.published`, parsed to RFC-3339 (unparseable/absent → omitted); `summary` ← `data.summary`
+    then `data.description`; `content_text` ← `plainText(body)` (no MDX compiler in ② — tier
+    discipline); item `id` is the absolute URL. Deterministic order: date desc, then dateless items
+    by URL asc, for clean committed output.
 
 ### D4 — Sandbox engine
 Plugin isolation: iframe + QuickJS-in-WASM vs iframe-only for v1 (§17 of the
