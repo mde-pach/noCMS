@@ -40,6 +40,10 @@ routeTableFromPaths(paths)          // (RoutePath|string)[] → RouteTable<Route
 createRouteTable(defs)              // RouteDef<T>[]       → RouteTable<T>  (general form)
 matchRoute(table, pathname, base?)  // → RouteMatch<T> | null
 
+// — pure nav helpers (for menus + page chrome) —
+breadcrumbs(table, routePath, base?)        // → Crumb<T>[] (real ancestor routes, root-first)
+isActiveRoute(current, target, { exact? })  // → boolean (parent active for descendants)
+
 // — optional navigation surface —
 startNavigation(table, { base, window? })  // → Navigation<T>
 //   .current()  .navigate(to, { replace }) .subscribe(fn) .destroy()

@@ -8,6 +8,7 @@ export {
   type RoutePath,
   routeToContentPath,
 } from "@nocms/core";
+export { breadcrumbs, type Crumb, isActiveRoute } from "./links";
 export {
   type Navigation,
   type NavigationOptions,
