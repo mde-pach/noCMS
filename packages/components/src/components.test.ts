@@ -7,6 +7,7 @@ import {
   Callout,
   Card,
   Container,
+  Counter,
   Divider,
   Form,
   Grid,
@@ -142,6 +143,14 @@ describe("form primitives", () => {
   });
 });
 
+describe("interactive island", () => {
+  it("Counter prerenders its label and starting count", () => {
+    const html = renderToString(h(Counter, { label: "Votes", start: 3 }));
+    expect(html).toContain("Votes: 3");
+    expect(html).toContain("<button");
+  });
+});
+
 describe("registry", () => {
   it("exposes every primitive by tag name", () => {
     expect(Object.keys(registry).sort()).toEqual([
@@ -150,6 +159,7 @@ describe("registry", () => {
       "Callout",
       "Card",
       "Container",
+      "Counter",
       "Divider",
       "Form",
       "Grid",
@@ -161,5 +171,10 @@ describe("registry", () => {
       "Stack",
       "Textarea",
     ]);
+  });
+
+  it("marks Counter as an island and leaves static primitives unmarked", () => {
+    expect(registry.Counter?.island).toBe(true);
+    expect(registry.Button?.island).toBeUndefined();
   });
 });
