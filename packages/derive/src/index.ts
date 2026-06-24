@@ -5,11 +5,18 @@
 import type { CollectionEntry } from "@nocms/core";
 import { runManifest } from "./manifest";
 import { runSearch } from "./search";
+import { runSitemap } from "./sitemap";
 
 export interface DeriveInput {
   entries: CollectionEntry[];
   /** locales in scope for i18n bundles */
   locales?: string[];
+  /**
+   * The deployed site origin (with any project-Pages base), e.g.
+   * `https://owner.github.io/repo/`. Required for the sitemap job, which emits
+   * the absolute URLs the protocol mandates; absent, the sitemap is skipped.
+   */
+  siteUrl?: string;
 }
 
 /** A produced file: path plus serialized contents. */
@@ -27,6 +34,10 @@ export const manifestJob: DeriveJob = { name: "manifest", run: runManifest };
 
 export const searchJob: DeriveJob = { name: "search", run: runSearch };
 
+// Emits sitemap.xml only when `siteUrl` is set (the protocol needs absolute
+// URLs), so it is safe to keep in the default jobs list — a no-op otherwise.
+export const sitemapJob: DeriveJob = { name: "sitemap", run: runSitemap };
+
 // i18n bundles depend on a format choice still being made (how content declares
 // translations), so this job is not wired into deriveAll yet.
 export const i18nJob: DeriveJob = {
@@ -37,7 +48,7 @@ export const i18nJob: DeriveJob = {
 };
 
 /** The jobs that run today. */
-export const jobs: DeriveJob[] = [manifestJob, searchJob];
+export const jobs: DeriveJob[] = [manifestJob, searchJob, sitemapJob];
 
 export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> {
   const out: DerivedArtifact[] = [];
@@ -53,3 +64,4 @@ export {
   type SearchDocument,
   toSearchDocument,
 } from "./search";
+export { buildSitemap, sitemapUrls } from "./sitemap";
