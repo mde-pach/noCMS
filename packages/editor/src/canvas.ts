@@ -130,6 +130,9 @@ export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle>
   const handleClick = (event: Event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    // The canvas is an editing surface, not a live site: a click selects, it must not
+    // follow links or submit forms.
+    event.preventDefault();
     options.onSelect?.(selectionAtElement(doc, target));
   };
   host.addEventListener("click", handleClick);

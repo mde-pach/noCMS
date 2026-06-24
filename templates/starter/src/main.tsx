@@ -6,21 +6,32 @@ import Content from "../content/index.mdx";
 import themeTokens from "../theme.tokens?raw";
 import { App } from "./app";
 
-const style = document.createElement("style");
-style.textContent = toCssVariables(parseTokens(themeTokens));
-document.head.appendChild(style);
+// `?edit` loads the in-site editor instead of the reader. It's a separate, lazily
+// imported entry so the published reader path stays untouched and never bundles the
+// editor (which pulls the MDX compiler).
+if (new URLSearchParams(location.search).has("edit")) {
+  import("./edit");
+} else {
+  mountReader();
+}
 
-// MDX tags (<Callout/>, <Button/>) resolve to the curated component library.
-const components: Record<string, ComponentType> = Object.fromEntries(
-  Object.entries(registry).map(([name, entry]) => [name, entry.component]),
-);
+function mountReader(): void {
+  const style = document.createElement("style");
+  style.textContent = toCssVariables(parseTokens(themeTokens));
+  document.head.appendChild(style);
 
-const root = document.getElementById("app");
-if (root) {
-  render(
-    <App>
-      <Content components={components} />
-    </App>,
-    root,
+  // MDX tags (<Callout/>, <Button/>) resolve to the curated component library.
+  const components: Record<string, ComponentType> = Object.fromEntries(
+    Object.entries(registry).map(([name, entry]) => [name, entry.component]),
   );
+
+  const root = document.getElementById("app");
+  if (root) {
+    render(
+      <App>
+        <Content components={components} />
+      </App>,
+      root,
+    );
+  }
 }

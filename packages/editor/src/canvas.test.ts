@@ -94,6 +94,24 @@ describe("mountCanvas", () => {
     handle.dispose();
   });
 
+  test("a canvas click selects without following the link", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const handle = await mountCanvas({
+      target,
+      mdx: `[a link](https://example.com)\n`,
+      components: {},
+    });
+
+    const link = target.querySelector("a");
+    if (!link) throw new Error("link did not render");
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+
+    handle.dispose();
+  });
+
   test("dispose unmounts and stops listening", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
