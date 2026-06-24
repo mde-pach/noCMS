@@ -6,6 +6,14 @@ import type { AuthConfig } from "@nocms/auth";
 import type { ComponentRegistry } from "@nocms/components";
 import type { RepoRef } from "@nocms/core";
 
+export {
+  type CanvasHandle,
+  type CanvasOptions,
+  type CanvasSelection,
+  mountCanvas,
+  offsetFromElement,
+  selectionAtElement,
+} from "./canvas.js";
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 export { deepestNodeAtOffset, nearestOfType, nodeAtOffset } from "./position.js";
 
