@@ -20,13 +20,24 @@ interface VendoredPackage {
    * tooling, which runs only in CI and pulls the MDX compiler + remark stack.
    */
   target?: "browser" | "node";
+  /**
+   * An extra browser-target client bundle emitted into the same vendor dir, with preact
+   * inlined (the published static site serves a flat file with no module resolver). The
+   * island client lives here — the only client JS a published page ships.
+   */
+  clientBundle?: { entry: string; outFile: string };
 }
 
 const PACKAGES: VendoredPackage[] = [
   { name: "@nocms/tokens", dir: "tokens" },
   { name: "@nocms/components", dir: "components" },
   { name: "@nocms/renderer", dir: "renderer", target: "node" },
-  { name: "@nocms/build", dir: "build", target: "node" },
+  {
+    name: "@nocms/build",
+    dir: "build",
+    target: "node",
+    clientBundle: { entry: "island-client.ts", outFile: "islands.client.js" },
+  },
 ];
 
 const starterDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -84,6 +95,8 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
   if (!artifact) throw new Error(`vendor: no output for ${pkg.name}`);
   await writeFile(join(outDir, "index.js"), await artifact.text());
 
+  if (pkg.clientBundle) await vendorClientBundle(pkg, srcDir, outDir);
+
   await emitDeclarations(srcDir, outDir);
 
   const manifest = {
@@ -100,6 +113,33 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
   console.log(`vendor: ${pkg.name} → vendor/${pkg.dir}`);
+}
+
+// The island client runs in the browser on a static page, so preact is inlined (no resolver
+// at runtime) and the entry's MDX-compiler-laden imports tree-shake away (it pulls only the
+// component registry + the renderer's `hydrateIslands`). buildSite copies this into `dist`.
+async function vendorClientBundle(
+  pkg: VendoredPackage,
+  srcDir: string,
+  outDir: string,
+): Promise<void> {
+  const bundle = pkg.clientBundle;
+  if (!bundle) return;
+  const built = await Bun.build({
+    entrypoints: [join(srcDir, bundle.entry)],
+    target: "browser",
+    format: "esm",
+    minify: true,
+  });
+  if (!built.success) {
+    throw new Error(
+      `vendor: failed to bundle ${pkg.name} client\n${built.logs.join("\n")}`,
+    );
+  }
+  const artifact = built.outputs[0];
+  if (!artifact) throw new Error(`vendor: no client output for ${pkg.name}`);
+  await writeFile(join(outDir, bundle.outFile), await artifact.text());
+  console.log(`vendor: ${pkg.name} client → vendor/${pkg.dir}/${bundle.outFile}`);
 }
 
 if (!existsSync(packagesDir)) {

@@ -12,6 +12,7 @@ export { Button, type ButtonProps } from "./primitives/Button";
 export { Callout, type CalloutProps } from "./primitives/Callout";
 export { Card, type CardProps } from "./primitives/Card";
 export { Container, type ContainerProps } from "./primitives/Container";
+export { Counter, type CounterProps } from "./primitives/Counter";
 export { Divider, type DividerProps } from "./primitives/Divider";
 export { Form, type FormProps } from "./primitives/Form";
 export { Grid, type GridProps } from "./primitives/Grid";

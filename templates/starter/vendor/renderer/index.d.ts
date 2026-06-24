@@ -13,8 +13,4 @@ export declare function renderToStaticHtml(tree: VNode): string;
 /** Compile MDX straight to static HTML (the publish path = preview path + render). */
 export declare function renderToHtml(input: RenderInput): Promise<string>;
 export { renderEditableToVNode } from "./editable.js";
-/** Interactive sub-trees to hydrate as islands after prerender. */
-export interface IslandManifest {
-    islands: string[];
-}
-export declare function collectIslands(_tree: VNode): IslandManifest;
+export { collectIslands, deserializeIslandProps, hydrateIslands, type IdentifyIsland, ISLAND_ATTR, ISLAND_PROPS_ATTR, type IslandInstance, type IslandManifest, islandNamesFromHtml, serializeIslandProps, wrapIslandComponents, } from "./islands.js";
