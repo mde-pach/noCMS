@@ -148,6 +148,16 @@
         "@nocms/core": "workspace:*",
       },
     },
+    "packages/session": {
+      "name": "@nocms/session",
+      "version": "0.0.0",
+      "dependencies": {
+        "@nocms/auth": "workspace:*",
+        "@nocms/core": "workspace:*",
+        "@nocms/github": "workspace:*",
+        "yaml": "^2.9.0",
+      },
+    },
     "packages/tokens": {
       "name": "@nocms/tokens",
       "version": "0.0.0",
@@ -327,6 +337,8 @@
     "@nocms/router": ["@nocms/router@workspace:packages/router"],
 
     "@nocms/sandbox": ["@nocms/sandbox@workspace:packages/sandbox"],
+
+    "@nocms/session": ["@nocms/session@workspace:packages/session"],
 
     "@nocms/starter": ["@nocms/starter@workspace:templates/starter"],
 
