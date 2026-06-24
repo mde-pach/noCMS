@@ -111,4 +111,11 @@ export interface PluginManifest {
 }
 
 export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";
+export {
+  contentPathToRoute,
+  href,
+  normalizeRoutePath,
+  type RoutePath,
+  routeToContentPath,
+} from "./route";
 export { schemaForCollection, validateEntryData } from "./schema";
