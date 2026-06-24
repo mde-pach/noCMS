@@ -26,6 +26,20 @@ export interface PrerenderOptions {
    * only into pages that actually contain an island, so island-free pages ship no JS.
    */
   islandClientSrc?: string;
+  /**
+   * Ships the in-site editor with the static page so `?edit` opens it in the browser. Each
+   * page inlines its own MDX source + tokens + schemas as inert JSON, and a tiny bootstrap
+   * lazy-loads the (heavy) editor bundle only when `?edit` is present — readers never download
+   * it. Editing is in-memory here (no persistence); saving to GitHub is a separate seam.
+   */
+  editor?: {
+    /** URL of the editor client bundle, imported on demand. */
+    clientSrc: string;
+    /** flat token source the design panel themes from. */
+    tokens?: string;
+    /** per-component controls, injected (not discovered live in the browser). */
+    schemas?: Record<string, unknown>;
+  };
 }
 
 export interface PrerenderedPage {
@@ -40,14 +54,34 @@ function document(
   title: string,
   css?: string,
   head?: string,
-  script?: string,
+  scripts?: string,
 ): string {
   const style = css ? `<style>${css}</style>` : "";
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"/>` +
     `<meta name="viewport" content="width=device-width, initial-scale=1"/>` +
     `<title>${title}</title>${head ?? ""}${style}</head>` +
-    `<body><div id="app">${bodyHtml}</div>${script ?? ""}</body></html>`
+    `<body><div id="app">${bodyHtml}</div>${scripts ?? ""}</body></html>`
+  );
+}
+
+// JSON safe to embed in a <script>: the HTML parser reads script content as raw text, so the
+// only sequence that could break out is `</`. Escaping `<` as < keeps it inert; JSON.parse
+// decodes it back. (HTML entities are NOT decoded inside <script>, so they can't be used here.)
+const EDITOR_DATA_ID = "nocms-editor-data";
+
+function editorScripts(
+  routeMdx: string,
+  editor: NonNullable<PrerenderOptions["editor"]>,
+): string {
+  const data = JSON.stringify({
+    mdx: routeMdx,
+    tokens: editor.tokens ?? "",
+    schemas: editor.schemas ?? {},
+  }).replace(/</g, "\\u003c");
+  return (
+    `<script type="application/json" id="${EDITOR_DATA_ID}">${data}</script>` +
+    `<script type="module">if(new URLSearchParams(location.search).has("edit"))import("${editor.clientSrc}")</script>`
   );
 }
 
@@ -71,13 +105,13 @@ export async function prerenderRoutes(
       const body = await renderToHtml({ mdx: route.mdx, components, data: route.data });
       const islands = islandNamesFromHtml(body);
       const title = options.title?.(route) ?? String(route.data?.title ?? route.path);
-      const script =
-        islands.length && options.islandClientSrc
+      const scripts =
+        (islands.length && options.islandClientSrc
           ? `<script type="module" src="${options.islandClientSrc}"></script>`
-          : undefined;
+          : "") + (options.editor ? editorScripts(route.mdx, options.editor) : "");
       return {
         path: route.path,
-        html: document(body, title, options.css, options.head, script),
+        html: document(body, title, options.css, options.head, scripts || undefined),
         islands,
       };
     }),
