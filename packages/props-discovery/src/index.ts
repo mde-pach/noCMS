@@ -3,8 +3,6 @@
 // ReactNode→slot, handler→action-binding. An optional field-config is the only
 // escape hatch for what types can't express.
 
-import type { FieldDef } from "@nocms/core";
-
 export interface Control {
   prop: string;
   kind: "text" | "number" | "boolean" | "select" | "slot" | "action" | "media";
@@ -20,14 +18,22 @@ export interface ComponentSchema {
   controls: Control[];
 }
 
-export function discoverControls(_componentSource: string): ComponentSchema {
-  throw new Error("not implemented: parse TS prop types → controls");
-}
+export { type DiscoverOptions, discoverControls } from "./discover";
 
-/** Overlay the optional explicit field-config onto discovered controls. */
+/** The thin escape hatch: per-prop overrides for what types can't express. */
+export type FieldConfig = Record<string, Partial<Pick<Control, "help" | "group">>>;
+
+/** Overlay the optional field-config onto discovered controls. */
 export function bridgeFieldConfig(
   schema: ComponentSchema,
-  _fieldConfig?: Record<string, Partial<FieldDef>>,
+  fieldConfig?: FieldConfig,
 ): ComponentSchema {
-  return schema;
+  if (!fieldConfig) return schema;
+  return {
+    ...schema,
+    controls: schema.controls.map((control) => {
+      const overrides = fieldConfig[control.prop];
+      return overrides ? { ...control, ...overrides } : control;
+    }),
+  };
 }
