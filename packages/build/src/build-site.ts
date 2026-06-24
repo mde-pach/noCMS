@@ -73,10 +73,7 @@ export async function buildSite(options: BuildOptions): Promise<void> {
 
   const routes = await loadRoutes(join(root, "content"));
 
-  const tokensFile = join(root, "theme.tokens");
-  const css = existsSync(tokensFile)
-    ? toCssVariables(parseTokens(await readFile(tokensFile, "utf8")))
-    : undefined;
+  const css = await collectCss(root);
 
   const components: ComponentMap = Object.fromEntries(
     Object.entries(registry).map(([name, entry]) => [name, entry.component]),
@@ -88,12 +85,13 @@ export async function buildSite(options: BuildOptions): Promise<void> {
   const publicDir = join(root, "public");
   const faviconHref = existsSync(join(publicDir, "favicon.svg"))
     ? `<link rel="icon" type="image/svg+xml" href="${base}favicon.svg"/>`
-    : undefined;
+    : "";
+  const head = await collectHead(root, faviconHref);
 
   const pages = await prerenderRoutes(routes, {
     components,
     css,
-    head: faviconHref,
+    head: head || undefined,
     islands,
     islandClientSrc: `${base}${ISLAND_CLIENT_FILE}`,
   });
@@ -124,6 +122,28 @@ function islandClientBundlePath(root: string): string | undefined {
     fileURLToPath(new URL("./islands.client.js", import.meta.url)),
   ];
   return candidates.find((p) => existsSync(p));
+}
+
+// Runtime token CSS, then the optional site theme stylesheet — so the published <head> styles
+// match what the dev reader loads (`styles.css`). Token vars first so the theme can reference
+// them; both are plain CSS the prerender inlines into one <style>.
+async function collectCss(root: string): Promise<string | undefined> {
+  const parts: string[] = [];
+  const tokensFile = join(root, "theme.tokens");
+  if (existsSync(tokensFile)) {
+    parts.push(toCssVariables(parseTokens(await readFile(tokensFile, "utf8"))));
+  }
+  const stylesFile = join(root, "styles.css");
+  if (existsSync(stylesFile)) parts.push(await readFile(stylesFile, "utf8"));
+  return parts.length ? parts.join("\n") : undefined;
+}
+
+// The favicon link plus the site's optional extra <head> markup (`head.html`, e.g. web-font
+// links), so publish matches the dev `index.html` head.
+async function collectHead(root: string, faviconHref: string): Promise<string> {
+  const headFile = join(root, "head.html");
+  const extra = existsSync(headFile) ? await readFile(headFile, "utf8") : "";
+  return `${faviconHref}${extra}`;
 }
 
 async function writePage(outDir: string, page: PrerenderedPage): Promise<void> {
