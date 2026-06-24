@@ -7,7 +7,7 @@ import type {
 } from "prosemirror-model";
 
 /** Resolve a mark type the prose schema is required to declare (narrows away `undefined`). */
-function requireMark(schema: Schema, name: string): MarkType {
+export function requireMark(schema: Schema, name: string): MarkType {
   const mark = schema.marks[name];
   if (!mark) throw new Error(`Prose schema is missing the "${name}" mark`);
   return mark;
