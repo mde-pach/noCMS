@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { parseMdx } from "./mdx-document.js";
-import { deepestNodeAtOffset, nearestOfType, nodeAtOffset } from "./position.js";
+import {
+  deepestNodeAtOffset,
+  indexPathOf,
+  nearestOfType,
+  nodeAtIndexPath,
+  nodeAtOffset,
+} from "./position.js";
 
 // `A <Badge>x</Badge> b.` on its own line after a heading. Offsets (from the source):
 // heading `# Hi` is 0-4; the paragraph is 6-27; the inline <Badge> is 8-24.
@@ -59,5 +65,43 @@ describe("nearestOfType", () => {
   test("returns undefined when no node in the path matches", () => {
     const path = nodeAtOffset(doc, 2);
     expect(nearestOfType(path, ["mdxJsxFlowElement"])).toBeUndefined();
+  });
+});
+
+describe("indexPathOf / nodeAtIndexPath", () => {
+  test("index-path round-trips back to the same node", () => {
+    const path = nodeAtOffset(doc, 17);
+    const badge = nearestOfType(path, ["mdxJsxTextElement"]);
+    if (!badge) throw new Error("fixture");
+    const indexPath = indexPathOf(path, badge);
+    expect(indexPath).toBeDefined();
+    expect(nodeAtIndexPath(doc, indexPath as number[])).toBe(badge);
+  });
+
+  test("the root resolves to the empty index-path", () => {
+    const path = nodeAtOffset(doc, 2);
+    expect(indexPathOf(path, doc)).toEqual([]);
+    expect(nodeAtIndexPath(doc, [])).toBe(doc);
+  });
+
+  test("a node absent from the path has no index-path", () => {
+    const path = nodeAtOffset(doc, 2);
+    const otherPath = nodeAtOffset(doc, 17);
+    const badge = nearestOfType(otherPath, ["mdxJsxTextElement"]);
+    if (!badge) throw new Error("fixture");
+    expect(indexPathOf(path, badge)).toBeUndefined();
+  });
+
+  test("an out-of-range index-path resolves to undefined", () => {
+    expect(nodeAtIndexPath(doc, [99])).toBeUndefined();
+  });
+
+  test("the index-path is stable across a structure-preserving re-parse", () => {
+    const path = nodeAtOffset(doc, 17);
+    const badge = nearestOfType(path, ["mdxJsxTextElement"]);
+    if (!badge) throw new Error("fixture");
+    const indexPath = indexPathOf(path, badge) as number[];
+    const reparsed = parseMdx(`# Hi\n\nA <Badge>x</Badge> b.\n`);
+    expect(nodeAtIndexPath(reparsed, indexPath)?.type).toBe("mdxJsxTextElement");
   });
 });

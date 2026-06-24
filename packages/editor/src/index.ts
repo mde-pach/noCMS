@@ -23,8 +23,21 @@ export {
   setProp,
 } from "./jsx-attributes.js";
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
-export { deepestNodeAtOffset, nearestOfType, nodeAtOffset } from "./position.js";
+export {
+  deepestNodeAtOffset,
+  type IndexPath,
+  indexPathOf,
+  nearestOfType,
+  nodeAtIndexPath,
+  nodeAtOffset,
+} from "./position.js";
 export { PropsPanel, type PropsPanelProps } from "./props-panel.js";
+export {
+  BLOCK_TYPES,
+  JSX_TYPES,
+  SELECTABLE_TYPES,
+  selectableNode,
+} from "./selectable.js";
 
 export interface EditorOptions {
   repo: RepoRef;

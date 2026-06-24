@@ -9,7 +9,7 @@ import { renderEditableToVNode } from "@nocms/renderer";
 import type { Nodes } from "mdast";
 import { render } from "preact";
 import { type MdxDocument, parseMdx } from "./mdx-document.js";
-import { nodeAtOffset } from "./position.js";
+import { nodeAtIndexPath, nodeAtOffset } from "./position.js";
 
 const POS_ATTR = "data-mdx-pos";
 
@@ -56,6 +56,10 @@ export interface CanvasOptions {
 }
 
 export interface CanvasHandle {
+  /** Re-render from edited MDX (positions shift, so highlight is re-applied). */
+  update(mdx: string): Promise<void>;
+  /** Box the element at an index-path; `undefined` clears the overlay. */
+  highlight(indexPath: readonly number[] | undefined): void;
   dispose(): void;
 }
 
@@ -64,25 +68,85 @@ export interface CanvasHandle {
  * The same renderer drives this and publish, so what the canvas shows is what publishes.
  */
 export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle> {
-  const doc = parseMdx(options.mdx);
-  const tree = await renderEditableToVNode({
-    mdx: options.mdx,
-    components: options.components,
-    data: options.data,
-  });
-  render(tree, options.target);
+  const host = options.target as HTMLElement;
+  if (getComputedStyle(host).position === "static") host.style.position = "relative";
+
+  const content = document.createElement("div");
+  host.appendChild(content);
+
+  // The selection overlay is positioned against `host` and never intercepts clicks,
+  // so it lives outside the preact-managed `content` subtree.
+  let overlay: HTMLElement | undefined;
+  let currentPath: readonly number[] | undefined;
+
+  // The doc is reparsed on every render so its positions match the rendered DOM;
+  // the click handler closes over this mutable binding.
+  let doc = parseMdx(options.mdx);
+
+  async function paint(mdx: string): Promise<void> {
+    doc = parseMdx(mdx);
+    const tree = await renderEditableToVNode({
+      mdx,
+      components: options.components,
+      data: options.data,
+    });
+    render(tree, content);
+  }
+
+  function clearOverlay(): void {
+    overlay?.remove();
+    overlay = undefined;
+  }
+
+  function highlight(indexPath: readonly number[] | undefined): void {
+    currentPath = indexPath;
+    if (!indexPath) {
+      clearOverlay();
+      return;
+    }
+    const node = nodeAtIndexPath(doc, indexPath);
+    const offset = node?.position?.start.offset;
+    const el =
+      offset === undefined ? null : content.querySelector(`[${POS_ATTR}="${offset}"]`);
+    if (!el) {
+      clearOverlay();
+      return;
+    }
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "nocms-overlay";
+      overlay.style.position = "absolute";
+      overlay.style.pointerEvents = "none";
+      host.appendChild(overlay);
+    }
+    const rect = el.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    overlay.style.left = `${rect.left - hostRect.left}px`;
+    overlay.style.top = `${rect.top - hostRect.top}px`;
+    overlay.style.width = `${rect.width}px`;
+    overlay.style.height = `${rect.height}px`;
+  }
 
   const handleClick = (event: Event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
     options.onSelect?.(selectionAtElement(doc, target));
   };
-  options.target.addEventListener("click", handleClick);
+  host.addEventListener("click", handleClick);
+
+  await paint(options.mdx);
 
   return {
+    async update(mdx: string) {
+      await paint(mdx);
+      highlight(currentPath);
+    },
+    highlight,
     dispose() {
-      options.target.removeEventListener("click", handleClick);
-      render(null, options.target);
+      host.removeEventListener("click", handleClick);
+      clearOverlay();
+      render(null, content);
+      content.remove();
     },
   };
 }

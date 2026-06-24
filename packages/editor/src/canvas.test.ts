@@ -111,3 +111,44 @@ describe("mountCanvas", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 });
+
+describe("highlight overlay", () => {
+  // happy-dom reports a zero bounding rect, so the overlay is verified structurally
+  // (created on select, removed on deselect/dispose), not by pixel position.
+  test("creates an overlay for a selected node and clears it on deselect", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const handle = await mountCanvas({
+      target,
+      mdx: `# Title\n`,
+      components: {},
+    });
+
+    expect(target.querySelector(".nocms-overlay")).toBeNull();
+    handle.highlight([0]); // the heading is the root's first child
+    expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+
+    handle.highlight(undefined);
+    expect(target.querySelector(".nocms-overlay")).toBeNull();
+
+    handle.dispose();
+  });
+
+  test("re-applies the highlight after an update re-renders the canvas", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const handle = await mountCanvas({
+      target,
+      mdx: `# Title\n`,
+      components: {},
+    });
+
+    handle.highlight([0]);
+    await handle.update(`# Renamed title\n`);
+    expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+    expect(target.textContent).toContain("Renamed title");
+
+    handle.dispose();
+    expect(target.querySelector(".nocms-overlay")).toBeNull();
+  });
+});

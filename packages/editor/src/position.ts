@@ -44,7 +44,7 @@ export function deepestNodeAtOffset(tree: Nodes, offset: number): Nodes | undefi
 
 /** The nearest node in the path (deepest-first) matching one of `types`. */
 export function nearestOfType(
-  path: Nodes[],
+  path: readonly Nodes[],
   types: readonly string[],
 ): Nodes | undefined {
   for (let i = path.length - 1; i >= 0; i--) {
@@ -52,4 +52,46 @@ export function nearestOfType(
     if (node && types.includes(node.type)) return node;
   }
   return undefined;
+}
+
+/**
+ * A node's structural address from the root: the child index at each level. Unlike a
+ * source offset, it survives an edit that shifts offsets — the tree shape is unchanged
+ * by a prop edit — so it's how the shell re-finds a selection across a re-render.
+ */
+export type IndexPath = number[];
+
+/**
+ * The index-path of `target` within a root→deepest node path (as `nodeAtOffset`
+ * returns). `[]` when `target` is the root; undefined when it isn't in the path.
+ */
+export function indexPathOf(
+  nodePath: readonly Nodes[],
+  target: Nodes,
+): IndexPath | undefined {
+  const end = nodePath.indexOf(target);
+  if (end === -1) return undefined;
+  const indices: IndexPath = [];
+  for (let i = 1; i <= end; i++) {
+    const parent = nodePath[i - 1];
+    const child = nodePath[i];
+    if (!parent || !child) return undefined;
+    const idx = children(parent).indexOf(child);
+    if (idx === -1) return undefined;
+    indices.push(idx);
+  }
+  return indices;
+}
+
+/** The node at an index-path from `root`, or undefined if the path doesn't resolve. */
+export function nodeAtIndexPath(
+  root: Nodes,
+  indexPath: readonly number[],
+): Nodes | undefined {
+  let current: Nodes | undefined = root;
+  for (const i of indexPath) {
+    if (!current) return undefined;
+    current = children(current)[i];
+  }
+  return current;
 }
