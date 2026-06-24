@@ -284,7 +284,76 @@ Plugin isolation: iframe + QuickJS-in-WASM vs iframe-only for v1 (§17 of the
 original vision). Affects `@nocms/sandbox`.
 
 ### D5 — URL / routing model
-How content paths map to routes; client router choice (lightest viable).
+
+**Path↔route mapping → RESOLVED, and it lives in `@nocms/core` (`route.ts`).** Build (③),
+derive (②), and the client runtime (①) all need the same convention, so per the invariant
+"if two packages need the same thing it belongs in core" the canonical mapping is in core,
+not duplicated. `contentPathToRoute` (full `content/...` path or content-relative),
+`routeToContentPath` (inverse → canonical `index.mdx` form, since the forward map is
+many-to-one), `normalizeRoutePath`, and `href(routePath, base)` (joins a deployment base).
+Convention unchanged from the build's original: strip `.mdx?`, collapse a trailing `index`
+segment, root with `/` (`content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
+`content/posts/index.mdx → /posts`). FOLLOW-UP: migrate `@nocms/build`'s own
+`contentPathToRoute` to consume core's (left untouched this lane to avoid colliding with the
+parallel build work).
+
+**Navigation model → RESOLVED: static multi-page is the default; an optional, dependency-free
+History-API soft-navigation enhancement is provided; no client-router framework is adopted.**
+
+- *The fork.* Static multi-page (every `<a href>` is a real page load against prerendered
+  HTML — zero routing JS) vs. a client router that swaps views via the History API (soft
+  navigation, preserved JS state, no flash).
+- *Decision.* **Static multi-page is the foundation.** The build already prerenders every
+  route to view-source-able static HTML (D6), GitHub Pages serves it, and a content site that
+  navigates with zero routing JS is the most robust and most decentralized option (invariant
+  #2: nothing the project runs can break a site; a site with no router can't have a broken
+  router). Soft navigation is a **progressive enhancement**, not the base layer.
+- *The enhancement.* `@nocms/router`'s `startNavigation(table, { base })` — a ~80-line
+  History-API interceptor over the route table: it catches same-origin, unmodified, non-target
+  /-download left-clicks whose pathname matches a known route, `pushState`s instead of
+  reloading, mirrors back/forward via `popstate`, and exposes the current route via
+  `current()` + `subscribe()`. Same-origin clicks to *unmatched* paths (assets, unknown pages)
+  fall through to a normal page load. It is framework-agnostic (emits route changes; the host
+  renders) and its DOM/History access is injected (`options.window`) so the table logic that
+  drives it unit-tests under happy-dom. **Off by default** — a site opts in by calling it.
+- *Why build it, not adopt preact-iso / wouter.* Both are JSX-component-route routers
+  (`<Router><Route path=… component=…/></Router>`): they own a component-per-route model and
+  (preact-iso) async lazy-loading + suspense hydration. noCMS's model is content-file-based
+  over the *one* mdast renderer — there is no component-per-route tree to express, so a
+  framework router would impose a second routing model and a hard Preact-router dependency for
+  a need that is, here, just "intercept a click and tell me the matched route." That fails the
+  project's "prefer stdlib, justify any dep" bar (the same bar that admitted MiniSearch only
+  after hand-rolling search proved disproportionate — here the inverse holds: the in-house
+  interceptor is tiny and the dep buys nothing). Rejected: **preact-iso** (couples routing to a
+  JSX `<Router>` + lazy/suspense model we don't use; Preact-locked), **wouter** (~2.2kB, same
+  JSX-route model), and **React Router** (heavy, wrong framework).
+
+**Sub-decisions (recorded; the decision-free core is built around them):**
+
+- *Dynamic params.* The matcher supports `:param` segments (e.g. `/posts/:slug`, multi-param,
+  percent-decoded, static-beats-param specificity), but the **content-derived table is purely
+  static** — every content file is its own route, so file-based content needs no param routes.
+  `:param` support exists so derive/② or build/③ can *emit* param/collection/pagination routes
+  later without a matcher redesign. **DEFERRED:** who generates collection/pagination routes
+  (e.g. `/posts/page/:n`) and how — a derive/build concern, not the router model.
+- *i18n locale prefixes.* **DEFERRED.** Two viable shapes when needed: a `:lang` leading param
+  in the table, or treating the locale like a second `base` segment. Not built — no consumer
+  yet; flagged so it isn't designed away (the matcher + base-stripping already accommodate
+  either).
+- *Page shell / layout* (overlaps D6). **DEFERRED to the integrator** — where the page chrome
+  lives (content-tier layout vs. an emitted shell) is unsettled and tied to island hydration,
+  owned by the parallel build/renderer lane. The router provides the matched route + payload;
+  it does not own layout.
+
+**Integration seam (for the merge — `@nocms/router` is not wired into anything yet):**
+- `@nocms/build` (③): build its route list with `routeTableFromEntries`/`contentPathToRoute`
+  from core (and migrate its local `contentPathToRoute` to core's — the noted follow-up).
+- `templates/starter` (①): emit normal `<a href={href(route, base)}>` links (works with zero
+  JS); optionally, in a hydrated entry, call `startNavigation(table, { base })` and re-render
+  the matched route on `subscribe` for soft navigation. Starter wiring is the integrator's
+  follow-up (the parallel lane owns the starter).
+- `@nocms/derive` (②): reuse `contentPathToRoute` for route-keyed manifests/feeds/search so
+  every tier agrees on one URL for a given content file.
 
 ### D6 — Build SSG shape
 
