@@ -152,6 +152,35 @@ provide context at the canvas root), heuristic async-render timing.
     the mdast↔MDX round-trip. References to mine (not depend on): Milkdown's
     `$node`/`parseMarkdown`/`toMarkdown` transformer design and MDXEditor's inline-vs-flow
     `jsxComponentDescriptor` split.
+
+  **Build status (`@nocms/prose`) — IMPLEMENTED (option B, the ProseMirror widget).** A new
+  standalone package operates purely on mdast inline nodes (`PhrasingContent[]` in/out), so it
+  depends only on mdast types + ProseMirror core — no dependency on `@nocms/editor` (clean
+  boundary). Pieces:
+  - `proseSchema` — a PM schema for a prose span: `doc` (inline content) + `text`, marks
+    `link`/`em`/`strong`/`code`, and inline **atom** nodes `mdxJsxText` / `mdxExpression` (each
+    carries its source mdast node verbatim in an attr, rendered as a non-editable chip). Mark
+    declaration order *is* the canonical serialization nesting (link ⊃ emphasis ⊃ strong),
+    matching remark.
+  - `mdastInlineToDoc` / `docToMdastInline` — the pure bidirectional transformer. **Lossless
+    round-trip verified** over 15 fixtures (text, nested marks, links ±title, inline code as a
+    leaf-shaping mark, breaks, JSX/expression atoms incl. `data.estree`, a dense mixture).
+  - `mountProseEditor(target, { nodes, onChange })` → `{ view, destroy() }` — transient PM
+    view with span-scoped history + a mod-b/i/\` mark keymap; emits updated mdast on every
+    doc-changing transaction. happy-dom tested via applied transactions.
+
+  **Preservation decisions / caveats (the host should know):**
+  - *Mark nesting is normalized.* PM marks are an unordered set, so the relative nesting of
+    strong/emphasis/link is canonicalized to schema order on serialize. Matches remark for the
+    common case; inverse-authored nesting (`**_x_**`) round-trips to the canonical form —
+    semantically identical, structurally normalized. Inherent to mark-based editing; accepted.
+  - *Nothing is dropped.* Any inline mdast type we don't model explicitly (inline `image`, raw
+    `html`, …) is preserved verbatim as an opaque `unknownInline` atom rather than discarded.
+  - *Inline JSX atoms are opaque in v1* — an `mdxJsxTextElement`'s children round-trip exactly
+    but aren't separately editable yet (the element is one chip). Revisit if in-atom editing
+    is wanted.
+  - *Host seam:* the editor shell extracts a block's `children`, calls `mountProseEditor`, and
+    splices `onChange`'s `PhrasingContent[]` back into the document before re-serializing.
 - D2b — **VERIFIED.** Toolchain: `unified` + `remark-parse` + `remark-frontmatter`
   + `remark-mdx` + `remark-stringify`, one processor for both directions
   (`@nocms/editor`'s `parseMdx`/`serializeMdx`, see `mdx-document.ts`). A

@@ -43,8 +43,12 @@ const handle = mountProseEditor(target, {
   },
 });
 
+handle.view;      // the live ProseMirror EditorView — wire a toolbar / focus to it
 handle.destroy(); // tear down the view
 ```
+
+The view ships with span-scoped undo/redo (`mod-z` / `shift-mod-z` / `mod-y`) and a mark
+keymap (`mod-b` strong, `mod-i` emphasis, `` mod-` `` code).
 
 Also exported for host use / testing: `mdastInlineToDoc`, `docToMdastInline`, `proseSchema`.
 
@@ -55,5 +59,17 @@ and unit-test without a DOM.
 ## Marks & nodes supported
 
 `text`, `strong`, `emphasis`, `inlineCode`, `link` (href + optional title), `break`, plus the
-two inline MDX atoms above. Any inline construct that cannot be preserved is recorded as a
-caveat in `DECISIONS.md` (D2a) — never silently dropped.
+two inline MDX atoms above. Any other inline mdast node (e.g. inline `image`, raw `html`) is
+carried verbatim as an opaque `unknownInline` atom, so nothing is ever silently dropped.
+
+### Preservation caveats
+
+- **Mark nesting is normalized.** ProseMirror stores a node's marks as an unordered set, so
+  the *relative nesting order* of `strong` / `emphasis` / `link` is canonicalized on
+  serialize to schema order (link ⊃ emphasis ⊃ strong) — which matches remark's own output
+  for the common case (`***x***` → emphasis ⊃ strong). Content authored as the inverse nesting
+  (e.g. `**_x_**`, strong ⊃ emphasis) round-trips to the canonical nesting: semantically
+  identical, structurally normalized. This is inherent to any mark-based editor.
+- **Inline JSX atoms are opaque.** An `mdxJsxTextElement`'s children are not separately
+  editable in v1 — the whole element is one verbatim chip. It round-trips exactly; editing its
+  contents is a later concern.
