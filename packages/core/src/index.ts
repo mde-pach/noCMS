@@ -109,3 +109,5 @@ export interface PluginManifest {
   integrity: string;
   capabilities: Capability[];
 }
+
+export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";

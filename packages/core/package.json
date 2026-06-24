@@ -11,9 +11,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "valibot": "^1.4.1"
+    "valibot": "^1.4.1",
+    "yaml": "^2.9.0"
   }
 }
