@@ -1,0 +1,23 @@
+{
+  "name": "@nocms/session",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The editing-session backbone: ties @nocms/auth + @nocms/github + @nocms/core into one sign-in → load → branch-per-session → commit → publish loop. All side effects (GitHub client, clock) are injected, so the orchestration unit-tests with fakes and no real network.",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nocms/auth": "workspace:*",
+    "@nocms/core": "workspace:*",
+    "@nocms/github": "workspace:*",
+    "yaml": "^2.9.0"
+  }
+}

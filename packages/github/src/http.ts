@@ -41,6 +41,8 @@ export async function rest<T>(
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!res.ok) throw new GitHubError(res.status, await res.text());
+  // DELETE refs answer 204 with no body; nothing to parse.
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 

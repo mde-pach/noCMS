@@ -1,7 +1,8 @@
-import type { RepoRef } from "@nocms/core";
+import type { RepoPath, RepoRef } from "@nocms/core";
 import { decodeBase64ToText, encodeTextToBase64 } from "./encoding";
 import { graphql, type HttpDeps, rest } from "./http";
 import type { ClientOptions, FileChange, GitHubClient, TokenProvider } from "./index";
+import { listTree, loadEntries } from "./tree";
 
 const COMMIT_MUTATION = `
   mutation ($input: CreateCommitOnBranchInput!) {
@@ -38,14 +39,24 @@ export function createClient(
     graphqlUrl: options.graphqlUrl ?? "https://api.github.com/graphql",
   };
 
+  const readFile = async (repo: RepoRef, path: RepoPath): Promise<string> => {
+    const file = await rest<{ content: string }>(
+      deps,
+      "GET",
+      `/repos/${repo.owner}/${repo.repo}/contents/${path}?ref=${repo.branch}`,
+    );
+    return decodeBase64ToText(file.content);
+  };
+
   return {
-    async readFile(repo, path) {
-      const file = await rest<{ content: string }>(
-        deps,
-        "GET",
-        `/repos/${repo.owner}/${repo.repo}/contents/${path}?ref=${repo.branch}`,
-      );
-      return decodeBase64ToText(file.content);
+    readFile,
+
+    listTree(repo) {
+      return listTree(deps, repo);
+    },
+
+    loadEntries(repo, collections) {
+      return loadEntries(deps, readFile, repo, collections);
     },
 
     async createSessionBranch(repo, name) {
@@ -81,6 +92,14 @@ export function createClient(
         base: into,
         head: fromBranch,
       });
+    },
+
+    async deleteBranch(repo, branch) {
+      await rest(
+        deps,
+        "DELETE",
+        `/repos/${repo.owner}/${repo.repo}/git/refs/heads/${branch}`,
+      );
     },
   };
 }
