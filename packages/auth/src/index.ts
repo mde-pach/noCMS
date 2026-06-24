@@ -133,3 +133,10 @@ export function isExpired(
 export function fromPat(token: string): Session {
   return { accessToken: token, expiresAt: Number.POSITIVE_INFINITY };
 }
+
+export {
+  createTokenProvider,
+  type SessionStore,
+  type TokenProvider,
+  type TokenProviderOptions,
+} from "./token-provider";
