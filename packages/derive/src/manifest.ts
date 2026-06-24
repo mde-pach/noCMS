@@ -1,9 +1,11 @@
-import type { CollectionEntry } from "@nocms/core";
+import { type CollectionEntry, contentPathToRoute, type RoutePath } from "@nocms/core";
 import type { DerivedArtifact, DeriveInput } from "./index";
 
 export interface ManifestEntry {
   collection: string;
   path: string;
+  /** The canonical route this entry is served at — the runtime's nav/link key. */
+  route: RoutePath;
   data: Record<string, unknown>;
 }
 
@@ -18,6 +20,7 @@ export function buildManifest(entries: CollectionEntry[]): Manifest {
     entries: entries.map((e) => ({
       collection: e.collection,
       path: e.path,
+      route: contentPathToRoute(e.path),
       data: e.data,
     })),
   };

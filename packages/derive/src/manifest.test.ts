@@ -24,9 +24,22 @@ describe("buildManifest", () => {
     expect(manifest.entries[0]).toEqual({
       collection: "posts",
       path: "content/posts/a.mdx",
+      route: "/posts/a",
       data: { title: "A" },
     });
     expect(manifest.entries[0]).not.toHaveProperty("body");
+  });
+
+  it("carries the canonical route for index entries", () => {
+    const manifest = buildManifest([
+      {
+        collection: "pages",
+        path: "content/index.mdx" as RepoPath,
+        data: {},
+        body: "",
+      },
+    ]);
+    expect(manifest.entries[0]?.route).toBe("/");
   });
 });
 
