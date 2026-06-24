@@ -112,6 +112,28 @@ describe("mountCanvas", () => {
     handle.dispose();
   });
 
+  test("suppressWhen leaves a click untouched — no preventDefault, no onSelect", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onSelect = vi.fn();
+    const handle = await mountCanvas({
+      target,
+      mdx: `[a link](https://example.com)\n`,
+      components: {},
+      onSelect,
+      suppressWhen: (el) => el.tagName === "A",
+    });
+
+    const link = target.querySelector("a");
+    if (!link) throw new Error("link did not render");
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    handle.dispose();
+  });
+
   test("dispose unmounts and stops listening", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);

@@ -19,6 +19,7 @@
     "@nocms/tokens": "workspace:*",
     "@nocms/props-discovery": "workspace:*",
     "@nocms/components": "workspace:*",
+    "@nocms/prose": "workspace:*",
     "@nocms/github": "workspace:*",
     "@nocms/auth": "workspace:*",
     "@nocms/sandbox": "workspace:*",

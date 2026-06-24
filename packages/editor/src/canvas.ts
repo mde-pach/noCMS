@@ -53,6 +53,12 @@ export interface CanvasOptions {
   data?: Record<string, unknown>;
   /** called on every canvas click; `undefined` when the click hits no annotated element */
   onSelect?: (selection: CanvasSelection | undefined) => void;
+  /**
+   * When this returns true for a click target, the canvas leaves the event entirely alone —
+   * no `preventDefault`, no `onSelect`. The shell uses it to hand clicks inside a live
+   * in-place editor (e.g. the prose widget) to that editor untouched.
+   */
+  suppressWhen?: (target: Element) => boolean;
 }
 
 export interface CanvasHandle {
@@ -130,6 +136,7 @@ export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle>
   const handleClick = (event: Event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    if (options.suppressWhen?.(target)) return;
     // The canvas is an editing surface, not a live site: a click selects, it must not
     // follow links or submit forms.
     event.preventDefault();
