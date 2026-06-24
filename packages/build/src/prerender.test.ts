@@ -32,3 +32,47 @@ describe("prerenderRoutes", () => {
     expect(page?.html).toContain("<title>From Data</title>");
   });
 });
+
+describe("island prerendering", () => {
+  const components: ComponentMap = {
+    Widget: (props) => h("button", null, props.children as never),
+    Box: (props) => h("div", { class: "box" }, props.children as never),
+  };
+
+  it("wraps island roots in a marker and reports them in the per-page manifest", async () => {
+    const [page] = await prerenderRoutes(
+      [{ path: "/", mdx: "<Widget>go</Widget>", data: { title: "I" } }],
+      { components, islands: ["Widget"], islandClientSrc: "/_nocms/islands.js" },
+    );
+    expect(page?.html).toContain('data-island="Widget"');
+    expect(page?.html).toContain("<button>go</button>");
+    expect(page?.html).toContain(
+      '<script type="module" src="/_nocms/islands.js"></script>',
+    );
+    expect(page?.islands).toEqual(["Widget"]);
+  });
+
+  it("leaves island-free pages byte-identical and script-free", async () => {
+    const route = { path: "/", mdx: "<Box>plain</Box>", data: { title: "S" } };
+    const [withIslands] = await prerenderRoutes([route], {
+      components,
+      islands: ["Widget"],
+      islandClientSrc: "/_nocms/islands.js",
+    });
+    const [staticOnly] = await prerenderRoutes([route], { components });
+    expect(withIslands?.html).toBe(staticOnly?.html);
+    expect(withIslands?.islands).toEqual([]);
+    expect(withIslands?.html).not.toContain("<script");
+    expect(withIslands?.html).not.toContain("data-island");
+  });
+
+  it("omits the script when no client src is configured", async () => {
+    const [page] = await prerenderRoutes(
+      [{ path: "/", mdx: "<Widget>go</Widget>", data: { title: "I" } }],
+      { components, islands: ["Widget"] },
+    );
+    expect(page?.html).toContain('data-island="Widget"');
+    expect(page?.html).not.toContain("<script");
+    expect(page?.islands).toEqual(["Widget"]);
+  });
+});
