@@ -2,4 +2,6 @@
 
 The Vite + Preact SSG publish pipeline, run in GitHub Actions. Prerenders the renderer's tree to static HTML and hydrates islands. Wires the build-tier Vite plugins: MDX (@mdx-js/rollup), image optimization, sitemap/RSS, SEO/first-paint.
 
+Islands: `prerenderRoutes` wraps registry islands so their roots emit hydration markers + serialized props, reads the per-page island set back from those markers, and injects the island client `<script>` only into pages with islands (island-free pages stay byte-identical, ship zero JS). `island-client.ts` is the browser hydration entry, bundled at vendor time and served as `dist/_nocms/islands.js`; `nocmsVitePlugins()` exposes it as the `virtual:nocms-islands` module. See `.claude/rules/islands.md`.
+
 The public API is `src/index.ts` — depend on that, not internals. Architecture invariants and conventions live in the repo `CLAUDE.md`.
