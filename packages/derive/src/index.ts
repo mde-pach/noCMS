@@ -3,6 +3,7 @@
 // runtime. Artifacts are committed off session branches to avoid merge noise.
 
 import type { CollectionEntry } from "@nocms/core";
+import { runI18n } from "./i18n";
 import { runManifest } from "./manifest";
 import { runSearch } from "./search";
 import { runSitemap } from "./sitemap";
@@ -38,17 +39,12 @@ export const searchJob: DeriveJob = { name: "search", run: runSearch };
 // URLs), so it is safe to keep in the default jobs list — a no-op otherwise.
 export const sitemapJob: DeriveJob = { name: "sitemap", run: runSitemap };
 
-// i18n bundles depend on a format choice still being made (how content declares
-// translations), so this job is not wired into deriveAll yet.
-export const i18nJob: DeriveJob = {
-  name: "i18n",
-  run: () => {
-    throw new Error("not implemented: per-locale bundles (pending format choice)");
-  },
-};
+// Emits per-locale bundles + a translations manifest only when `locales` declares
+// a default plus at least one translation locale, so it is safe in the jobs list.
+export const i18nJob: DeriveJob = { name: "i18n", run: runI18n };
 
 /** The jobs that run today. */
-export const jobs: DeriveJob[] = [manifestJob, searchJob, sitemapJob];
+export const jobs: DeriveJob[] = [manifestJob, searchJob, sitemapJob, i18nJob];
 
 export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> {
   const out: DerivedArtifact[] = [];
@@ -56,6 +52,14 @@ export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> 
   return out;
 }
 
+export {
+  buildBundles,
+  buildTranslations,
+  type I18nBundle,
+  type I18nBundleEntry,
+  type TranslationGroup,
+  type TranslationsManifest,
+} from "./i18n";
 export { buildManifest, type Manifest, type ManifestEntry } from "./manifest";
 export {
   buildSearchIndex,
