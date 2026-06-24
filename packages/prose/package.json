@@ -1,0 +1,30 @@
+{
+  "name": "@nocms/prose",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The in-place prose editing widget: a transient ProseMirror edit view over a prose span's mdast inline content. mdast stays the source of truth — the widget takes mdast PhrasingContent in and emits it back out, preserving inline MDX atoms (JSX elements, expressions) verbatim. Depends only on mdast types + ProseMirror core; no dependency on the editor shell.",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.9",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-transform": "^1.12.0",
+    "prosemirror-view": "^1.41.9"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "mdast-util-mdx-expression": "^2.0.1",
+    "mdast-util-mdx-jsx": "^3.2.0"
+  }
+}
