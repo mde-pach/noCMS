@@ -1,33 +1,37 @@
 import type { CollectionEntry } from "@nocms/core";
+import MiniSearch, { type Options } from "minisearch";
 import type { DerivedArtifact, DeriveInput } from "./index";
 
-// A content-based search index precomputed in the ② tier and served from the ①
-// tier: the index is built from the entries themselves (not crawled from built
-// HTML), so it has no dependency on the publish build and stays a plain file the
-// runtime fetches. Postings (token → document ids) are precomputed so the client
-// only intersects short id lists at query time.
+// Search is a content-based index precomputed in the ② tier and queried from the
+// ① tier: MiniSearch builds the index from the entries themselves (not crawled
+// from built HTML), serializes to a plain JSON file the runtime fetches, and is
+// loaded back with `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)`. MiniSearch
+// owns tokenization, ranking, and fuzzy/prefix matching; the only noCMS-specific
+// step is reducing an MDX body to searchable plain text.
 
 export interface SearchDocument {
   id: number;
   collection: string;
   path: string;
   title: string;
-  /** A short plain-text excerpt for result display. */
+  /** Plain-text body — the main searchable field. */
+  text: string;
+  /** A short excerpt stored for result display. */
   excerpt: string;
 }
 
-export interface SearchIndex {
-  documents: SearchDocument[];
-  /** Token → ascending, de-duplicated document ids. */
-  postings: Record<string, number[]>;
-}
+// The build (here) and the runtime that loads the serialized index must agree on
+// these options, so they are shared from this module.
+export const SEARCH_OPTIONS: Options<SearchDocument> = {
+  fields: ["title", "text"],
+  storeFields: ["collection", "path", "title", "excerpt"],
+};
 
 const EXCERPT_LENGTH = 200;
-const MIN_TOKEN_LENGTH = 2;
 
-// Reduce an MDX body to searchable plain text. This is deliberately lightweight
-// (regex, not a full MDX parse): search tolerates lossy text, and pulling the MDX
-// compiler into the batch tier for this would be disproportionate.
+// Reduce an MDX body to searchable plain text. Deliberately lightweight (regex,
+// not a full MDX parse): search tolerates lossy text, and pulling the MDX compiler
+// into the batch tier for this would be disproportionate.
 export function plainText(mdxBody: string): string {
   return mdxBody
     .replace(/```[\s\S]*?```/g, " ") // fenced code blocks
@@ -39,12 +43,6 @@ export function plainText(mdxBody: string): string {
     .replace(/[*_~>#|-]+/g, " ") // residual markdown punctuation
     .replace(/\s+/g, " ")
     .trim();
-}
-
-/** Lowercased word tokens of at least `MIN_TOKEN_LENGTH` characters. */
-export function tokenize(text: string): string[] {
-  const matches = text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
-  return matches.filter((token) => token.length >= MIN_TOKEN_LENGTH);
 }
 
 function titleOf(entry: CollectionEntry): string {
@@ -59,40 +57,28 @@ function excerptOf(text: string): string {
   return `${text.slice(0, EXCERPT_LENGTH).trimEnd()}…`;
 }
 
-export function buildSearchIndex(entries: CollectionEntry[]): SearchIndex {
-  const documents: SearchDocument[] = [];
-  const postings = new Map<string, Set<number>>();
-
-  entries.forEach((entry, id) => {
-    const title = titleOf(entry);
-    const text = plainText(entry.body);
-    documents.push({
-      id,
-      collection: entry.collection,
-      path: entry.path,
-      title,
-      excerpt: excerptOf(text),
-    });
-    // The title is searchable too, so fold it into the token stream.
-    for (const token of tokenize(`${title} ${text}`)) {
-      let ids = postings.get(token);
-      if (!ids) {
-        ids = new Set();
-        postings.set(token, ids);
-      }
-      ids.add(id);
-    }
-  });
-
-  const sortedPostings: Record<string, number[]> = {};
-  for (const token of [...postings.keys()].sort()) {
-    sortedPostings[token] = [...(postings.get(token) ?? [])].sort((a, b) => a - b);
-  }
-
-  return { documents, postings: sortedPostings };
+export function toSearchDocument(entry: CollectionEntry, id: number): SearchDocument {
+  const title = titleOf(entry);
+  const text = plainText(entry.body);
+  return {
+    id,
+    collection: entry.collection,
+    path: entry.path,
+    title,
+    text,
+    excerpt: excerptOf(text),
+  };
 }
 
-/** Emit a single search.json the site fetches and queries at runtime. */
+export function buildSearchIndex(
+  entries: CollectionEntry[],
+): MiniSearch<SearchDocument> {
+  const index = new MiniSearch<SearchDocument>(SEARCH_OPTIONS);
+  index.addAll(entries.map(toSearchDocument));
+  return index;
+}
+
+/** Emit a single search.json — the serialized MiniSearch index the site queries. */
 export function runSearch(input: DeriveInput): DerivedArtifact[] {
   const index = buildSearchIndex(input.entries);
   return [{ path: "search.json", contents: `${JSON.stringify(index)}\n` }];

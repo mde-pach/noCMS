@@ -203,18 +203,26 @@ round-trip) first — it is the riskiest assumption.
 Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manifest
 /feed shapes. Decide per feature; each may differ.
 
-- **Search → RESOLVED: custom content-based inverted index, not Pagefind.** The `@nocms/derive`
-  seam takes `CollectionEntry[]` (content) and emits `DerivedArtifact` files — it does *not*
-  see built HTML. Pagefind crawls *built HTML*, so it can't consume this input without
-  inverting the tier order (it would belong in ③, after the build). A custom index built from
-  entries keeps search in the ② tier as the architecture intends, adds zero runtime dependency,
-  and stays fully decentralized. `searchJob` (`search.ts`) emits one `search.json`:
-  `{ documents: [{id, collection, path, title, excerpt}], postings: { token → ascending ids } }`.
-  The body is reduced to plain text by lightweight regex (no MDX compiler in the batch tier —
-  search tolerates lossy text) and tokenized (unicode word runs, ≥2 chars, lowercased); the
-  ② tier precomputes postings so the ① runtime only intersects short id lists (invariant #6).
-  Now wired into `deriveAll`. Possible later refinements (not blocking): stopword removal,
-  stemming, sharding for very large corpora, heading-weighted ranking.
+- **Search → RESOLVED: MiniSearch (corpus-based engine), not Pagefind, not hand-rolled.** Two
+  forks were evaluated against the seam + the project values:
+  - *Pagefind* (and other HTML-crawlers / WASM sharded indexes like tinysearch) crawls *built
+    HTML*, so it can't consume `@nocms/derive`'s input (`CollectionEntry[]`) without inverting
+    the tier order — it would belong in ③, after the build, and brings WASM + no fuzzy. Its
+    sharded lazy-load wins only at large corpora; documented as the escalation path, not v1.
+  - *Hand-rolling* an inverted index (the first cut) gave zero ranking/fuzzy/prefix and would
+    mean owning the hard parts of search forever — exactly the reinvention the project avoids.
+  - **MiniSearch** (MIT, zero runtime deps, framework-agnostic) indexes the JSON corpus
+    directly and its serialize/load split maps onto the tiers: the ② Action builds the index
+    and `JSON.stringify`s it to one `search.json`; the ① runtime loads it with
+    `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)` and queries with real BM25 ranking +
+    fuzzy + prefix. Rejected FlexSearch/Fuse (Apache-2.0; project leans MIT) and Lunr
+    (bulky index, unmaintained). Good to ~50k docs — past that, escalate to sharding.
+  - `searchJob` (`search.ts`): `plainText` reduces an MDX body to searchable text by
+    lightweight regex (no MDX compiler in the batch tier — search tolerates lossy text);
+    MiniSearch owns tokenization/ranking. Build and runtime share `SEARCH_OPTIONS`
+    (`fields: [title, text]`, `storeFields: [collection, path, title, excerpt]`). Wired into
+    `deriveAll`. The one dependency added is justified: search relevance is hard, MiniSearch is
+    tiny + MIT + zero-dep, and reimplementing it well is disproportionate.
 - *i18n bundle format* and *feed shapes* remain open (see `i18nJob`, still a stub).
 
 ### D4 — Sandbox engine
