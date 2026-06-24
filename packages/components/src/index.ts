@@ -3,15 +3,28 @@
 // derives controls automatically. Plugin packs contribute more via the sandbox.
 
 import type { ComponentType } from "preact";
+import { Button } from "./primitives/Button";
+import { Callout } from "./primitives/Callout";
+import { Hero } from "./primitives/Hero";
+
+type AnyComponent = ComponentType<Record<string, unknown>>;
 
 /** Consumed by the renderer's ComponentMap and the editor's palette. */
 export type ComponentRegistry = Record<
   string,
   {
-    component: ComponentType<Record<string, unknown>>;
+    component: AnyComponent;
     /** needs client-side hydration as an island? */
     island?: boolean;
   }
 >;
 
-export const registry: ComponentRegistry = {};
+export const registry: ComponentRegistry = {
+  Hero: { component: Hero as unknown as AnyComponent },
+  Callout: { component: Callout as unknown as AnyComponent },
+  Button: { component: Button as unknown as AnyComponent },
+};
+
+export { Button, type ButtonProps } from "./primitives/Button";
+export { Callout, type CalloutProps } from "./primitives/Callout";
+export { Hero, type HeroProps } from "./primitives/Hero";

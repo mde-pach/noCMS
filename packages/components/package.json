@@ -11,10 +11,13 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@nocms/core": "workspace:*",
     "preact": "^10.27.0"
+  },
+  "devDependencies": {
+    "preact-render-to-string": "^6.6.0"
   }
 }
