@@ -1,0 +1,25 @@
+{
+  "name": "@nocms/starter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The fork-and-go starter site. Fork it, sign in with GitHub, and edit in-site.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nocms/components": "workspace:*",
+    "@nocms/core": "workspace:*",
+    "@nocms/editor": "workspace:*",
+    "@nocms/renderer": "workspace:*",
+    "preact": "^10.27.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.0",
+    "vite": "^6.3.0"
+  }
+}

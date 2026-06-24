@@ -1,0 +1,20 @@
+{
+  "name": "@nocms/components",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The curated, props-discoverable Preact component library composed visually in the editor. Each component's props are plain typed Preact props so props-discovery derives controls automatically.",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nocms/core": "workspace:*",
+    "preact": "^10.27.0"
+  }
+}

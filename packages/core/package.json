@@ -1,0 +1,19 @@
+{
+  "name": "@nocms/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Shared types and the structured-content collection schema. The vocabulary every other package speaks: content models, token shapes, repo coordinates, capability descriptors. Runtime validation via valibot.",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "valibot": "^1.4.1"
+  }
+}

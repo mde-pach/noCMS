@@ -1,0 +1,10 @@
+color.brand.500: #3b82f6
+color.brand.600: #2563eb
+color.text: #111827
+color.bg: #ffffff
+font.body: system-ui, sans-serif
+font.heading: system-ui, sans-serif
+space.sm: 0.5rem
+space.md: 1rem
+space.lg: 2rem
+radius.md: 0.5rem

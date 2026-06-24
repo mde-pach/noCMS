@@ -1,0 +1,17 @@
+{
+  "name": "@nocms/relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The only infra noCMS runs: a stateless relay that performs the GitHub OAuth code-to-token exchange and refresh, and nothing more.",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "valibot": "^1.4.1"
+  }
+}

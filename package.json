@@ -1,0 +1,32 @@
+{
+  "name": "nocms",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "A decentralized, git-backed CMS — build and manage a real website for free on GitHub, edited in-site, published with one click, with nothing centralized to maintain.",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "templates/*"
+  ],
+  "scripts": {
+    "dev": "bun --filter '@nocms/starter' dev",
+    "build": "bun --filter '@nocms/starter' build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "typecheck": "bun --filter '*' typecheck",
+    "test": "vitest run --passWithNoTests",
+    "verify": "biome check . && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.1.2",
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.8"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}

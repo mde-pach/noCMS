@@ -1,0 +1,6 @@
+# Copy to .dev.vars (gitignored) and fill in. These come from your GitHub App.
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+# The site origin allowed to call the relay. Use "*" only for local dev.
+ALLOWED_ORIGIN=*
+PORT=3000

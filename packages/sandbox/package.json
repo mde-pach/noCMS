@@ -1,0 +1,20 @@
+{
+  "name": "@nocms/sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "The plugin/extension security boundary. Hosts untrusted plugin code in a sandboxed iframe (UI) + isolated VM (logic), reachable only through a capability-scoped postMessage API. Plugins never touch the raw token, host DOM, or network by default. Declared permissions + owner consent + integrity-pinned distribution.",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nocms/core": "workspace:*"
+  }
+}
