@@ -111,3 +111,4 @@ export interface PluginManifest {
 }
 
 export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";
+export { schemaForCollection, validateEntryData } from "./schema";
