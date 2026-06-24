@@ -63,11 +63,17 @@ builder panel/trait UX.
    feeds `nodeAtOffset` directly. Publish path stays clean (tested). Known edge: wrapping a
    component that renders e.g. an `<li>` — `display:contents` keeps layout but not
    HTML-nesting validity; acceptable for v1, revisit if it bites.
-4. ⏭ **NEXT — canvas mount.** Mount `renderEditableToVNode` output in an iframe/shadow
-   sandbox; on click, read `data-mdx-pos` from the target (or nearest annotated ancestor),
-   run `nodeAtOffset`, draw a selection overlay, expose the selected node to the editor
-   shell. Then: props panel, the ProseMirror-over-mdast prose widget (D2a), insert/DnD,
-   tokens panel.
+4. ✅ Canvas mount — `@nocms/editor`'s `mountCanvas` (`canvas.ts`): renders the annotated
+   editable tree into a target and reports the selected mdast node path on click
+   (`offsetFromElement`/`selectionAtElement` resolve via `nodeAtOffset`). happy-dom is the
+   editor's DOM test env (per-file `@vitest-environment` docblock). Remaining canvas
+   refinements: iframe/shadow sandbox for style + React-context isolation, a visual
+   selection overlay, and a "selectable granularity" policy (nearest block/component) in
+   the editor shell — clicking a block resolves to its first inline child today; the shell
+   chooses the meaningful node via the path.
+5. ⏭ **NEXT — props panel.** Selected component node → `@nocms/props-discovery` controls
+   that mutate the JSX node's attributes in the doc → `serializeMdx` → re-render. Then the
+   ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
 
 ---
 
