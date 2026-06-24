@@ -11,6 +11,8 @@ export interface PrerenderOptions {
   components?: ComponentMap;
   /** CSS injected into <head>, e.g. token custom properties */
   css?: string;
+  /** Raw HTML appended to <head>, e.g. a favicon link respecting `base`. */
+  head?: string;
   title?: (route: Route) => string;
 }
 
@@ -19,12 +21,17 @@ export interface PrerenderedPage {
   html: string;
 }
 
-function document(bodyHtml: string, title: string, css?: string): string {
+function document(
+  bodyHtml: string,
+  title: string,
+  css?: string,
+  head?: string,
+): string {
   const style = css ? `<style>${css}</style>` : "";
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"/>` +
     `<meta name="viewport" content="width=device-width, initial-scale=1"/>` +
-    `<title>${title}</title>${style}</head>` +
+    `<title>${title}</title>${head ?? ""}${style}</head>` +
     `<body><div id="app">${bodyHtml}</div></body></html>`
   );
 }
@@ -43,7 +50,10 @@ export async function prerenderRoutes(
     routes.map(async (route) => {
       const body = await renderToHtml({ mdx: route.mdx, components, data: route.data });
       const title = options.title?.(route) ?? String(route.data?.title ?? route.path);
-      return { path: route.path, html: document(body, title, options.css) };
+      return {
+        path: route.path,
+        html: document(body, title, options.css, options.head),
+      };
     }),
   );
 }

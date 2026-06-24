@@ -10,12 +10,14 @@
     "predev": "bun scripts/vendor.ts",
     "dev": "vite",
     "prebuild": "bun scripts/vendor.ts",
-    "build": "vite build",
+    "build": "bun scripts/build.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nocms/build": "file:./vendor/build",
     "@nocms/components": "file:./vendor/components",
+    "@nocms/renderer": "file:./vendor/renderer",
     "@nocms/tokens": "file:./vendor/tokens",
     "preact": "^10.27.0"
   },

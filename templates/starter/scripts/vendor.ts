@@ -15,11 +15,18 @@ import { fileURLToPath } from "node:url";
 interface VendoredPackage {
   name: string;
   dir: string;
+  /**
+   * `browser` (default) for packages the reader bundle runs; `node` for the build
+   * tooling, which runs only in CI and pulls the MDX compiler + remark stack.
+   */
+  target?: "browser" | "node";
 }
 
 const PACKAGES: VendoredPackage[] = [
   { name: "@nocms/tokens", dir: "tokens" },
   { name: "@nocms/components", dir: "components" },
+  { name: "@nocms/renderer", dir: "renderer", target: "node" },
+  { name: "@nocms/build", dir: "build", target: "node" },
 ];
 
 const starterDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -65,7 +72,7 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
 
   const built = await Bun.build({
     entrypoints: [join(srcDir, "index.ts")],
-    target: "browser",
+    target: pkg.target ?? "browser",
     format: "esm",
     minify: true,
     external: ["preact", "preact/*"],

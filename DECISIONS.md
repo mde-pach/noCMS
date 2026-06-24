@@ -71,9 +71,15 @@ builder panel/trait UX.
    selection overlay, and a "selectable granularity" policy (nearest block/component) in
    the editor shell — clicking a block resolves to its first inline child today; the shell
    chooses the meaningful node via the path.
-5. ⏭ **NEXT — props panel.** Selected component node → `@nocms/props-discovery` controls
-   that mutate the JSX node's attributes in the doc → `serializeMdx` → re-render. Then the
-   ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
+5. ✅ Props panel — `@nocms/editor`'s `jsx-attributes.ts` (pure `getProp`/`setProp`/
+   `removeProp` over the JSX node) + `PropsPanel` (`props-panel.tsx`): a friendly control
+   per `@nocms/props-discovery` Control, bound to the selected node's attributes; edits
+   mutate the node in place and fire `onChange` for the shell to re-serialize + re-render.
+   happy-dom tested. Remaining: media control = plain text field (real media picker later);
+   the editor shell that wires canvas selection → schema lookup → panel → re-render loop.
+6. ⏭ **NEXT — the editor shell loop.** Wire `mountCanvas` selection → discover/cache the
+   selected component's schema → render `PropsPanel` → on change `serializeMdx` + re-mount
+   the canvas. Then the ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
 
 ---
 
@@ -176,9 +182,32 @@ original vision). Affects `@nocms/sandbox`.
 How content paths map to routes; client router choice (lightest viable).
 
 ### D6 — Build SSG shape
-`@nocms/build` prerender approach: multi-route prerender + island hydration via
-`@preact/preset-vite` prerender vs a custom render loop over the renderer. Partly
-straightforward, but the island/hydration boundary is a real design choice.
+
+**Static prerender path: DONE (custom render loop over the one renderer, no Vite SSG).**
+`buildSite` (`@nocms/build`) loads `content/**/*.mdx` → routes, parses `theme.tokens` → CSS
+vars, builds the component map from `@nocms/components`, prerenders each route via
+`prerenderRoutes` → `renderToHtml` (the same renderer the editor previews with, so invariant
+#1 holds), and emits clean-URL static HTML (`/` → `index.html`, `/x` → `x/index.html`) with
+token CSS inlined in `<head>` and `public/` copied, respecting `base` for project Pages. The
+starter's `build` script runs it (`scripts/build.ts`); `bun run build` yields a
+view-source-able static `dist/` (real markup, no SPA shell). Chose a render-and-emit loop
+over `@preact/preset-vite`'s prerender: the renderer already produces the exact tree, so Vite
+SSG would add a second toolchain for no gain on the static path. `@nocms/build` +
+`@nocms/renderer` are vendored (node target — they pull the MDX compiler, fine for the CI
+build bundle) into the starter so a fork builds with no monorepo (D1) — verified against a
+monorepo-less copy.
+
+**Still open (the real design choices):**
+- *Island hydration / client JS.* Curated components are static today, so a prerender-only
+  site is fully correct and testable. Interactive islands — and the client-JS bundling +
+  `nocmsVitePlugins` they imply — are unbuilt; this is where the Vite tier likely returns.
+- *Page shell / layout.* The prerender emits only the content tree. The starter's dev runtime
+  (`src/main.tsx`) wraps content in an `App` shell (centered container, body font/color); the
+  static output does not, so dev and publish diverge on chrome. Where layout lives (a
+  content-tier layout vs. an emitted shell) is unsettled — likely tied to D5. Flagged, not
+  guessed.
+- *Multi-page routing.* `buildSite` maps `index.mdx`→`/`, `x.mdx`→`/x`, `x/index.mdx`→`/x` —
+  enough for the one-page starter. Params, collections, and pagination are D5.
 
 ## Resolved
 
@@ -200,8 +229,9 @@ monorepo to build from). `predev`/`prebuild` run the vendor script: in the monor
 regenerates (contributor package edits flow in on next run); in a fork the sources are
 absent so it's a no-op and the committed bundles are authoritative.
 
-Currently vendored: `@nocms/tokens`, `@nocms/components` (what the starter consumes at
-runtime). As the editor mounts (D2) and SSG/islands land (D6), add their packages to
-`PACKAGES` in the vendor script. Known follow-up: the bundle imports
+Currently vendored: `@nocms/tokens`, `@nocms/components` (browser target — the reader
+runtime), plus `@nocms/renderer`, `@nocms/build` (node target — the CI build tooling, which
+pulls the MDX compiler). `vendor.ts` takes a per-package `target`. As the editor mounts (D2),
+add its package to `PACKAGES`. Known follow-up: the bundle imports
 `preact/jsx-dev-runtime` (Bun's default) rather than the production runtime — correct
 but slightly heavier; switch when a production-JSX build path is wired.

@@ -1,12 +1,13 @@
-// The publish pipeline: Vite + Preact SSG, run asynchronously in GitHub Actions.
-// It prerenders the same component tree the editor previews and hydrates the
-// interactive parts as islands — not a second renderer. prerenderRoutes is the
-// pure content→HTML core; the surrounding Vite/asset/island wiring builds on it.
+// The publish pipeline. It prerenders the same component tree the editor previews to
+// static HTML with the one renderer (never a second renderer), so preview and published
+// output cannot diverge. `buildSite` is the prerender-and-emit entry a forked site runs
+// in GitHub Actions; `prerenderRoutes` is its pure content→HTML core. Island hydration
+// and the Vite-tier plugins (`nocmsVitePlugins`) are the eventual interactivity story (D6).
 
-import type { RepoRef } from "@nocms/core";
 import type { Plugin } from "vite";
 
 export type { ComponentMap } from "@nocms/renderer";
+export { type BuildOptions, buildSite } from "./build-site";
 export {
   type PrerenderedPage,
   type PrerenderOptions,
@@ -14,21 +15,7 @@ export {
   type Route,
 } from "./prerender";
 
-export interface BuildOptions {
-  repo: RepoRef;
-  /** site source root (the forked starter) */
-  root: string;
-  /** output dir deployed to Pages */
-  outDir: string;
-  /** base path, e.g. `/<repo>` for project Pages */
-  base: string;
-}
-
-/** MDX, image optimization, sitemap/RSS, and prerender plugins. */
+/** MDX, image optimization, sitemap/RSS, and island-hydration plugins. */
 export function nocmsVitePlugins(): Plugin[] {
   return [];
-}
-
-export async function buildSite(_options: BuildOptions): Promise<void> {
-  throw new Error("not implemented: full Vite + Preact SSG build");
 }

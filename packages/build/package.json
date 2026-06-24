@@ -15,8 +15,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nocms/components": "workspace:*",
     "@nocms/core": "workspace:*",
     "@nocms/renderer": "workspace:*",
+    "@nocms/tokens": "workspace:*",
     "vite": "^6.3.0"
   },
   "devDependencies": {
