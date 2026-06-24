@@ -203,6 +203,20 @@ round-trip) first — it is the riskiest assumption.
 Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manifest
 /feed shapes. Decide per feature; each may differ.
 
+- **Search → RESOLVED: custom content-based inverted index, not Pagefind.** The `@nocms/derive`
+  seam takes `CollectionEntry[]` (content) and emits `DerivedArtifact` files — it does *not*
+  see built HTML. Pagefind crawls *built HTML*, so it can't consume this input without
+  inverting the tier order (it would belong in ③, after the build). A custom index built from
+  entries keeps search in the ② tier as the architecture intends, adds zero runtime dependency,
+  and stays fully decentralized. `searchJob` (`search.ts`) emits one `search.json`:
+  `{ documents: [{id, collection, path, title, excerpt}], postings: { token → ascending ids } }`.
+  The body is reduced to plain text by lightweight regex (no MDX compiler in the batch tier —
+  search tolerates lossy text) and tokenized (unicode word runs, ≥2 chars, lowercased); the
+  ② tier precomputes postings so the ① runtime only intersects short id lists (invariant #6).
+  Now wired into `deriveAll`. Possible later refinements (not blocking): stopword removal,
+  stemming, sharding for very large corpora, heading-weighted ranking.
+- *i18n bundle format* and *feed shapes* remain open (see `i18nJob`, still a stub).
+
 ### D4 — Sandbox engine
 Plugin isolation: iframe + QuickJS-in-WASM vs iframe-only for v1 (§17 of the
 original vision). Affects `@nocms/sandbox`.
