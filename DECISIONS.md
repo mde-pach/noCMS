@@ -56,20 +56,18 @@ builder panel/trait UX.
 1. ✅ Document seam — `parseMdx`/`serializeMdx` (D2b verified).
 2. ✅ Selection mapping core — `position.ts` (`nodeAtOffset`/`deepestNodeAtOffset`/
    `nearestOfType`): a click's source offset → the mdast node path. Pure + tested.
-3. ⏭ **NEXT — renderer editor-mode DOM annotation.** Belongs in `@nocms/renderer` (the one
-   renderer owns MDX evaluation; the editor can't import `@mdx-js/mdx`), as an editor-only
-   option that leaves the publish path untouched. **Verified mechanism:** evaluate with
-   `{ development: true }` + a wrapped `jsxDEV(type, props, key, isStatic, source, self)` —
-   `source` carries `{ lineNumber, columnNumber }` mapping to the *original MDX source* for
-   **every** element, intrinsic and component. Plan: for intrinsic elements inject
-   `data-mdx-pos` into props (lands on the DOM directly); for components (our library does
-   not forward unknown props) wrap the returned vnode in a `display:contents` carrier
-   stamped with `data-mdx-pos`. Convert `line:col → start offset` in the renderer (it has
-   the source) so the DOM carries an offset and the editor's `nodeAtOffset` resolves it
-   directly. Known edge: wrapping a component that renders e.g. an `<li>` — `display:contents`
-   keeps layout but not HTML-nesting validity; acceptable for v1, revisit if it bites.
-4. ⏭ Then: canvas mount (renderer in an iframe/shadow sandbox + click→select overlay),
-   props panel, the ProseMirror-over-mdast prose widget (D2a), insert/DnD, tokens panel.
+3. ✅ Renderer editor-mode DOM annotation — `@nocms/renderer`'s `renderEditableToVNode`
+   (`editable.ts`). Evaluates with `{ development: true }` + a wrapped `jsxDEV`; intrinsics
+   get `data-mdx-pos` injected into props, components (which don't forward unknown props)
+   are wrapped in a `display:contents` carrier; `line:col → start offset` so the DOM offset
+   feeds `nodeAtOffset` directly. Publish path stays clean (tested). Known edge: wrapping a
+   component that renders e.g. an `<li>` — `display:contents` keeps layout but not
+   HTML-nesting validity; acceptable for v1, revisit if it bites.
+4. ⏭ **NEXT — canvas mount.** Mount `renderEditableToVNode` output in an iframe/shadow
+   sandbox; on click, read `data-mdx-pos` from the target (or nearest annotated ancestor),
+   run `nodeAtOffset`, draw a selection overlay, expose the selected node to the editor
+   shell. Then: props panel, the ProseMirror-over-mdast prose widget (D2a), insert/DnD,
+   tokens panel.
 
 ---
 

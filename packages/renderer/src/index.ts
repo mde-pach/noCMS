@@ -50,6 +50,8 @@ export async function renderToHtml(input: RenderInput): Promise<string> {
   return renderToStaticHtml(await renderToVNode(input));
 }
 
+export { renderEditableToVNode } from "./editable.js";
+
 /** Interactive sub-trees to hydrate as islands after prerender. */
 export interface IslandManifest {
   islands: string[];
