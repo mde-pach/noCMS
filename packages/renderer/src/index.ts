@@ -6,6 +6,7 @@ import { type EvaluateOptions, evaluate } from "@mdx-js/mdx";
 import { type ComponentType, h, type VNode } from "preact";
 import * as jsxRuntime from "preact/jsx-runtime";
 import { renderToString } from "preact-render-to-string";
+import remarkFrontmatter from "remark-frontmatter";
 
 /** Components MDX tags resolve to (curated set + plugin packs). */
 export type ComponentMap = Record<string, ComponentType<Record<string, unknown>>>;
@@ -23,11 +24,16 @@ type MDXContent = ComponentType<
 
 // preact/jsx-runtime supplies the automatic-runtime functions MDX evaluates
 // against; its types are structurally compatible but declared separately.
-const runtime = jsxRuntime as unknown as EvaluateOptions;
+// remark-frontmatter recognizes leading `---` blocks so they aren't rendered as
+// content — collection `data` is supplied separately via `RenderInput.data`.
+const options: EvaluateOptions = {
+  ...(jsxRuntime as unknown as EvaluateOptions),
+  remarkPlugins: [remarkFrontmatter],
+};
 
 /** Compile MDX to a Preact tree (the runtime preview path). */
 export async function renderToVNode(input: RenderInput): Promise<VNode> {
-  const { default: Content } = (await evaluate(input.mdx, runtime)) as {
+  const { default: Content } = (await evaluate(input.mdx, options)) as {
     default: MDXContent;
   };
   return h(Content, { components: input.components, ...input.data });

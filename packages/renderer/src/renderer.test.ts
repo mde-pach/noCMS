@@ -30,6 +30,15 @@ describe("renderToHtml", () => {
     const html = await renderToHtml({ mdx: "Sum: {1 + 2}", components: {} });
     expect(html).toContain("Sum: 3");
   });
+
+  it("does not render YAML frontmatter as content", async () => {
+    const html = await renderToHtml({
+      mdx: "---\ntitle: Hidden\n---\n\n# Shown",
+      components: {},
+    });
+    expect(html).toContain("<h1>Shown</h1>");
+    expect(html).not.toContain("title: Hidden");
+  });
 });
 
 describe("preview/publish parity", () => {

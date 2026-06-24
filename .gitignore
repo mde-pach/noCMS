@@ -22,3 +22,6 @@ apps/relay/.dev.vars
 
 # test coverage
 coverage/
+
+# playwright test artifacts
+.playwright-mcp/

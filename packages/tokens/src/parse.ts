@@ -23,12 +23,13 @@ export function parseTokens(source: string): Token[] {
     if (!line || line.startsWith("#")) return;
 
     const match = LINE.exec(line);
-    if (!match)
+    if (!match || match[1] === undefined || match[3] === undefined) {
       throw new TokenParseError(`expected "name: value", got "${line}"`, i + 1);
+    }
 
-    const name = match[1]!.trim();
+    const name = match[1].trim();
     const breakpoint = match[2]?.trim();
-    const value = match[3]!.trim();
+    const value = match[3].trim();
     if (!name) throw new TokenParseError("empty token name", i + 1);
 
     let token = byName.get(name);
@@ -39,7 +40,8 @@ export function parseTokens(source: string): Token[] {
     }
 
     if (breakpoint) {
-      (token.breakpoints ??= {})[breakpoint] = value;
+      if (!token.breakpoints) token.breakpoints = {};
+      token.breakpoints[breakpoint] = value;
     } else {
       token.value = value;
     }
