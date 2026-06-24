@@ -95,6 +95,40 @@ describe("mountEditor", () => {
     handle.dispose();
   });
 
+  test("themes the canvas live from the design panel and round-trips tokens", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onTokensChange = vi.fn();
+
+    const handle = await mountEditor({
+      target,
+      mdx: `# Hi\n`,
+      components,
+      schemas,
+      tokens: "color.brand.500: #3b82f6\nspace.md: 1rem\n",
+      onTokensChange,
+    });
+
+    const styles = [...target.querySelectorAll("style")].map(
+      (s) => s.textContent ?? "",
+    );
+    expect(styles.some((c) => c.includes("--color-brand-500: #3b82f6;"))).toBe(true);
+
+    const brand = target.querySelector('[name="color.brand.500"]') as HTMLInputElement;
+    brand.value = "#ff0000";
+    brand.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const themed = [...target.querySelectorAll("style")].map(
+      (s) => s.textContent ?? "",
+    );
+    expect(themed.some((c) => c.includes("--color-brand-500: #ff0000;"))).toBe(true);
+    expect(onTokensChange).toHaveBeenCalledWith(
+      expect.stringContaining("color.brand.500: #ff0000"),
+    );
+
+    handle.dispose();
+  });
+
   test("selecting a block with no schema shows the empty state", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);

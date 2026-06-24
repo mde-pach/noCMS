@@ -8,6 +8,7 @@
 import type { ComponentRegistry } from "@nocms/components";
 import type { ComponentSchema } from "@nocms/props-discovery";
 import type { ComponentMap } from "@nocms/renderer";
+import { parseTokens, toCssVariables } from "@nocms/tokens";
 import type { Nodes } from "mdast";
 import { render } from "preact";
 import { type CanvasHandle, type CanvasSelection, mountCanvas } from "./canvas.js";
@@ -16,6 +17,7 @@ import { parseMdx, serializeMdx } from "./mdx-document.js";
 import { type IndexPath, indexPathOf, nodeAtIndexPath } from "./position.js";
 import { PropsPanel } from "./props-panel.js";
 import { selectableNode } from "./selectable.js";
+import { TokensPanel } from "./tokens-panel.js";
 
 export interface EditorOptions {
   /** DOM node the editor mounts into; the shell owns its contents. */
@@ -28,8 +30,12 @@ export interface EditorOptions {
   schemas: Record<string, ComponentSchema>;
   /** values exposed to the document as props. */
   data?: Record<string, unknown>;
+  /** flat token source; when present, the design panel themes the canvas live. */
+  tokens?: string;
   /** fired with the serialized MDX after every edit — the seam to save/commit. */
   onChange?: (mdx: string) => void;
+  /** fired with the flat token source after a theme edit — the seam to save/commit. */
+  onTokensChange?: (tokens: string) => void;
 }
 
 export interface EditorHandle {
@@ -47,7 +53,7 @@ function toComponentMap(registry: ComponentRegistry): ComponentMap {
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
  */
 export async function mountEditor(options: EditorOptions): Promise<EditorHandle> {
-  const { target, mdx, components, schemas, data, onChange } = options;
+  const { target, mdx, components, schemas, data, onChange, onTokensChange } = options;
   const doc = parseMdx(mdx);
 
   const style = document.createElement("style");
@@ -58,8 +64,28 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   canvasRegion.className = "nocms-editor-canvas";
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
+  const propsHost = document.createElement("div");
+  const tokensHost = document.createElement("div");
+  panelRegion.append(propsHost, tokensHost);
   layout.append(canvasRegion, panelRegion);
   target.append(style, layout);
+
+  // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
+  const themeStyle = document.createElement("style");
+  if (options.tokens !== undefined) {
+    themeStyle.textContent = toCssVariables(parseTokens(options.tokens));
+    target.append(themeStyle);
+    render(
+      <TokensPanel
+        tokens={parseTokens(options.tokens)}
+        onChange={(_next, flat, css) => {
+          themeStyle.textContent = css;
+          onTokensChange?.(flat);
+        }}
+      />,
+      tokensHost,
+    );
+  }
 
   let selectedPath: IndexPath | undefined;
 
@@ -76,7 +102,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       if (schema) {
         render(
           <PropsPanel element={node} schema={schema} onChange={handleEdit} />,
-          panelRegion,
+          propsHost,
         );
         return;
       }
@@ -85,7 +111,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       <p class="nocms-empty">
         {node ? "No editable properties." : "Select an element to edit it."}
       </p>,
-      panelRegion,
+      propsHost,
     );
   }
 
@@ -109,9 +135,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   return {
     dispose() {
       canvas.dispose();
-      render(null, panelRegion);
+      render(null, propsHost);
+      render(null, tokensHost);
       layout.remove();
       style.remove();
+      themeStyle.remove();
     },
   };
 }
@@ -130,4 +158,8 @@ const EDITOR_CSS = `
 .nocms-field input, .nocms-field select { padding: 0.35rem; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
 .nocms-help { color: #6b7280; font-size: 12px; margin: 0; }
 .nocms-empty { color: #6b7280; font-size: 13px; }
+.nocms-tokens { margin-top: 1.25rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
+.nocms-tokens-group { margin-bottom: 1rem; }
+.nocms-tokens-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0 0 0.5rem; }
+.nocms-tokens .nocms-field input[type="color"] { height: 2rem; padding: 0.1rem; }
 `;

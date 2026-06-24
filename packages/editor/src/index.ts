@@ -39,3 +39,4 @@ export {
   type EditorOptions,
   mountEditor,
 } from "./shell.js";
+export { TokensPanel, type TokensPanelProps } from "./tokens-panel.js";

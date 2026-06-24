@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cssVarName,
+  formatTokens,
   parseTokens,
   TokenParseError,
   toCssVariables,
@@ -72,5 +73,32 @@ describe("toDtcg", () => {
   it("omits $type for unknown groups", () => {
     const dtcg = toDtcg(parseTokens("custom.thing: 42")) as Record<string, unknown>;
     expect(dtcg).toEqual({ custom: { thing: { $value: "42" } } });
+  });
+});
+
+describe("formatTokens", () => {
+  it("emits one name: value line per token", () => {
+    const text = formatTokens([
+      { name: "color.text", value: "#111" },
+      { name: "space.md", value: "1rem" },
+    ]);
+    expect(text).toBe("color.text: #111\nspace.md: 1rem\n");
+  });
+
+  it("emits @breakpoint overrides after the base line", () => {
+    const text = formatTokens([
+      { name: "space.md", value: "1rem", breakpoints: { sm: "0.5rem" } },
+    ]);
+    expect(text).toBe("space.md: 1rem\nspace.md@sm: 0.5rem\n");
+  });
+
+  it("round-trips: parseTokens ∘ formatTokens is identity", () => {
+    const tokens = parseTokens(`
+color.brand.500: #3b82f6
+font.body: system-ui, sans-serif
+space.md: 1rem
+space.md@sm: 0.5rem
+`);
+    expect(parseTokens(formatTokens(tokens))).toEqual(tokens);
   });
 });
