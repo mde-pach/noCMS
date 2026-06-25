@@ -2,8 +2,8 @@
 
 How to build noCMS. This file is **self-contained and durable**: it holds the architecture
 invariants and working conventions directly, so it stays correct even if other docs move or
-are removed. Project overview lives in @README.md; commands in @package.json. Don't depend
-on `noCMSVISION.md` — it is background that will be retired.
+are removed. Project overview lives in @README.md; commands in @package.json. External
+platform constraints the code can't carry live in @.claude/rules/platform-facts.md.
 
 ## What noCMS is
 
@@ -11,6 +11,18 @@ A decentralized, git-backed CMS: someone builds and manages a real website for f
 GitHub, edits it in-site, and publishes with one click — with nothing centralized to
 maintain. The repo is the database; GitHub (git, REST/GraphQL API, Actions, Pages) is the
 backend. noCMS is software people adopt, not a service they depend on. Open source, MIT.
+
+## Non-goals
+
+- Not a hosted SaaS or central studio; no central app a site depends on. Not commercial — no
+  marketplace, monetization, or paid service (plugins are extensibility, not revenue).
+- Not multi-tenant or anonymous editing: the editor is the authenticated repo owner, editing
+  their own repo.
+- Not a system that makes the adopter provision or pay for third-party infra (no per-site
+  Netlify/Vercel/Cloudflare metering).
+- Out of scope for v1: real-time multi-editor collaboration (needs a CRDT/P2P layer), end-user
+  authoring of arbitrary custom components (compose from the library/plugins instead), and
+  commerce/checkout (Pages ToS forbids it — see `.claude/rules/platform-facts.md`).
 
 ## Architecture invariants (do not break)
 
@@ -88,7 +100,7 @@ API** — cross-package use goes through that seam only.
 - Comment only the *why* of something non-obvious — a constraint, gotcha, or tradeoff. Never
   narrate *what* the next line does.
 - Comments must be **standalone**: never reference an external document or section marker. If a
-  comment only makes sense with `noCMSVISION.md` open, rewrite or delete it.
+  comment only makes sense with another doc open, rewrite or delete it.
 - Delete section banners, decorative dividers, name-restating prose, play-by-play, and
   TODO-filler. If a comment explains *what*, the fix is a clearer name or a smaller function.
 - Durable knowledge goes in a README or a `.claude/rules/` file, not in comment soup.

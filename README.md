@@ -72,9 +72,9 @@ bun --filter 'apps/relay' dev
 
 ## Status
 
-Scaffolding. The architecture is settled (see [`CLAUDE.md`](./CLAUDE.md)); implementation
-details are decided while building. Package stubs carry typed public APIs describing intended
-shape — the `index.ts` of each package is its contract.
+Under active development. The architecture is settled (see [`CLAUDE.md`](./CLAUDE.md));
+implementation details are decided while building and recorded in
+[`DECISIONS.md`](./DECISIONS.md). Each package's `index.ts` is its public contract.
 
 ## License
 
