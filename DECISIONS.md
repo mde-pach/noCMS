@@ -860,3 +860,31 @@ Three small but real policy forks the Phase 4/5/6 specs surfaced, decided with t
   an open draft: auto-rebase and publish when draft and live touched *different* sections; prompt
   the user only when the *same* section diverged. Resolves the policy D7 explicitly left to the
   integrator — low friction in the common case, a prompt only on a genuine conflict.
+
+### D14 — Plugin contribution model & render boundary → **RESOLVED: data-in/data-out across the sandbox; the host's one renderer paints plugin output.**
+Per `docs/specs/plugins.md`, reconciling invariant #8 (plugin boundary) with #1 (one renderer) and
+D4 (iframe-only sandbox). Most plugin marketplace/discovery stays deferred; the *seam* is decided.
+
+- **Contribution types — three of four are pure data.** Plugins contribute components, sections
+  (compositions of trusted components), themes/tokens, and custom control-kinds. Sections, tokens,
+  and the *schema half* of a component cross the seam as **data, no code execution**; only component
+  **render** and custom **control renderers** run in-sandbox. Keeping most contribution as data is
+  what keeps the boundary clean.
+
+- **Render boundary → guest emits a tree, host renders it.** A plugin component is a pure
+  `(props) → tree-of-known-components`; that serializable tree crosses postMessage and the host's
+  **single renderer** paints it (preview + `preact-render-to-string` at publish). Rejected
+  guest-renders-into-its-own-iframe: it breaks invariant #1, can't prerender to static HTML, and
+  tokens wouldn't flow. Symmetric with the controls path: *schema in as data, render-tree out as
+  data*.
+
+- **Interactivity is the v1 cut line.** Static plugin components prerender cleanly and are the v1
+  path. Runtime-interactive plugin components would need their sandboxed iframe persisted as an
+  island in the published page — a documented escalation, not v1.
+
+- **Capabilities map 1:1 to contributions** (`components:register`, `content:read` (read-only),
+  `tokens:contribute`, `layout:contribute`, `network` off-by-default); grant = `requested ∩
+  approved` per the real `loadPlugin`. The GitHub token never crosses (#7).
+
+- **Distribution mirrors D1:** the plugin bundle is vendored + committed, with an `integrity` hash
+  and the grant recorded in `nocms.config.json` — self-contained and reproducible, no marketplace.
