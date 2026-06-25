@@ -1,28 +1,24 @@
 // @vitest-environment happy-dom
 
-import type { ComponentSchema } from "@nocms/props-discovery";
+import { type ControlDescriptor, deriveControls } from "@nocms/core";
 import { render } from "preact";
+import * as v from "valibot";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { getProp, isJsxElement, type JsxElement } from "./jsx-attributes.js";
 import { parseMdx } from "./mdx-document.js";
 import { PropsPanel } from "./props-panel.js";
 
-const schema: ComponentSchema = {
-  component: "Button",
-  controls: [
-    { prop: "label", kind: "text", required: true },
-    {
-      prop: "variant",
-      kind: "select",
-      options: ["primary", "secondary"],
-      required: false,
-    },
-    { prop: "count", kind: "number", required: false },
-    { prop: "dark", kind: "boolean", required: false },
-    { prop: "children", kind: "slot", required: false },
-    { prop: "onClick", kind: "action", required: false },
-  ],
-};
+// Controls derive from a valibot schema — exactly as the shell derives them live.
+const controls: ControlDescriptor[] = deriveControls(
+  v.object({
+    label: v.string(),
+    variant: v.optional(v.picklist(["primary", "secondary"])),
+    count: v.optional(v.number()),
+    dark: v.optional(v.boolean()),
+    // a nested group: structural, not an attribute field → excluded from the panel.
+    meta: v.optional(v.object({ id: v.string() })),
+  }),
+);
 
 function buttonElement(mdx: string): JsxElement {
   const node = parseMdx(mdx).children[0];
@@ -46,15 +42,20 @@ beforeEach(() => {
   element = buttonElement(`<Button label="Go" variant="primary" />\n`);
   onChange = vi.fn<() => void>();
   render(
-    <PropsPanel element={element} schema={schema} onChange={onChange} />,
+    <PropsPanel
+      element={element}
+      component="Button"
+      controls={controls}
+      onChange={onChange}
+    />,
     container,
   );
 });
 
 describe("PropsPanel", () => {
-  test("renders the component name and one field per attribute control", () => {
+  test("renders the component name and one field per scalar control", () => {
     expect(container.querySelector(".nocms-props-title")?.textContent).toBe("Button");
-    // text, select, number, boolean — slot and action are excluded.
+    // text, select, number, boolean — the nested group is excluded.
     expect(container.querySelectorAll(".nocms-field").length).toBe(4);
   });
 
@@ -71,7 +72,7 @@ describe("PropsPanel", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
-  test("clearing optional text removes the attribute", () => {
+  test("clearing a text field removes the attribute", () => {
     const input = field(container, "label");
     input.value = "";
     input.dispatchEvent(new Event("input", { bubbles: true }));

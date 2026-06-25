@@ -47,6 +47,7 @@
       "dependencies": {
         "@nocms/core": "workspace:*",
         "preact": "^10.27.0",
+        "valibot": "^1.4.1",
       },
       "devDependencies": {
         "preact-render-to-string": "^6.6.0",
@@ -91,6 +92,7 @@
       },
       "devDependencies": {
         "@types/mdast": "^4.0.4",
+        "valibot": "^1.4.1",
       },
     },
     "packages/github": {

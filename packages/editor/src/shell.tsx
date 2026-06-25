@@ -11,7 +11,7 @@
 // mid-edit would tear the view out.
 
 import type { ComponentRegistry } from "@nocms/components";
-import type { ComponentSchema } from "@nocms/props-discovery";
+import { deriveControls } from "@nocms/core";
 import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
@@ -42,10 +42,11 @@ export interface EditorOptions {
   target: Element;
   /** the document to edit; MDX text is the source of truth. */
   mdx: string;
-  /** the component library MDX tags resolve to in the canvas. */
+  /** the component library MDX tags resolve to in the canvas; each block carries
+   *  its valibot props schema, from which the props panel derives controls live. */
   components: ComponentRegistry;
-  /** controls per component, discovered ahead of time and injected (not derived live). */
-  schemas: Record<string, ComponentSchema>;
+  /** @deprecated controls are now derived live from each block's schema (D9); ignored. */
+  schemas?: Record<string, unknown>;
   /** values exposed to the document as props. */
   data?: Record<string, unknown>;
   /** flat token source; when present, the design panel themes the canvas live. */
@@ -74,7 +75,7 @@ function toComponentMap(registry: ComponentRegistry): ComponentMap {
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
  */
 export async function mountEditor(options: EditorOptions): Promise<EditorHandle> {
-  const { target, mdx, components, schemas, data, onChange, onTokensChange } = options;
+  const { target, mdx, components, data, onChange, onTokensChange } = options;
   const doc = parseMdx(mdx);
 
   const style = document.createElement("style");
@@ -149,10 +150,15 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   function showPanel(node: Nodes | undefined): void {
     if (node && isJsxElement(node) && node.name) {
-      const schema = schemas[node.name];
-      if (schema) {
+      const def = components[node.name];
+      if (def?.schema) {
         render(
-          <PropsPanel element={node} schema={schema} onChange={handleEdit} />,
+          <PropsPanel
+            element={node}
+            component={node.name}
+            controls={deriveControls(def.schema)}
+            onChange={handleEdit}
+          />,
           propsHost,
         );
         return;

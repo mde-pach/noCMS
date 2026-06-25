@@ -1,22 +1,19 @@
 // @vitest-environment happy-dom
 
 import type { ComponentRegistry } from "@nocms/components";
-import type { ComponentSchema } from "@nocms/props-discovery";
 import { type ComponentType, h } from "preact";
+import * as v from "valibot";
 import { describe, expect, test, vi } from "vitest";
 import { mountEditor } from "./shell.js";
 
 const Button: ComponentType<Record<string, unknown>> = (props) =>
   h("a", { class: "btn" }, props.label as string);
 
+// Each block carries its valibot props schema; the panel derives controls from it.
 const components: ComponentRegistry = {
-  Button: { component: Button as unknown as ComponentRegistry[string]["component"] },
-};
-
-const schemas: Record<string, ComponentSchema> = {
   Button: {
-    component: "Button",
-    controls: [{ prop: "label", kind: "text", required: true }],
+    component: Button as unknown as ComponentRegistry[string]["component"],
+    schema: v.object({ label: v.string() }),
   },
 };
 
@@ -36,7 +33,6 @@ describe("mountEditor", () => {
       target,
       mdx: `<Button label="Go" />\n`,
       components,
-      schemas,
       onChange,
     });
 
@@ -79,7 +75,6 @@ describe("mountEditor", () => {
       target,
       mdx: `<Button label="Go" />\n\nPlain prose with no component.\n`,
       components,
-      schemas,
     });
 
     const button = target.querySelector(".nocms-editor-canvas .btn");
@@ -104,7 +99,6 @@ describe("mountEditor", () => {
       target,
       mdx: `# Hi\n`,
       components,
-      schemas,
       tokens: "color.brand.500: #3b82f6\nspace.md: 1rem\n",
       onTokensChange,
     });
@@ -138,7 +132,6 @@ describe("mountEditor", () => {
       target,
       mdx: `Edit me here.\n`,
       components,
-      schemas,
       onChange,
     });
 
@@ -185,7 +178,6 @@ describe("mountEditor", () => {
       target,
       mdx: `# A heading\n\nSome prose.\n`,
       components,
-      schemas,
     });
 
     const canvas = target.querySelector(".nocms-editor-canvas");
@@ -212,7 +204,6 @@ describe("mountEditor", () => {
       target,
       mdx: `# A heading\n`,
       components,
-      schemas,
     });
 
     const heading = target.querySelector(".nocms-editor-canvas h1");

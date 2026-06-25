@@ -112,6 +112,13 @@ export interface PluginManifest {
 
 export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";
 export {
+  type ControlDescriptor,
+  type ControlKind,
+  deriveControls,
+  KNOWN_CONTROL_KINDS,
+  type ShowIf,
+} from "./controls";
+export {
   contentPathToRoute,
   href,
   type LocaleLink,

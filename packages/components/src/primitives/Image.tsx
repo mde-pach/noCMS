@@ -1,13 +1,18 @@
-export interface ImageProps {
-  src: string;
-  alt: string;
-  width?: number;
-  height?: number;
-  rounded?: boolean;
-}
+import * as v from "valibot";
 
-// A responsive, lazy-loaded image. `src` is a plain string today; the editor can
-// promote it to a media picker via field-config.
+// `src` carries the `image` meta-type so the editor gives it a media picker
+// (D9), not a bare text box.
+export const ImageSchema = v.object({
+  src: v.pipe(v.string(), v.metadata({ control: "image" })),
+  alt: v.string(),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+  rounded: v.optional(v.boolean(), false),
+});
+
+export type ImageProps = v.InferInput<typeof ImageSchema>;
+
+// A responsive, lazy-loaded image.
 export function Image({ src, alt, width, height, rounded = false }: ImageProps) {
   return (
     <img

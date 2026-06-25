@@ -1,10 +1,14 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface SectionProps {
-  tone?: "default" | "muted" | "accent";
-  padding?: "sm" | "md" | "lg";
+export const SectionSchema = v.object({
+  tone: v.optional(v.picklist(["default", "muted", "accent"]), "default"),
+  padding: v.optional(v.picklist(["sm", "md", "lg"]), "lg"),
+});
+
+export type SectionProps = v.InferInput<typeof SectionSchema> & {
   children?: ComponentChildren;
-}
+};
 
 const TONE_BG = {
   default: "transparent",

@@ -1,9 +1,9 @@
-// The properties panel: friendly controls for the selected component, derived from its
-// discovered prop types (@nocms/props-discovery). Editing a control mutates the JSX
-// node's attributes in place and calls onChange so the shell can re-serialize and
-// re-render the canvas — the owner never sees JSX or attribute syntax.
+// The properties panel: friendly controls for the selected block, derived live from
+// its valibot props schema by @nocms/core's deriveControls (D9). Editing a control
+// mutates the JSX node's attributes in place and calls onChange so the shell can
+// re-serialize and re-render the canvas — the owner never sees JSX or attribute syntax.
 
-import type { ComponentSchema, Control } from "@nocms/props-discovery";
+import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
 import {
   getProp,
@@ -13,100 +13,91 @@ import {
   setProp,
 } from "./jsx-attributes.js";
 
-// "ctaLabel" → "Cta label". A readable field label without a separate annotation.
-function humanize(prop: string): string {
-  const spaced = prop.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[_-]+/g, " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-// Children and event handlers aren't attribute-shaped, so they aren't panel fields:
-// the slot is edited on the canvas, actions are bound elsewhere.
-const ATTRIBUTE_KINDS: ReadonlySet<Control["kind"]> = new Set([
-  "text",
-  "number",
-  "boolean",
-  "select",
-  "media",
-]);
+// Structural kinds aren't attribute-shaped, so they aren't panel fields: children
+// are edited on the canvas (slots, D15); nested group/list controls land later.
+const STRUCTURAL_KINDS: ReadonlySet<string> = new Set(["group", "list"]);
 
 interface FieldProps {
-  control: Control;
+  control: ControlDescriptor;
   element: JsxElement;
   onChange: () => void;
 }
 
 function Field({ control, element, onChange }: FieldProps): VNode {
-  const id = `nocms-field-${control.prop}`;
-  const value = getProp(element, control.prop);
+  const id = `nocms-field-${control.key}`;
+  const value = getProp(element, control.key);
   const commit = (next: PropValue | undefined) => {
-    if (next === undefined) removeProp(element, control.prop);
-    else setProp(element, control.prop, next);
+    if (next === undefined) removeProp(element, control.key);
+    else setProp(element, control.key, next);
     onChange();
   };
 
   if (control.kind === "boolean") {
     return (
       <div class="nocms-field">
-        <label for={id}>{humanize(control.prop)}</label>
+        <label for={id}>{control.label}</label>
         <input
           id={id}
-          name={control.prop}
+          name={control.key}
           type="checkbox"
           checked={value === true}
           onChange={(e) => commit(e.currentTarget.checked)}
         />
-        {control.help ? <p class="nocms-help">{control.help}</p> : null}
       </div>
     );
   }
 
-  if (control.kind === "number") {
+  if (control.kind === "number" || control.kind === "range") {
+    const config = control.config ?? {};
     return (
       <div class="nocms-field">
-        <label for={id}>{humanize(control.prop)}</label>
+        <label for={id}>{control.label}</label>
         <input
           id={id}
-          name={control.prop}
-          type="number"
+          name={control.key}
+          type={control.kind === "range" ? "range" : "number"}
+          min={typeof config.min === "number" ? config.min : undefined}
+          max={typeof config.max === "number" ? config.max : undefined}
           value={typeof value === "number" ? String(value) : ""}
           onInput={(e) => {
             const raw = e.currentTarget.value;
             commit(raw === "" ? undefined : Number(raw));
           }}
         />
-        {control.help ? <p class="nocms-help">{control.help}</p> : null}
       </div>
     );
   }
 
   if (control.kind === "select") {
+    const options = (control.config?.options as string[] | undefined) ?? [];
     return (
       <div class="nocms-field">
-        <label for={id}>{humanize(control.prop)}</label>
+        <label for={id}>{control.label}</label>
         <select
           id={id}
-          name={control.prop}
+          name={control.key}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => commit(e.currentTarget.value)}
         >
-          {(control.options ?? []).map((option) => (
+          {options.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
         </select>
-        {control.help ? <p class="nocms-help">{control.help}</p> : null}
       </div>
     );
   }
 
-  // text and media: a plain text field. Clearing an optional value drops the attribute.
+  // Everything text-shaped (text, url, image, color, richtext, reference, date) and
+  // any unknown/plugin kind falls back to a text input — the richer controls (media
+  // picker, color swatch, rich text) arrive with their phases without touching blocks.
   return (
     <div class="nocms-field">
-      <label for={id}>{humanize(control.prop)}</label>
+      <label for={id}>{control.label}</label>
       <input
         id={id}
-        name={control.prop}
+        name={control.key}
         type="text"
         value={typeof value === "string" ? value : ""}
         onInput={(e) => {
@@ -114,28 +105,42 @@ function Field({ control, element, onChange }: FieldProps): VNode {
           commit(raw === "" ? undefined : raw);
         }}
       />
-      {control.help ? <p class="nocms-help">{control.help}</p> : null}
     </div>
   );
 }
 
+function isVisible(control: ControlDescriptor, element: JsxElement): boolean {
+  if (STRUCTURAL_KINDS.has(control.kind)) return false;
+  if (control.showIf) {
+    return getProp(element, control.showIf.key) === control.showIf.equals;
+  }
+  return true;
+}
+
 export interface PropsPanelProps {
-  /** the selected component node in the document */
+  /** the selected block node in the document */
   element: JsxElement;
-  /** controls discovered from the component's prop types */
-  schema: ComponentSchema;
+  /** the block's name, shown as the panel title */
+  component: string;
+  /** controls derived from the block's valibot schema via `deriveControls` */
+  controls: ControlDescriptor[];
   /** fired after every edit; the shell re-serializes the doc and re-renders the canvas */
   onChange: () => void;
 }
 
-export function PropsPanel({ element, schema, onChange }: PropsPanelProps): VNode {
-  const fields = schema.controls.filter((c) => ATTRIBUTE_KINDS.has(c.kind));
+export function PropsPanel({
+  element,
+  component,
+  controls,
+  onChange,
+}: PropsPanelProps): VNode {
+  const fields = controls.filter((c) => isVisible(c, element));
   return (
     <div class="nocms-props">
-      <h2 class="nocms-props-title">{schema.component}</h2>
+      <h2 class="nocms-props-title">{component}</h2>
       {fields.map((control) => (
         <Field
-          key={control.prop}
+          key={control.key}
           control={control}
           element={element}
           onChange={onChange}

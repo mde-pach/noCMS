@@ -1,8 +1,12 @@
-export interface ButtonProps {
-  label: string;
-  href?: string;
-  variant?: "primary" | "secondary";
-}
+import * as v from "valibot";
+
+export const ButtonSchema = v.object({
+  label: v.string(),
+  href: v.optional(v.pipe(v.string(), v.metadata({ control: "url" })), "#"),
+  variant: v.optional(v.picklist(["primary", "secondary"]), "primary"),
+});
+
+export type ButtonProps = v.InferInput<typeof ButtonSchema>;
 
 const BASE = {
   display: "inline-flex",
