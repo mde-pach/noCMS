@@ -2,7 +2,7 @@
 // search, i18n, manifests, feeds. Output is just files the site reads at
 // runtime. Artifacts are committed off session branches to avoid merge noise.
 
-import type { CollectionEntry } from "@nocms/core";
+import type { CollectionEntry, FeedConfig, SiteConfig } from "@nocms/core";
 import { runFeed } from "./feed";
 import { runI18n } from "./i18n";
 import { runManifest } from "./manifest";
@@ -26,14 +26,9 @@ export interface DeriveInput {
   feed?: FeedConfig;
 }
 
-/** Which collections syndicate, and the feed's own metadata. */
-export interface FeedConfig {
-  /** Collections to include; entries from other collections are excluded. */
-  collections: string[];
-  /** Feed title, e.g. the site name. */
-  title: string;
-  description?: string;
-}
+// The feed config shape lives in core (the site-config seam owns it); re-exported here
+// so existing `@nocms/derive` consumers keep importing it from the ② package.
+export type { FeedConfig } from "@nocms/core";
 
 /** A produced file: path plus serialized contents. */
 export interface DerivedArtifact {
@@ -69,6 +64,23 @@ export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> 
   const out: DerivedArtifact[] = [];
   for (const job of jobs) out.push(...(await job.run(input)));
   return out;
+}
+
+/**
+ * Build the ② derive input from the shared site config plus the loaded entries, so
+ * `locales`/`siteUrl`/`feed` come from the one site-config seam rather than being
+ * assembled loosely per caller.
+ */
+export function deriveInputFromConfig(
+  config: SiteConfig,
+  entries: CollectionEntry[],
+): DeriveInput {
+  return {
+    entries,
+    locales: config.locales,
+    siteUrl: config.siteUrl,
+    feed: config.feed,
+  };
 }
 
 export {

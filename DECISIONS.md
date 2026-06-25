@@ -475,6 +475,43 @@ renderer or component registry). The contract:
 
 ## Resolved
 
+### D8 — Site config seam → **a valibot-validated `nocms.config.json`, owned by `@nocms/core`**
+
+The single source of truth for the deployment-wide knobs every tier must agree on:
+`base` (deployment base, e.g. `/repo/`), `siteUrl` (absolute origin), `locales`
+(`locales[0]` = default), and `feed` (`{ collections, title, description? }`). Lives in
+`@nocms/core` (`site-config.ts`) because build (③), derive (②), and the runtime (①) all
+read it — the invariant "if two packages need the same thing it belongs in core." Shape:
+a `SiteConfig` type + a valibot `parseSiteConfig` (mirroring `parseCollectionDef`) + a
+Node-only `loadSiteConfig(root)` that reads `nocms.config.json` or returns the zero-config
+default (`base: "/"`) when absent (a minimal site needs no config file). `FeedConfig` was
+relocated from `@nocms/derive` to core (single definition; derive re-exports it — a
+type-sourcing change only, no output-shape change to D3's jobs).
+
+**Format fork (the genuine decision).** Weighed a **flat one-token-per-line text file**
+(like `theme.tokens`) against a **typed JSON validated by valibot** (the pattern core
+already uses for `CollectionDef`/`schema.ts`).
+- **Chosen: JSON + valibot.** Config is small, structured (the nested `feed` object, the
+  `locales`/`collections` lists), machine-read by tooling, and rarely hand-edited. JSON
+  expresses nesting and lists natively, `JSON.stringify(…, 2)` puts list items
+  one-per-line so small configs still diff/merge cleanly, and valibot gives the same
+  typed-parse-at-the-boundary core already applies to collections. The config is also
+  inert data — readable in ② (Node), ③ (Node), and ① (browser `fetch`) alike.
+- **Rejected: flat text file.** Invariant #5 ("text, not JSON") scopes itself to **layout
+  and tokens** — artifacts that are large, frequently edited, and merged line-by-line, so
+  a JSON *tree* would make diffs unreadable. Site config is the opposite (small, nested,
+  machine-read), so the invariant's spirit does not extend to it. A flat token-style file
+  would have to invent a dotted-key nesting convention for `feed` and a list convention for
+  `locales`, reinventing a config language against the data's actual shape.
+- **Rejected: a typed TS/JS config module.** Would need bundling/evaluation to read across
+  tiers and could execute arbitrary code; JSON is inert and tier-portable.
+
+**Adapters (no field is redeclared per tier).** `@nocms/derive`'s `deriveInputFromConfig`
+maps the config + loaded entries onto `DeriveInput` (`locales`/`siteUrl`/`feed`);
+`@nocms/build`'s `buildSite` reads the config from the site root itself (the same way it
+already reads `theme.tokens`/`head.html`/`editor.json`) and derives `base`/`siteUrl`/`feed`
+from it. So `base`/`siteUrl`/`locales`/`feed` originate in exactly one place.
+
 ### D1 — Package distribution model → **vendor a built bundle**
 A fork of `templates/starter` lives outside the monorepo and can't resolve
 `workspace:*`. **Decision: vendor built `@nocms/*` bundles into the template.** Most

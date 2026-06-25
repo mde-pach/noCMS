@@ -119,3 +119,9 @@ export {
   routeToContentPath,
 } from "./route";
 export { schemaForCollection, validateEntryData } from "./schema";
+export {
+  type FeedConfig,
+  loadSiteConfig,
+  parseSiteConfig,
+  type SiteConfig,
+} from "./site-config";
