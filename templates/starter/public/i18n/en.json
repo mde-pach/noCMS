@@ -1,0 +1,44 @@
+{
+  "locale": "en",
+  "entries": [
+    {
+      "key": "/",
+      "route": "/",
+      "path": "content/index.mdx",
+      "data": {
+        "title": "A CMS that lives in your repo",
+        "description": "Build a real website on GitHub, edit it in place, and publish with one click — nothing centralized to maintain."
+      }
+    },
+    {
+      "key": "/posts/hello-nocms",
+      "route": "/posts/hello-nocms",
+      "path": "content/posts/hello-nocms.mdx",
+      "data": {
+        "title": "Hello from a repo-backed CMS",
+        "date": "2026-06-20",
+        "summary": "Why the repo is the database, and what that buys you."
+      }
+    },
+    {
+      "key": "/posts/publish-with-one-click",
+      "route": "/posts/publish-with-one-click",
+      "path": "content/posts/publish-with-one-click.mdx",
+      "data": {
+        "title": "Publish with one click",
+        "date": "2026-06-24",
+        "summary": "Editing is instant in the browser; publishing is an async GitHub Action."
+      }
+    },
+    {
+      "key": "/posts/tokens-as-bricks",
+      "route": "/posts/tokens-as-bricks",
+      "path": "content/posts/tokens-as-bricks.mdx",
+      "data": {
+        "title": "Theming with tokens, not code",
+        "date": "2026-06-22",
+        "summary": "Design tokens compile to CSS variables at runtime — restyle with no rebuild."
+      }
+    }
+  ]
+}

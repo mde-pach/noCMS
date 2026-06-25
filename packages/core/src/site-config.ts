@@ -48,6 +48,23 @@ export interface SiteRuntime {
 /** The DOM id of the embedded `SiteRuntime` JSON script. */
 export const SITE_RUNTIME_ID = "nocms-site";
 
+/**
+ * Derive the runtime config the ① consumers read from the site config and the resolved
+ * deployment base. A derived-file URL is present only when its ② artifact is produced
+ * (the feed needs a `siteUrl` + `feed`; the switcher needs ≥2 locales), so the consumers
+ * stay inert on a site that generated nothing. The build embeds this; the dev reader
+ * injects the same object so dev and publish agree.
+ */
+export function siteRuntime(config: SiteConfig, base: string): SiteRuntime {
+  const b = base.endsWith("/") ? base : `${base}/`;
+  const runtime: SiteRuntime = { base: b };
+  if (config.siteUrl && config.feed) runtime.feedUrl = `${b}feed.json`;
+  if (config.locales && config.locales.length >= 2) {
+    runtime.translationsUrl = `${b}i18n/translations.json`;
+  }
+  return runtime;
+}
+
 const FeedConfigSchema: v.GenericSchema<FeedConfig> = v.object({
   collections: v.pipe(v.array(v.string()), v.minLength(1)),
   title: v.pipe(v.string(), v.minLength(1)),

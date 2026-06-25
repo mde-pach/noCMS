@@ -9,7 +9,7 @@ import {
   parseFrontmatter,
   SITE_RUNTIME_ID,
   type SiteConfig,
-  type SiteRuntime,
+  siteRuntime,
 } from "@nocms/core";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
@@ -201,17 +201,13 @@ async function collectHead(
 // emitted only when its artifact is actually produced (feed needs siteUrl + feed config; the
 // switcher needs ≥2 locales), so a plain site ships neither. Pure — no fs, no DOM.
 export function runtimeConfigMarkup(config: SiteConfig, base: string): string {
-  const runtime: SiteRuntime = { base };
+  const runtime = siteRuntime(config, base);
   const parts: string[] = [];
-  if (config.siteUrl && config.feed) {
-    runtime.feedUrl = `${base}feed.json`;
+  if (runtime.feedUrl && config.siteUrl) {
     const absolute = new URL("feed.json", config.siteUrl).href;
     parts.push(
       `<link rel="alternate" type="application/feed+json" href="${absolute}"/>`,
     );
-  }
-  if (config.locales && config.locales.length >= 2) {
-    runtime.translationsUrl = `${base}i18n/translations.json`;
   }
   if (runtime.feedUrl || runtime.translationsUrl) {
     const json = JSON.stringify(runtime).replace(/</g, "\\u003c");

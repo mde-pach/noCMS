@@ -179,6 +179,8 @@
       },
       "devDependencies": {
         "@mdx-js/rollup": "^3.1.0",
+        "@nocms/core": "workspace:*",
+        "@nocms/derive": "workspace:*",
         "@nocms/editor": "workspace:*",
         "@nocms/props-discovery": "workspace:*",
         "@preact/preset-vite": "^2.10.0",

@@ -526,6 +526,21 @@ maps the config + loaded entries onto `DeriveInput` (`locales`/`siteUrl`/`feed`)
 already reads `theme.tokens`/`head.html`/`editor.json`) and derives `base`/`siteUrl`/`feed`
 from it. So `base`/`siteUrl`/`locales`/`feed` originate in exactly one place.
 
+**Runtime handoff.** `core`'s `siteRuntime(config, base)` derives a `SiteRuntime`
+(`{ base, feedUrl?, translationsUrl? }`, URLs base-relative) that the build embeds per page
+as `<script id="nocms-site">`; the ① consumers read it (`readSiteRuntime`) to locate the
+derived files. The build also emits the feed discovery `<link rel="alternate">` (absolute).
+
+**②→③ served-path — COORDINATION (CI lane owns it).** The runtime contract is only that the
+derived files are served **base-relative at the site root** (`/feed.json`,
+`/i18n/translations.json`, …) — the URLs `siteRuntime` emits and the sitemap/feed already use.
+*Where the publish Action writes them* (and how the build picks them up) is the CI session's to
+finalize; the starter demo commits them to `public/` (which the build copies to `dist/` root)
+so it works on checkout without the Action, and `bun run derive` regenerates them. The repo
+`.gitignore` notes ② artifacts belong on "a dedicated path/branch" — reconcile the demo's
+`public/` choice with that when the Action lands. Biome ignores the committed artifacts (they
+are generated, like `dist`/`vendor`).
+
 ### D1 — Package distribution model → **vendor a built bundle**
 A fork of `templates/starter` lives outside the monorepo and can't resolve
 `workspace:*`. **Decision: vendor built `@nocms/*` bundles into the template.** Most

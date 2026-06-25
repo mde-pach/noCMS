@@ -1,0 +1,53 @@
+{
+  "count": 5,
+  "entries": [
+    {
+      "collection": "posts",
+      "path": "content/posts/publish-with-one-click.mdx",
+      "route": "/posts/publish-with-one-click",
+      "data": {
+        "title": "Publish with one click",
+        "date": "2026-06-24",
+        "summary": "Editing is instant in the browser; publishing is an async GitHub Action."
+      }
+    },
+    {
+      "collection": "posts",
+      "path": "content/posts/tokens-as-bricks.mdx",
+      "route": "/posts/tokens-as-bricks",
+      "data": {
+        "title": "Theming with tokens, not code",
+        "date": "2026-06-22",
+        "summary": "Design tokens compile to CSS variables at runtime — restyle with no rebuild."
+      }
+    },
+    {
+      "collection": "posts",
+      "path": "content/posts/hello-nocms.mdx",
+      "route": "/posts/hello-nocms",
+      "data": {
+        "title": "Hello from a repo-backed CMS",
+        "date": "2026-06-20",
+        "summary": "Why the repo is the database, and what that buys you."
+      }
+    },
+    {
+      "collection": "pages",
+      "path": "content/index.mdx",
+      "route": "/",
+      "data": {
+        "title": "A CMS that lives in your repo",
+        "description": "Build a real website on GitHub, edit it in place, and publish with one click — nothing centralized to maintain."
+      }
+    },
+    {
+      "collection": "pages",
+      "path": "content/fr/index.mdx",
+      "route": "/fr",
+      "data": {
+        "title": "Un CMS qui vit dans votre dépôt",
+        "description": "Construisez un vrai site sur GitHub, modifiez-le sur place, et publiez en un clic."
+      }
+    }
+  ]
+}

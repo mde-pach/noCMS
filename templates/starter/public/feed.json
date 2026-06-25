@@ -1,0 +1,33 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "noCMS starter",
+  "home_page_url": "https://mde-pach.github.io/noCMS/",
+  "feed_url": "https://mde-pach.github.io/noCMS/feed.json",
+  "items": [
+    {
+      "id": "https://mde-pach.github.io/noCMS/posts/publish-with-one-click",
+      "url": "https://mde-pach.github.io/noCMS/posts/publish-with-one-click",
+      "title": "Publish with one click",
+      "content_text": "Publish with one click Editing, preview and theming happen at runtime in the browser — no build in the loop. Publishing is a discrete, asynchronous GitHub Action that prerenders the same component tree you previewed to static HTML. What you preview is exactly what you publish.",
+      "summary": "Editing is instant in the browser; publishing is an async GitHub Action.",
+      "date_published": "2026-06-24T00:00:00.000Z"
+    },
+    {
+      "id": "https://mde-pach.github.io/noCMS/posts/tokens-as-bricks",
+      "url": "https://mde-pach.github.io/noCMS/posts/tokens-as-bricks",
+      "title": "Theming with tokens, not code",
+      "content_text": "Theming with tokens, not code Colors, fonts, spacing and radius live in a flat file. They compile to CSS variables in the browser, so changing a token restyles the whole site instantly. Runtime theming never triggers a build — that is an architecture invariant, not an optimization.",
+      "summary": "Design tokens compile to CSS variables at runtime — restyle with no rebuild.",
+      "date_published": "2026-06-22T00:00:00.000Z"
+    },
+    {
+      "id": "https://mde-pach.github.io/noCMS/posts/hello-nocms",
+      "url": "https://mde-pach.github.io/noCMS/posts/hello-nocms",
+      "title": "Hello from a repo-backed CMS",
+      "content_text": "Hello from a repo backed CMS This post lives at . The ② batch tier reads the whole collection, emits , and the homepage's island lists it — no server, no database, just files the site serves. Edit this file on GitHub, publish, and the feed regenerates on the next Action run.",
+      "summary": "Why the repo is the database, and what that buys you.",
+      "date_published": "2026-06-20T00:00:00.000Z"
+    }
+  ],
+  "description": "Notes from a site that lives in its own git repo."
+}

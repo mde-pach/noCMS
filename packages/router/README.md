@@ -23,7 +23,9 @@ The package is two layers with a hard line between them:
 The canonical content-path ↔ route mapping is **not** here — it lives in
 `@nocms/core` because build (③), derive (②), and this runtime (①) all need one
 shared convention. This package re-exports `contentPathToRoute`,
-`routeToContentPath`, `normalizeRoutePath`, and `href` for convenience.
+`routeToContentPath`, `normalizeRoutePath`, `href`, `routeFromPathname` (strip the
+deployment base off `location.pathname`), and `localeLinks` (resolve a page's
+other-locale links from the derived `i18n/translations.json`) for convenience.
 
 ## Public API
 
@@ -73,8 +75,8 @@ nav.subscribe((match) => render(match));       // re-render the matched route
 
 **③ `@nocms/build`.** Build the route list from content with the same mapping the
 runtime uses (`routeTableFromEntries` / `contentPathToRoute`), so preview, build,
-and runtime cannot disagree on a content file's URL. (Follow-up: migrate build's
-local `contentPathToRoute` to core's.)
+and runtime cannot disagree on a content file's URL. (`@nocms/build` now consumes
+core's `contentPathToRoute` — its local copy was removed.)
 
 **② `@nocms/derive`.** Reuse `contentPathToRoute` to key manifests, feeds, and the
 search index by route, so every tier names a given content file with one URL.
@@ -83,6 +85,9 @@ search index by route, so every tier names a given content file with one URL.
 
 The matcher supports `:param` segments (`/posts/:slug`), but the **content-derived
 table is purely static** — each content file is its own route. `:param` exists so
-the derive/build tier can emit collection/pagination/i18n routes later without a
-matcher redesign. Generating those routes, and i18n locale prefixes, are deferred
-(see `DECISIONS.md` D5).
+the derive/build tier can emit collection/pagination routes later without a matcher
+redesign. **i18n locale prefixes are resolved** (D5): the locale is an ordinary
+leading static path segment (`/fr/about`), so the table stays locale-agnostic and
+the language switcher is driven by the derived `translations.json` (`localeLinks`),
+not by matcher locale logic. Generating collection/pagination routes is still
+deferred (see `DECISIONS.md` D5).

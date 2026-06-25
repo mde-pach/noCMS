@@ -1,0 +1,14 @@
+{
+  "locale": "fr",
+  "entries": [
+    {
+      "key": "/",
+      "route": "/fr",
+      "path": "content/fr/index.mdx",
+      "data": {
+        "title": "Un CMS qui vit dans votre dépôt",
+        "description": "Construisez un vrai site sur GitHub, modifiez-le sur place, et publiez en un clic."
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+---
+title: Hello from a repo-backed CMS
+date: 2026-06-20
+summary: Why the repo is the database, and what that buys you.
+---
+
+# Hello from a repo-backed CMS
+
+This post lives at `content/posts/hello-nocms.mdx`. The ② batch tier reads the whole
+collection, emits `feed.json`, and the homepage's `<LatestPosts/>` island lists it — no
+server, no database, just files the site serves.
+
+<Callout variant="tip">
+  Edit this file on GitHub, publish, and the feed regenerates on the next Action run.
+</Callout>

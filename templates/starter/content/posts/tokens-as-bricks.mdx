@@ -1,0 +1,13 @@
+---
+title: Theming with tokens, not code
+date: 2026-06-22
+summary: Design tokens compile to CSS variables at runtime — restyle with no rebuild.
+---
+
+# Theming with tokens, not code
+
+Colors, fonts, spacing and radius live in a flat `theme.tokens` file. They compile to CSS
+variables in the browser, so changing a token restyles the whole site instantly.
+
+<Badge variant="new">Runtime</Badge> theming never triggers a build — that is an architecture
+invariant, not an optimization.

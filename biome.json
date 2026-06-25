@@ -14,7 +14,12 @@
       "!node_modules",
       "!.claude",
       "!**/*.gen.ts",
-      "!**/vendor"
+      "!**/vendor",
+      "!templates/starter/public/feed.json",
+      "!templates/starter/public/search.json",
+      "!templates/starter/public/sitemap.xml",
+      "!templates/starter/public/manifest.json",
+      "!templates/starter/public/i18n"
     ]
   },
   "formatter": {

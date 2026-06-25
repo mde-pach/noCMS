@@ -3,6 +3,8 @@ title: A CMS that lives in your repo
 description: Build a real website on GitHub, edit it in place, and publish with one click — nothing centralized to maintain.
 ---
 
+<LanguageSwitcher />
+
 <Hero title="A CMS that lives in your repo" subtitle="Build a real website on GitHub, edit it in place, and publish with one click. The repo is the database — there is nothing centralized to maintain.">
   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", marginTop: "1.25rem" }}>
     <Button label="Edit this page" href="?edit" variant="primary" />
@@ -90,6 +92,16 @@ variables at runtime. Editing a token restyles the whole site instantly — with
   Open the editor and try the **Theming** panel — change the brand color or body font and
   watch every block on the page update live.
 </Callout>
+
+<Divider spacing="lg" />
+
+## Precomputed in the batch tier, served at runtime
+
+Search, feeds and translations are a function of the whole site, so they are precomputed by a
+GitHub Action (the ② tier) into plain files. The list below is the `<LatestPosts/>` island
+reading `feed.json` — no server, no database.
+
+<LatestPosts title="Latest posts" />
 
 <Divider spacing="lg" />
 

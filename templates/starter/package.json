@@ -7,6 +7,7 @@
   "description": "The fork-and-go starter site. Fork it, sign in with GitHub, and edit in-site.",
   "scripts": {
     "vendor": "bun scripts/vendor.ts",
+    "derive": "bun scripts/derive.ts",
     "predev": "bun scripts/vendor.ts",
     "dev": "vite",
     "prebuild": "bun scripts/vendor.ts",
@@ -23,6 +24,8 @@
   },
   "devDependencies": {
     "@mdx-js/rollup": "^3.1.0",
+    "@nocms/core": "workspace:*",
+    "@nocms/derive": "workspace:*",
     "@nocms/editor": "workspace:*",
     "@nocms/props-discovery": "workspace:*",
     "@preact/preset-vite": "^2.10.0",

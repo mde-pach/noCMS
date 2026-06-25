@@ -1,0 +1,10 @@
+{
+  "base": "/",
+  "siteUrl": "https://mde-pach.github.io/noCMS/",
+  "locales": ["en", "fr"],
+  "feed": {
+    "collections": ["posts"],
+    "title": "noCMS starter",
+    "description": "Notes from a site that lives in its own git repo."
+  }
+}

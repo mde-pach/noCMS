@@ -17,6 +17,8 @@ interface DeriveInput {
 }
 ```
 
+`locales`/`siteUrl`/`feed` are the deployment-wide knobs of the **site-config seam** (`@nocms/core`'s `SiteConfig`), so a caller builds the input from the one config instead of assembling it loosely: `deriveInputFromConfig(config, entries)`. `FeedConfig` is defined in core (re-exported here for back-compat). A CI Action loads `nocms.config.json` via `loadSiteConfig`, reads the corpus into `entries`, and calls `deriveAll(deriveInputFromConfig(config, entries))`.
+
 ## Jobs
 
 | Job | Runs when | Output |
@@ -44,6 +46,16 @@ Two files are translations of each other when their locale-stripped path matches
 
 A JSON Feed 1.1 document for chronological content. `feed.collections` selects which collections syndicate. Per item (all fields tolerant of missing frontmatter): `title` ← `data.title` (else filename); `date_published` ← `data.date` then `data.published` (RFC-3339; absent/unparseable → omitted); `summary` ← `data.summary` then `data.description`; `content_text` ← the MDX body reduced to plain text; `id`/`url` is the absolute page URL. Items sort by date desc (dateless last, then by URL) for clean committed output.
 
+## Consumers (① runtime)
+
+The artifacts are served as plain files at the site root (base-relative) and read at runtime:
+
+- `i18n/translations.json` → `@nocms/components`'s `LanguageSwitcher` (via core's `localeLinks`).
+- `feed.json` → `@nocms/components`'s `LatestPosts` (and any feed reader).
+- `search.json` → loaded with `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)` (`SEARCH_OPTIONS` is exported here; a runtime search-box consumer is a follow-up — see below).
+
+The build locates these for the runtime by embedding a `<script id="nocms-site">` with their base-relative URLs.
+
 ## Follow-up
 
-`deriveAll` is not yet wired into a GitHub Action — running these jobs and committing their artifacts off the session branch is build/CI plumbing, owned elsewhere.
+`deriveAll` is not yet wired into a GitHub Action — running these jobs and committing their artifacts (served from the site root, e.g. `public/`) is build/CI plumbing, owned elsewhere. A runtime **search box** that loads `search.json` is not built: it needs MiniSearch + `SEARCH_OPTIONS` without pulling the ②-tier `@nocms/derive` (and its remark/MDX deps) into the reader bundle, so `SEARCH_OPTIONS` (and the MiniSearch dependency) should move to a low tier first — flagged, not forked.

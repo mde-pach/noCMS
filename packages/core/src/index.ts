@@ -130,4 +130,5 @@ export {
   SITE_RUNTIME_ID,
   type SiteConfig,
   type SiteRuntime,
+  siteRuntime,
 } from "./site-config";
