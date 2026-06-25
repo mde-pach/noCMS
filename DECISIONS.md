@@ -326,10 +326,6 @@ Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manife
     discipline); item `id` is the absolute URL. Deterministic order: date desc, then dateless items
     by URL asc, for clean committed output.
 
-### D4 — Sandbox engine
-Plugin isolation: iframe + QuickJS-in-WASM vs iframe-only for v1 (§17 of the
-original vision). Affects `@nocms/sandbox`.
-
 ### D5 — URL / routing model
 
 **Path↔route mapping → RESOLVED, and it lives in `@nocms/core` (`route.ts`).** Build (③),
@@ -474,6 +470,53 @@ renderer or component registry). The contract:
   enough for the one-page starter. Params, collections, and pagination are D5.
 
 ## Resolved
+
+### D4 — Sandbox engine → **iframe-only for v1; QuickJS-in-WASM documented as a defense-in-depth escalation, not built.**
+
+The boundary that invariant #8 demands — plugin code never reaches the GitHub token, the
+host DOM, or the network by default — is **already provided by the browser's iframe**, an
+OS-vendor-hardened isolation primitive. A child iframe with `sandbox="allow-scripts"` and
+**no** `allow-same-origin` runs the plugin in a *null-origin* realm: it cannot read the host
+DOM, host cookies/`localStorage`, or make same-origin/credentialed requests, and it shares no
+globals with the host. The token lives only in the host/auth context and is **never** posted
+across — so the asset the boundary protects isn't even present in the realm a plugin runs in.
+The only channel is a transferred `MessagePort`, over which a **capability-scoped postMessage
+broker** dispatches a fixed, whitelisted method set keyed by `PluginManifest.capabilities`.
+Network is denied *structurally*, not just by refusing a method: when the `network` capability
+is absent the frame is created with a CSP whose `connect-src 'none'` blocks `fetch`/XHR/WS at
+the platform layer.
+
+- **iframe-only (chosen for v1).** Zero added runtime dependency — the sandbox *is* the
+  platform (satisfies the "prefer platform/stdlib; justify any dep" bar). Pure ① tier: no WASM
+  to download, no second toolchain. Plugins can render real UI (their own DOM inside the
+  frame), which the design requires ("sandboxed iframe (UI)"). The host-side broker — the part
+  that actually enforces capabilities — is identical no matter what runs inside the frame, so
+  it is the whole v1 surface and is unit-testable as pure protocol logic over injected ports.
+- **iframe + QuickJS-in-WASM (rejected for v1, kept as the escalation path).** QuickJS
+  (`quickjs-emscripten`, MIT — the MIT bar is *not* what disqualifies it) compiled to WASM
+  runs a JS interpreter *inside* the frame, so plugin *logic* sees only values explicitly
+  marshalled into its realm — not even the frame's own `window`/`fetch`/DOM. That is genuine
+  defense-in-depth, but it buys little against *this* threat model: the token is absent from
+  the frame regardless, and an iframe escape capable of defeating null-origin isolation is a
+  browser 0-day that a userland interpreter does not meaningfully harden against. It costs a
+  ~1MB+ WASM payload on the ① tier, a value-marshalling boundary, and a split execution model
+  (QuickJS for logic + iframe for UI) — disproportionate for v1. It becomes worth it only for
+  a future need iframe-only can't serve: running untrusted *logic with no UI realm of its own*,
+  or a hard second containment layer for a higher-risk capability. Documented now so it can
+  layer **behind the same broker** later without reshaping the protocol — mirroring how Search
+  recorded sharding and Router recorded the framework-router rejection rather than over-building
+  v1.
+
+**What v1 ships (`@nocms/sandbox`, host side):** a pure capability **broker** (`broker.ts`) that
+maps each `HostApi` method to its required `Capability` and refuses — without invoking the host —
+any call whose capability the owner did not grant (deny-by-default; the dispatch table is a fixed
+whitelist, so a plugin cannot reach an unlisted host property); a pure **protocol** (`protocol.ts`,
+typed request/response messages + guards); a **port** seam (`port.ts`) wiring the broker to any
+`MessagePort`-like channel (round-trip tested with a `MessageChannel` under happy-dom); a pure
+**frame policy** (`frame.ts`, `frameSandboxPolicy` → sandbox attr + CSP, network-deny-by-default)
+applied by the one DOM edge (`createSandboxFrame`); and a small guest **client** (`client.ts`) so
+plugin code speaks the protocol without ever holding a token. `loadPlugin` composes them at the
+edge. Side effects (DOM, the port transfer) sit at the boundary; the protocol core is pure.
 
 ### D1 — Package distribution model → **vendor a built bundle**
 A fork of `templates/starter` lives outside the monorepo and can't resolve
