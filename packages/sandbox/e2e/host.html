@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head><title>sandbox e2e host</title></head>
+  <body>
+    <!--
+      The host page: holds the (pretend) token and the real HostApi, loads the
+      guest into a sandboxed frame via loadPlugin, and records what the guest
+      reports on window.__E2E for the driver to read.
+    -->
+    <script type="module">
+      import { loadPlugin } from "./sandbox.js";
+
+      const TOKEN = "ghp_pretend_secret"; // never crosses to the guest
+      const host = {
+        registerComponent: () => {},
+        readContentModel: () => ({ pages: 3, token_is_here: false }),
+        contributeTokens: () => {
+          throw new Error("should never be reached — capability not granted");
+        },
+        contributeLayout: () => {},
+      };
+
+      const guest = await fetch("./guest.html").then((r) => r.text());
+
+      window.addEventListener("message", (event) => {
+        if (event.data?.__e2e) {
+          window.__E2E = { ...event.data.__e2e, tokenLeaked: guest.includes(TOKEN) };
+        }
+      });
+
+      // Owner approves content:read only — tokens:contribute and network are NOT granted.
+      loadPlugin(
+        { name: "demo", version: "1.0.0", integrity: "sha256-x", capabilities: ["content:read", "tokens:contribute", "network"] },
+        host,
+        { grant: ["content:read"], source: guest },
+      );
+    </script>
+  </body>
+</html>

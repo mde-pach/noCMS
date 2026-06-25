@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head><title>guest</title></head>
+  <body>
+    <!--
+      Runs inside the sandboxed, null-origin frame. It speaks the wire protocol
+      by hand (no @nocms/sandbox import) to prove the protocol is simple enough
+      for any plugin to implement, then reports its findings to the host page.
+    -->
+    <script>
+      const onReady = (event) => {
+        if (event.data?.kind !== "ready") return;
+        window.removeEventListener("message", onReady);
+
+        const port = event.ports[0];
+        const granted = event.data.capabilities;
+        const pending = new Map();
+        let id = 1;
+        port.onmessage = (e) => {
+          const m = e.data;
+          const p = pending.get(m.id);
+          if (!p) return;
+          pending.delete(m.id);
+          m.kind === "result" ? p.resolve(m.value) : p.reject(m);
+        };
+        port.start();
+        const call = (method, params = []) =>
+          new Promise((resolve, reject) => {
+            const i = id++;
+            pending.set(i, { resolve, reject });
+            port.postMessage({ protocol: "nocms/sandbox@1", kind: "invoke", id: i, method, params });
+          });
+
+        run(call, granted);
+      };
+      window.addEventListener("message", onReady);
+
+      async function run(call, granted) {
+        const out = { granted, hasParentDom: false };
+
+        // The realm must be isolated: no reach into the host DOM.
+        try {
+          out.hasParentDom = !!window.parent.document.body;
+        } catch {
+          out.hasParentDom = false; // SecurityError — exactly what we want
+        }
+
+        try {
+          out.read = await call("readContentModel");
+        } catch (e) {
+          out.readError = e.code;
+        }
+        try {
+          await call("contributeTokens", ["--brand: red"]);
+          out.tokens = "allowed";
+        } catch (e) {
+          out.tokensError = e.code;
+        }
+
+        // Network must be blocked by the frame CSP (connect-src 'none').
+        try {
+          await fetch("https://example.com/", { mode: "no-cors" });
+          out.network = "allowed";
+        } catch {
+          out.network = "blocked";
+        }
+
+        window.parent.postMessage({ __e2e: out }, "*");
+      }
+    </script>
+  </body>
+</html>

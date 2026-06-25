@@ -6,7 +6,295 @@ resolved, record the choice + rationale and move it to the "Resolved" section.
 
 ## Open
 
-### D2 — Editor engine architecture
+### D3 — Derive ② toolbox (per feature)
+Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manifest
+/feed shapes. Decide per feature; each may differ.
+
+- **Search → RESOLVED: MiniSearch (corpus-based engine), not Pagefind, not hand-rolled.** Two
+  forks were evaluated against the seam + the project values:
+  - *Pagefind* (and other HTML-crawlers / WASM sharded indexes like tinysearch) crawls *built
+    HTML*, so it can't consume `@nocms/derive`'s input (`CollectionEntry[]`) without inverting
+    the tier order — it would belong in ③, after the build, and brings WASM + no fuzzy. Its
+    sharded lazy-load wins only at large corpora; documented as the escalation path, not v1.
+  - *Hand-rolling* an inverted index (the first cut) gave zero ranking/fuzzy/prefix and would
+    mean owning the hard parts of search forever — exactly the reinvention the project avoids.
+  - **MiniSearch** (MIT, zero runtime deps, framework-agnostic) indexes the JSON corpus
+    directly and its serialize/load split maps onto the tiers: the ② Action builds the index
+    and `JSON.stringify`s it to one `search.json`; the ① runtime loads it with
+    `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)` and queries with real BM25 ranking +
+    fuzzy + prefix. Rejected FlexSearch/Fuse (Apache-2.0; project leans MIT) and Lunr
+    (bulky index, unmaintained). Good to ~50k docs — past that, escalate to sharding.
+  - `searchJob` (`search.ts`): `plainText` reduces an MDX body to searchable text by
+    lightweight regex (no MDX compiler in the batch tier — search tolerates lossy text);
+    MiniSearch owns tokenization/ranking. Build and runtime share `SEARCH_OPTIONS`
+    (`fields: [title, text]`, `storeFields: [collection, path, title, excerpt]`). Wired into
+    `deriveAll`. The one dependency added is justified: search relevance is hard, MiniSearch is
+    tiny + MIT + zero-dep, and reimplementing it well is disproportionate.
+- **i18n declaration → RESOLVED: locale directory (`content/<locale>/…`), default locale at the
+  content root.** Content declares a translation by *where the file lives*: the default locale
+  (the first entry in `locales`) is authored at the root (`content/about.mdx` → `/about`); every
+  other locale lives under its own directory (`content/fr/about.mdx` → `/fr/about`). Two files are
+  translations of each other when their locale-stripped path matches. Three forks were weighed
+  against the shared route mapping (invariant #5: text, line-mergeable) and editor-authorability:
+  - *Filename locale suffix* (`about.fr.mdx`): `contentPathToRoute` is shared, unchanged, across
+    all three tiers — it would map `about.fr.mdx` to `/about.fr`, an ugly route, unless locale
+    special-casing were pushed *into* core's mapping (forbidden here, and it would couple every
+    tier to a locale convention). Locale buried in a filename is also the least scannable.
+  - *Frontmatter `lang` + shared `translationKey`*: decouples locale from route (flexible) but
+    introduces a hidden, typo-prone shared-key invariant (a mistyped key silently unlinks a
+    translation) and requires parsing frontmatter just to learn a file's locale/group. Kept as the
+    escape hatch if non-parallel locale structures are ever needed.
+  - **Locale directory** wins because the locale is *structural* — the first path segment — so the
+    route falls out of core's existing `contentPathToRoute` with **zero core changes** and yields
+    the clean, real, prefix-based URLs (`/fr/about`) the rest of the site already serves. The
+    translation key is the canonical default-locale route (`contentPathToRoute` of the
+    locale-stripped path), so grouping reuses the one shared mapping instead of inventing a second.
+    Limitation (documented): the default locale must be authored at the root, not under
+    `content/<defaultLocale>/`.
+  - `i18nJob` (`i18n.ts`) is a no-op unless `locales` has ≥2 entries (a default + ≥1 translation).
+    It emits per-locale bundles `i18n/<locale>.json` (`{ locale, entries: [{ key, route, path,
+    data }] }` — the locale's content index, sorted by key) and a `i18n/translations.json`
+    (`{ defaultLocale, locales, groups: [{ key, translations: { <locale>: <route> } }] }`, groups
+    sorted by key) so the runtime can render a language switcher from a page's other-locale URLs.
+    Pure; missing translations simply omit that locale from the group.
+- **Feed shape → RESOLVED: JSON Feed 1.1, single format (hand-emitted, no dependency).** A feed is
+  a small, stable spec, so it is hand-emitted per the project dependency bar. Three forks:
+  - *RSS 2.0* is the most widely consumed but the loosest spec, and its RFC-822 dates need
+    locale-independent English month/day names — bug-prone to hand-roll correctly.
+  - *Atom 1.0* is the strictest/most-correct (RFC-3339 dates, required stable `id`/`updated`) but
+    the most verbose, and still carries XML-escaping pitfalls.
+  - **JSON Feed 1.1** wins on two project-specific axes: (1) the ②→① handoff — the runtime reads
+    it with plain `fetch`+`JSON.parse` (no XML parser), so the same file doubles as a syndication
+    feed *and* the data source for an in-site "latest" island; (2) hand-emission correctness —
+    `JSON.stringify` eliminates the entire class of XML-escaping and RFC-822 date bugs, and dates
+    are ISO-8601/RFC-3339, which we already produce. RSS/Atom XML syndication is the documented
+    escalation path (a second builder behind the same conditional-job seam), mirroring how Search
+    documented sharding rather than over-building v1.
+  - `feedJob` (`feed.ts`) is a no-op unless both `siteUrl` and a `feed` config (`{ collections,
+    title, description? }`) are present. Item URLs are absolute via `contentPathToRoute` + `siteUrl`
+    (identical to the sitemap, so feed and site agree). Field conventions (all tolerant of missing
+    values): `title` ← `data.title` (else filename-derived); `date_published` ← `data.date` then
+    `data.published`, parsed to RFC-3339 (unparseable/absent → omitted); `summary` ← `data.summary`
+    then `data.description`; `content_text` ← `plainText(body)` (no MDX compiler in ② — tier
+    discipline); item `id` is the absolute URL. Deterministic order: date desc, then dateless items
+    by URL asc, for clean committed output.
+
+### D5 — URL / routing model
+
+**Path↔route mapping → RESOLVED, and it lives in `@nocms/core` (`route.ts`).** Build (③),
+derive (②), and the client runtime (①) all need the same convention, so per the invariant
+"if two packages need the same thing it belongs in core" the canonical mapping is in core,
+not duplicated. `contentPathToRoute` (full `content/...` path or content-relative),
+`routeToContentPath` (inverse → canonical `index.mdx` form, since the forward map is
+many-to-one), `normalizeRoutePath`, and `href(routePath, base)` (joins a deployment base).
+Convention unchanged from the build's original: strip `.mdx?`, collapse a trailing `index`
+segment, root with `/` (`content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
+`content/posts/index.mdx → /posts`). FOLLOW-UP DONE: `@nocms/build` now consumes core's
+`contentPathToRoute` (its local copy was removed), so all three tiers share the one mapping.
+
+**Navigation model → RESOLVED: static multi-page is the default; an optional, dependency-free
+History-API soft-navigation enhancement is provided; no client-router framework is adopted.**
+
+- *The fork.* Static multi-page (every `<a href>` is a real page load against prerendered
+  HTML — zero routing JS) vs. a client router that swaps views via the History API (soft
+  navigation, preserved JS state, no flash).
+- *Decision.* **Static multi-page is the foundation.** The build already prerenders every
+  route to view-source-able static HTML (D6), GitHub Pages serves it, and a content site that
+  navigates with zero routing JS is the most robust and most decentralized option (invariant
+  #2: nothing the project runs can break a site; a site with no router can't have a broken
+  router). Soft navigation is a **progressive enhancement**, not the base layer.
+- *The enhancement.* `@nocms/router`'s `startNavigation(table, { base })` — a ~80-line
+  History-API interceptor over the route table: it catches same-origin, unmodified, non-target
+  /-download left-clicks whose pathname matches a known route, `pushState`s instead of
+  reloading, mirrors back/forward via `popstate`, and exposes the current route via
+  `current()` + `subscribe()`. Same-origin clicks to *unmatched* paths (assets, unknown pages)
+  fall through to a normal page load. It is framework-agnostic (emits route changes; the host
+  renders) and its DOM/History access is injected (`options.window`) so the table logic that
+  drives it unit-tests under happy-dom. **Off by default** — a site opts in by calling it.
+- *Why build it, not adopt preact-iso / wouter.* Both are JSX-component-route routers
+  (`<Router><Route path=… component=…/></Router>`): they own a component-per-route model and
+  (preact-iso) async lazy-loading + suspense hydration. noCMS's model is content-file-based
+  over the *one* mdast renderer — there is no component-per-route tree to express, so a
+  framework router would impose a second routing model and a hard Preact-router dependency for
+  a need that is, here, just "intercept a click and tell me the matched route." That fails the
+  project's "prefer stdlib, justify any dep" bar (the same bar that admitted MiniSearch only
+  after hand-rolling search proved disproportionate — here the inverse holds: the in-house
+  interceptor is tiny and the dep buys nothing). Rejected: **preact-iso** (couples routing to a
+  JSX `<Router>` + lazy/suspense model we don't use; Preact-locked), **wouter** (~2.2kB, same
+  JSX-route model), and **React Router** (heavy, wrong framework).
+
+**Sub-decisions (recorded; the decision-free core is built around them):**
+
+- *Dynamic params.* The matcher supports `:param` segments (e.g. `/posts/:slug`, multi-param,
+  percent-decoded, static-beats-param specificity), but the **content-derived table is purely
+  static** — every content file is its own route, so file-based content needs no param routes.
+  `:param` support exists so derive/② or build/③ can *emit* param/collection/pagination routes
+  later without a matcher redesign. **DEFERRED:** who generates collection/pagination routes
+  (e.g. `/posts/page/:n`) and how — a derive/build concern, not the router model.
+- *i18n locale prefixes.* **RESOLVED: the locale is an ordinary leading static path segment;
+  the route table stays locale-agnostic.** The i18n content convention (D3) already authors a
+  non-default locale under its own directory (`content/fr/about.mdx`) and the default locale at
+  the root (`content/about.mdx`), so core's `contentPathToRoute` yields `/fr/about` and `/about`
+  as plain static routes with **zero** special-casing — every localized page is its own
+  prerendered route, consistent with "every content file is its own route." The language
+  switcher is driven entirely by the derived `i18n/translations.json` (core's
+  `localeLinks(manifest, currentRoute, base)`: find the group containing the current route, emit
+  one `href` per locale), **not** by route-pattern locale logic. Rejected the two deferred
+  shapes: a **`:lang` leading param** would impose a dynamic-route model where none is needed
+  (the locale set is finite and every page is static) and force the matcher to special-case the
+  first segment; **locale-as-second-base-segment** would fragment the one shared route table
+  per locale. So the matcher is untouched, and the default locale simply has no prefix.
+- *Page shell / layout* (overlaps D6). **The broad layout system stays DEFERRED; resolved
+  minimally for the runtime-derive consumers:** chrome that needs runtime data (the language
+  switcher, the latest-feed list) ships as **island components authored into content**, reusing
+  the existing island hydration — NOT a new build-emitted shell/layout. Only head-level metadata
+  is build-emitted: the feed discovery `<link rel="alternate">` and a `<script id="nocms-site">`
+  carrying the base-relative URLs of the ② derived files, both injected into `<head>` by the
+  build (like the favicon / `head.html`). So a published page hosts these consumers wherever the
+  author drops `<LanguageSwitcher/>` / `<LatestPosts/>`, and the build owns only `<head>` — the
+  content-tier-layout-vs-emitted-shell question is untouched. The router still provides the
+  matched route + payload; it does not own layout.
+
+**Integration seam (for the merge — `@nocms/router` is not wired into anything yet):**
+- `@nocms/build` (③): build its route list with `routeTableFromEntries`/`contentPathToRoute`
+  from core (its local `contentPathToRoute` has been removed in favour of core's).
+- `templates/starter` (①): emit normal `<a href={href(route, base)}>` links (works with zero
+  JS); optionally, in a hydrated entry, call `startNavigation(table, { base })` and re-render
+  the matched route on `subscribe` for soft navigation. Starter wiring is the integrator's
+  follow-up (the parallel lane owns the starter).
+- `@nocms/derive` (②): reuse `contentPathToRoute` for route-keyed manifests/feeds/search so
+  every tier agrees on one URL for a given content file.
+
+### D6 — Build SSG shape
+
+**Static prerender path: DONE (custom render loop over the one renderer, no Vite SSG).**
+`buildSite` (`@nocms/build`) loads `content/**/*.mdx` → routes, parses `theme.tokens` → CSS
+vars, builds the component map from `@nocms/components`, prerenders each route via
+`prerenderRoutes` → `renderToHtml` (the same renderer the editor previews with, so invariant
+#1 holds), and emits clean-URL static HTML (`/` → `index.html`, `/x` → `x/index.html`) with
+token CSS inlined in `<head>` and `public/` copied, respecting `base` for project Pages. The
+starter's `build` script runs it (`scripts/build.ts`); `bun run build` yields a
+view-source-able static `dist/` (real markup, no SPA shell). Chose a render-and-emit loop
+over `@preact/preset-vite`'s prerender: the renderer already produces the exact tree, so Vite
+SSG would add a second toolchain for no gain on the static path. `@nocms/build` +
+`@nocms/renderer` are vendored (node target — they pull the MDX compiler, fine for the CI
+build bundle) into the starter so a fork builds with no monorepo (D1) — verified against a
+monorepo-less copy.
+
+**Island hydration / client JS — RESOLVED (the interactivity layer over the static path).**
+Curated components prerender static; an interactive subset hydrates in the browser, reusing
+the one renderer's component model (Preact `hydrate` over the same components — never a second
+renderer or component registry). The contract:
+
+- *How an island boundary is declared → the registry `island: true` flag (per-component).* A
+  component is interactive because of what it *is*, declared once on its `@nocms/components`
+  registry entry (`{ component, island?: boolean }`) — not per usage. **Rejected: per-usage MDX
+  annotation** (Astro-style `<Counter client:load/>`). Per-usage would scatter the decision
+  across every call site and add an annotation DSL, against the project's component-defined
+  philosophy (props-discovery already derives behavior from the component, not from
+  annotations). Trade-off accepted: every instance of an island hydrates; per-instance opt-out
+  (e.g. a static `<Counter/>` in a context that never interacts) is a future escape hatch, not
+  v1. A thin per-usage override could layer on later without changing the marker/hydration
+  format.
+- *Marker + props format.* At prerender each island root is wrapped in a layout-neutral
+  (`display:contents`) `<div data-island="<Name>" data-island-props="<json>">` around the real
+  component's SSR output. Props serialization is **JSON in the `data-island-props` attribute**;
+  only JSON-serializable props travel. `children` and non-serializable props (functions, VNodes)
+  are dropped — children are reconstructed from the marker's SSR HTML at hydration. **v1 limit:**
+  islands that need their children (slotted content) re-rendered client-side aren't supported
+  yet (the proof island, `Counter`, is configured purely by serializable props); richer
+  slot-preserving hydration is a follow-up. Detection/serialization/wrapping live in
+  `@nocms/renderer` (`islands.ts`) and are pure (no DOM, no MDX) so they test without a browser;
+  `hydrateIslands` is the only DOM-touching seam.
+- *Manifest.* `collectIslands(tree, identify)` is the pure VNode-tree walk (names + per-instance
+  props) for a consumer holding a resolved tree (the editor). The **prerender path can't walk**
+  the tree (an MDX document renders lazily — there's no resolved tree before output), so the
+  per-page manifest is read back from the emitted markers (`islandNamesFromHtml`). Both compute
+  the same island-name set from the two representations a caller actually has (tree vs HTML).
+- *Partial, not full, hydration.* Only island sub-trees ship interactivity; island-free pages
+  emit **zero** client JS and stay byte-identical to the static-only output. (Decided against
+  whole-page hydration: it would force all content through client JS and defeat the
+  view-source-able static guarantee.)
+- *Client-JS bundling strategy → bundle once at vendor time (D1), serve a committed artifact.*
+  The island client entry (`@nocms/build`'s `island-client.ts`: import the registry +
+  `hydrateIslands`, run on load) is bundled to a self-contained browser ESM file at *vendor*
+  time in the monorepo — `Bun.build`, `target: browser`, preact **inlined** (Pages serves static
+  files, no resolver), tree-shaking the MDX compiler out — and **committed** alongside the
+  vendored `@nocms/build` bundle. `buildSite` copies it to `dist/_nocms/islands.js` and injects
+  `<script type="module">` only into pages with islands. This keeps the publish path one
+  toolchain (the Bun-based render-and-emit loop, no Vite SSG) and self-contained for forks (the
+  fork serves the committed bundle, never rebuilds it). **Rejected: bundling at site-build time**
+  (re-introduces a per-build bundler step and, in a fork resolving `@nocms/renderer` to the
+  node-target vendored bundle, would risk shipping the MDX compiler to readers).
+  `nocmsVitePlugins()` exposes the same client entry as a Vite virtual module so the dev server
+  and the publish bundle share one island entry.
+- *Page shell / layout.* The prerender emits only the content tree. The starter's dev runtime
+  (`src/main.tsx`) wraps content in an `App` shell (centered container, body font/color); the
+  static output does not, so dev and publish diverge on chrome. Where layout lives (a
+  content-tier layout vs. an emitted shell) is unsettled — likely tied to D5. Flagged, not
+  guessed.
+- *Multi-page routing.* `buildSite` maps `index.mdx`→`/`, `x.mdx`→`/x`, `x/index.mdx`→`/x` —
+  enough for the one-page starter. Params, collections, and pagination are D5.
+
+## Resolved
+
+### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**
+
+**Decision.** The editing surface is a **bespoke composition of noCMS's own packages**, not
+an adopted visual builder. The live site *is* the canvas: `@nocms/renderer` renders the
+MDX→Preact tree in editor mode (annotated with source positions) — the *same* tree the
+publish build prerenders — so "what you preview is what you publish" (invariant #1) holds by
+construction, with no second renderer or component model. MDX text is the source of truth
+(invariant #5); the in-memory model is its mdast tree. The editing surfaces, all over that one
+tree (`mountEditor`/`shell.tsx` is the loop):
+- *Select* — a canvas click resolves via injected `data-mdx-pos` source offsets → mdast node
+  path (`position.ts`), then up to the meaningful node (`selectable.ts`); tracked by
+  **index-path** (offset-stable across edits) and drawn with a non-interactive overlay.
+- *Configure* — `@nocms/props-discovery` schemas (injected ahead of time — live TS-compiler
+  discovery is a build/vendor step, impractical in-browser) drive a control-per-prop panel that
+  mutates the JSX node's attributes (`props-panel.tsx`, `jsx-attributes.ts`); never raw JSON
+  (invariant #10).
+- *Edit text in place* (D2a) — a transient ProseMirror view over a block's mdast inline nodes
+  (`@nocms/prose`), serialized back to mdast on commit.
+- *Theme* (tokens-as-bricks) — `@nocms/tokens` runtime CSS variables rewritten into one
+  `<style>` live; never a rebuild (invariant #3).
+- *Persist* — re-serialize mdast→MDX (`mdx-document.ts`, D2b lossless round-trip) and fire
+  `onChange`; saving/publishing wires onto that seam (`@nocms/session`, D7).
+
+**Rejected.**
+- *Adopt a component visual builder* (Puck, Craft.js, Plasmic, Builder.io) — each disqualified
+  by a locked **JSON-tree data model** (against invariant #5: layout is line-mergeable MDX
+  text), a **centralized/hosted** editor (against invariant #2: decentralized), or dormancy.
+  Kept as UX/architecture references only.
+- *A second renderer or component model for the canvas* — violates invariant #1; the whole
+  correctness property is one renderer, two moments.
+- *ProseMirror / Lexical / Slate as the document source of truth* (D2a) — every WYSIWYG
+  framework owns its own JSON model and silently drops inline MDX constructs it has no handler
+  for. So the mdast↔PM transformer is **built in-house on ProseMirror core** (vanilla, no
+  editor-framework lock), modeling inline MDX atoms as schema atom nodes that survive
+  deterministically. TipTap (a wrapper over the same engine) is not adopted.
+
+**Adopted dependencies (the only ones, all MIT-compatible).** ProseMirror core for the prose
+widget. A DnD primitive (Pragmatic DnD) for brick insertion is the documented next increment,
+not yet wired.
+
+**Resolved sub-decisions.** D2a (prose widget) → ProseMirror-core transient view over mdast
+(`@nocms/prose`), lossless round-trip verified. D2b (persist MDX text, not PM JSON) → verified
+structurally lossless, stable fixpoint.
+
+**Open follow-up.** D2c — re-serialization currently normalizes cosmetic formatting (e.g.
+bullet `-`→`*`); minimizing diff noise so git line-merges stay clean is a deferrable
+refinement, not an architecture blocker.
+
+**Post-v1 seams (flagged, not built).** Block-level prose structure (Enter/Backspace block
+ops — `isProseEditable` is paragraph+heading only); brick insertion (DnD + a layout-brick
+library + AST insert); schema production via `discoverControls` at build/vendor time (the
+starter's are hand-authored); fork-vendoring `@nocms/editor` (D1); media picker (D6);
+plugin-contributed bricks (D4).
+
+The full research and the implementation map are retained below.
+
+#### D2 — research & implementation detail
 
 **Product vision (Maxime, the north star).** A flexible, versatile website builder that
 *feels Figma-like* but targets **non-developers/non-designers**: assemble sites from
@@ -52,7 +340,7 @@ git, never as a string, self-hosted; **Onlook** — DOM element ↔ source-locat
 in-site editing; **Puck** — cleanest field-config + DropZone WYSIWYG UX; **GrapesJS** —
 builder panel/trait UX.
 
-**Editor build status (resume here):**
+**v1 implementation (complete — `bun run verify` green):**
 1. ✅ Document seam — `parseMdx`/`serializeMdx` (D2b verified).
 2. ✅ Selection mapping core — `position.ts` (`nodeAtOffset`/`deepestNodeAtOffset`/
    `nearestOfType`): a click's source offset → the mdast node path. Pure + tested.
@@ -248,246 +536,52 @@ provide context at the canvas root), heuristic async-render timing.
 - D2c — how AST mutations re-serialize while preserving unrelated formatting
   (minimize diff noise so git line-merges stay clean).
 
-**Recommendation:** adopt the descriptor-driven + render-the-real-component
-philosophy; invert the data model to MDX-text/AST; reuse `@nocms/renderer` and
-`@nocms/props-discovery`; map via source positions. Prototype D2b (lossless
-round-trip) first — it is the riskiest assumption.
+### D4 — Sandbox engine → **iframe-only for v1; QuickJS-in-WASM documented as a defense-in-depth escalation, not built.**
 
-### D3 — Derive ② toolbox (per feature)
-Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manifest
-/feed shapes. Decide per feature; each may differ.
+The boundary that invariant #8 demands — plugin code never reaches the GitHub token, the
+host DOM, or the network by default — is **already provided by the browser's iframe**, an
+OS-vendor-hardened isolation primitive. A child iframe with `sandbox="allow-scripts"` and
+**no** `allow-same-origin` runs the plugin in a *null-origin* realm: it cannot read the host
+DOM, host cookies/`localStorage`, or make same-origin/credentialed requests, and it shares no
+globals with the host. The token lives only in the host/auth context and is **never** posted
+across — so the asset the boundary protects isn't even present in the realm a plugin runs in.
+The only channel is a transferred `MessagePort`, over which a **capability-scoped postMessage
+broker** dispatches a fixed, whitelisted method set keyed by `PluginManifest.capabilities`.
+Network is denied *structurally*, not just by refusing a method: when the `network` capability
+is absent the frame is created with a CSP whose `connect-src 'none'` blocks `fetch`/XHR/WS at
+the platform layer.
 
-- **Search → RESOLVED: MiniSearch (corpus-based engine), not Pagefind, not hand-rolled.** Two
-  forks were evaluated against the seam + the project values:
-  - *Pagefind* (and other HTML-crawlers / WASM sharded indexes like tinysearch) crawls *built
-    HTML*, so it can't consume `@nocms/derive`'s input (`CollectionEntry[]`) without inverting
-    the tier order — it would belong in ③, after the build, and brings WASM + no fuzzy. Its
-    sharded lazy-load wins only at large corpora; documented as the escalation path, not v1.
-  - *Hand-rolling* an inverted index (the first cut) gave zero ranking/fuzzy/prefix and would
-    mean owning the hard parts of search forever — exactly the reinvention the project avoids.
-  - **MiniSearch** (MIT, zero runtime deps, framework-agnostic) indexes the JSON corpus
-    directly and its serialize/load split maps onto the tiers: the ② Action builds the index
-    and `JSON.stringify`s it to one `search.json`; the ① runtime loads it with
-    `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)` and queries with real BM25 ranking +
-    fuzzy + prefix. Rejected FlexSearch/Fuse (Apache-2.0; project leans MIT) and Lunr
-    (bulky index, unmaintained). Good to ~50k docs — past that, escalate to sharding.
-  - `searchJob` (`search.ts`): `plainText` reduces an MDX body to searchable text by
-    lightweight regex (no MDX compiler in the batch tier — search tolerates lossy text);
-    MiniSearch owns tokenization/ranking. Build and runtime share `SEARCH_OPTIONS`
-    (`fields: [title, text]`, `storeFields: [collection, path, title, excerpt]`). Wired into
-    `deriveAll`. The one dependency added is justified: search relevance is hard, MiniSearch is
-    tiny + MIT + zero-dep, and reimplementing it well is disproportionate.
-- **i18n declaration → RESOLVED: locale directory (`content/<locale>/…`), default locale at the
-  content root.** Content declares a translation by *where the file lives*: the default locale
-  (the first entry in `locales`) is authored at the root (`content/about.mdx` → `/about`); every
-  other locale lives under its own directory (`content/fr/about.mdx` → `/fr/about`). Two files are
-  translations of each other when their locale-stripped path matches. Three forks were weighed
-  against the shared route mapping (invariant #5: text, line-mergeable) and editor-authorability:
-  - *Filename locale suffix* (`about.fr.mdx`): `contentPathToRoute` is shared, unchanged, across
-    all three tiers — it would map `about.fr.mdx` to `/about.fr`, an ugly route, unless locale
-    special-casing were pushed *into* core's mapping (forbidden here, and it would couple every
-    tier to a locale convention). Locale buried in a filename is also the least scannable.
-  - *Frontmatter `lang` + shared `translationKey`*: decouples locale from route (flexible) but
-    introduces a hidden, typo-prone shared-key invariant (a mistyped key silently unlinks a
-    translation) and requires parsing frontmatter just to learn a file's locale/group. Kept as the
-    escape hatch if non-parallel locale structures are ever needed.
-  - **Locale directory** wins because the locale is *structural* — the first path segment — so the
-    route falls out of core's existing `contentPathToRoute` with **zero core changes** and yields
-    the clean, real, prefix-based URLs (`/fr/about`) the rest of the site already serves. The
-    translation key is the canonical default-locale route (`contentPathToRoute` of the
-    locale-stripped path), so grouping reuses the one shared mapping instead of inventing a second.
-    Limitation (documented): the default locale must be authored at the root, not under
-    `content/<defaultLocale>/`.
-  - `i18nJob` (`i18n.ts`) is a no-op unless `locales` has ≥2 entries (a default + ≥1 translation).
-    It emits per-locale bundles `i18n/<locale>.json` (`{ locale, entries: [{ key, route, path,
-    data }] }` — the locale's content index, sorted by key) and a `i18n/translations.json`
-    (`{ defaultLocale, locales, groups: [{ key, translations: { <locale>: <route> } }] }`, groups
-    sorted by key) so the runtime can render a language switcher from a page's other-locale URLs.
-    Pure; missing translations simply omit that locale from the group.
-- **Feed shape → RESOLVED: JSON Feed 1.1, single format (hand-emitted, no dependency).** A feed is
-  a small, stable spec, so it is hand-emitted per the project dependency bar. Three forks:
-  - *RSS 2.0* is the most widely consumed but the loosest spec, and its RFC-822 dates need
-    locale-independent English month/day names — bug-prone to hand-roll correctly.
-  - *Atom 1.0* is the strictest/most-correct (RFC-3339 dates, required stable `id`/`updated`) but
-    the most verbose, and still carries XML-escaping pitfalls.
-  - **JSON Feed 1.1** wins on two project-specific axes: (1) the ②→① handoff — the runtime reads
-    it with plain `fetch`+`JSON.parse` (no XML parser), so the same file doubles as a syndication
-    feed *and* the data source for an in-site "latest" island; (2) hand-emission correctness —
-    `JSON.stringify` eliminates the entire class of XML-escaping and RFC-822 date bugs, and dates
-    are ISO-8601/RFC-3339, which we already produce. RSS/Atom XML syndication is the documented
-    escalation path (a second builder behind the same conditional-job seam), mirroring how Search
-    documented sharding rather than over-building v1.
-  - `feedJob` (`feed.ts`) is a no-op unless both `siteUrl` and a `feed` config (`{ collections,
-    title, description? }`) are present. Item URLs are absolute via `contentPathToRoute` + `siteUrl`
-    (identical to the sitemap, so feed and site agree). Field conventions (all tolerant of missing
-    values): `title` ← `data.title` (else filename-derived); `date_published` ← `data.date` then
-    `data.published`, parsed to RFC-3339 (unparseable/absent → omitted); `summary` ← `data.summary`
-    then `data.description`; `content_text` ← `plainText(body)` (no MDX compiler in ② — tier
-    discipline); item `id` is the absolute URL. Deterministic order: date desc, then dateless items
-    by URL asc, for clean committed output.
+- **iframe-only (chosen for v1).** Zero added runtime dependency — the sandbox *is* the
+  platform (satisfies the "prefer platform/stdlib; justify any dep" bar). Pure ① tier: no WASM
+  to download, no second toolchain. Plugins can render real UI (their own DOM inside the
+  frame), which the design requires ("sandboxed iframe (UI)"). The host-side broker — the part
+  that actually enforces capabilities — is identical no matter what runs inside the frame, so
+  it is the whole v1 surface and is unit-testable as pure protocol logic over injected ports.
+- **iframe + QuickJS-in-WASM (rejected for v1, kept as the escalation path).** QuickJS
+  (`quickjs-emscripten`, MIT — the MIT bar is *not* what disqualifies it) compiled to WASM
+  runs a JS interpreter *inside* the frame, so plugin *logic* sees only values explicitly
+  marshalled into its realm — not even the frame's own `window`/`fetch`/DOM. That is genuine
+  defense-in-depth, but it buys little against *this* threat model: the token is absent from
+  the frame regardless, and an iframe escape capable of defeating null-origin isolation is a
+  browser 0-day that a userland interpreter does not meaningfully harden against. It costs a
+  ~1MB+ WASM payload on the ① tier, a value-marshalling boundary, and a split execution model
+  (QuickJS for logic + iframe for UI) — disproportionate for v1. It becomes worth it only for
+  a future need iframe-only can't serve: running untrusted *logic with no UI realm of its own*,
+  or a hard second containment layer for a higher-risk capability. Documented now so it can
+  layer **behind the same broker** later without reshaping the protocol — mirroring how Search
+  recorded sharding and Router recorded the framework-router rejection rather than over-building
+  v1.
 
-### D4 — Sandbox engine
-Plugin isolation: iframe + QuickJS-in-WASM vs iframe-only for v1 (§17 of the
-original vision). Affects `@nocms/sandbox`.
-
-### D5 — URL / routing model
-
-**Path↔route mapping → RESOLVED, and it lives in `@nocms/core` (`route.ts`).** Build (③),
-derive (②), and the client runtime (①) all need the same convention, so per the invariant
-"if two packages need the same thing it belongs in core" the canonical mapping is in core,
-not duplicated. `contentPathToRoute` (full `content/...` path or content-relative),
-`routeToContentPath` (inverse → canonical `index.mdx` form, since the forward map is
-many-to-one), `normalizeRoutePath`, and `href(routePath, base)` (joins a deployment base).
-Convention unchanged from the build's original: strip `.mdx?`, collapse a trailing `index`
-segment, root with `/` (`content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
-`content/posts/index.mdx → /posts`). FOLLOW-UP DONE: `@nocms/build` now consumes core's
-`contentPathToRoute` (its local copy was removed), so all three tiers share the one mapping.
-
-**Navigation model → RESOLVED: static multi-page is the default; an optional, dependency-free
-History-API soft-navigation enhancement is provided; no client-router framework is adopted.**
-
-- *The fork.* Static multi-page (every `<a href>` is a real page load against prerendered
-  HTML — zero routing JS) vs. a client router that swaps views via the History API (soft
-  navigation, preserved JS state, no flash).
-- *Decision.* **Static multi-page is the foundation.** The build already prerenders every
-  route to view-source-able static HTML (D6), GitHub Pages serves it, and a content site that
-  navigates with zero routing JS is the most robust and most decentralized option (invariant
-  #2: nothing the project runs can break a site; a site with no router can't have a broken
-  router). Soft navigation is a **progressive enhancement**, not the base layer.
-- *The enhancement.* `@nocms/router`'s `startNavigation(table, { base })` — a ~80-line
-  History-API interceptor over the route table: it catches same-origin, unmodified, non-target
-  /-download left-clicks whose pathname matches a known route, `pushState`s instead of
-  reloading, mirrors back/forward via `popstate`, and exposes the current route via
-  `current()` + `subscribe()`. Same-origin clicks to *unmatched* paths (assets, unknown pages)
-  fall through to a normal page load. It is framework-agnostic (emits route changes; the host
-  renders) and its DOM/History access is injected (`options.window`) so the table logic that
-  drives it unit-tests under happy-dom. **Off by default** — a site opts in by calling it.
-- *Why build it, not adopt preact-iso / wouter.* Both are JSX-component-route routers
-  (`<Router><Route path=… component=…/></Router>`): they own a component-per-route model and
-  (preact-iso) async lazy-loading + suspense hydration. noCMS's model is content-file-based
-  over the *one* mdast renderer — there is no component-per-route tree to express, so a
-  framework router would impose a second routing model and a hard Preact-router dependency for
-  a need that is, here, just "intercept a click and tell me the matched route." That fails the
-  project's "prefer stdlib, justify any dep" bar (the same bar that admitted MiniSearch only
-  after hand-rolling search proved disproportionate — here the inverse holds: the in-house
-  interceptor is tiny and the dep buys nothing). Rejected: **preact-iso** (couples routing to a
-  JSX `<Router>` + lazy/suspense model we don't use; Preact-locked), **wouter** (~2.2kB, same
-  JSX-route model), and **React Router** (heavy, wrong framework).
-
-**Sub-decisions (recorded; the decision-free core is built around them):**
-
-- *Dynamic params.* The matcher supports `:param` segments (e.g. `/posts/:slug`, multi-param,
-  percent-decoded, static-beats-param specificity), but the **content-derived table is purely
-  static** — every content file is its own route, so file-based content needs no param routes.
-  `:param` support exists so derive/② or build/③ can *emit* param/collection/pagination routes
-  later without a matcher redesign. **DEFERRED:** who generates collection/pagination routes
-  (e.g. `/posts/page/:n`) and how — a derive/build concern, not the router model.
-- *i18n locale prefixes.* **RESOLVED: the locale is an ordinary leading static path segment;
-  the route table stays locale-agnostic.** The i18n content convention (D3) already authors a
-  non-default locale under its own directory (`content/fr/about.mdx`) and the default locale at
-  the root (`content/about.mdx`), so core's `contentPathToRoute` yields `/fr/about` and `/about`
-  as plain static routes with **zero** special-casing — every localized page is its own
-  prerendered route, consistent with "every content file is its own route." The language
-  switcher is driven entirely by the derived `i18n/translations.json` (core's
-  `localeLinks(manifest, currentRoute, base)`: find the group containing the current route, emit
-  one `href` per locale), **not** by route-pattern locale logic. Rejected the two deferred
-  shapes: a **`:lang` leading param** would impose a dynamic-route model where none is needed
-  (the locale set is finite and every page is static) and force the matcher to special-case the
-  first segment; **locale-as-second-base-segment** would fragment the one shared route table
-  per locale. So the matcher is untouched, and the default locale simply has no prefix.
-- *Page shell / layout* (overlaps D6). **The broad layout system stays DEFERRED; resolved
-  minimally for the runtime-derive consumers:** chrome that needs runtime data (the language
-  switcher, the latest-feed list) ships as **island components authored into content**, reusing
-  the existing island hydration — NOT a new build-emitted shell/layout. Only head-level metadata
-  is build-emitted: the feed discovery `<link rel="alternate">` and a `<script id="nocms-site">`
-  carrying the base-relative URLs of the ② derived files, both injected into `<head>` by the
-  build (like the favicon / `head.html`). So a published page hosts these consumers wherever the
-  author drops `<LanguageSwitcher/>` / `<LatestPosts/>`, and the build owns only `<head>` — the
-  content-tier-layout-vs-emitted-shell question is untouched. The router still provides the
-  matched route + payload; it does not own layout.
-
-**Integration seam (for the merge — `@nocms/router` is not wired into anything yet):**
-- `@nocms/build` (③): build its route list with `routeTableFromEntries`/`contentPathToRoute`
-  from core (and migrate its local `contentPathToRoute` to core's — the noted follow-up).
-- `templates/starter` (①): emit normal `<a href={href(route, base)}>` links (works with zero
-  JS); optionally, in a hydrated entry, call `startNavigation(table, { base })` and re-render
-  the matched route on `subscribe` for soft navigation. Starter wiring is the integrator's
-  follow-up (the parallel lane owns the starter).
-- `@nocms/derive` (②): reuse `contentPathToRoute` for route-keyed manifests/feeds/search so
-  every tier agrees on one URL for a given content file.
-
-### D6 — Build SSG shape
-
-**Static prerender path: DONE (custom render loop over the one renderer, no Vite SSG).**
-`buildSite` (`@nocms/build`) loads `content/**/*.mdx` → routes, parses `theme.tokens` → CSS
-vars, builds the component map from `@nocms/components`, prerenders each route via
-`prerenderRoutes` → `renderToHtml` (the same renderer the editor previews with, so invariant
-#1 holds), and emits clean-URL static HTML (`/` → `index.html`, `/x` → `x/index.html`) with
-token CSS inlined in `<head>` and `public/` copied, respecting `base` for project Pages. The
-starter's `build` script runs it (`scripts/build.ts`); `bun run build` yields a
-view-source-able static `dist/` (real markup, no SPA shell). Chose a render-and-emit loop
-over `@preact/preset-vite`'s prerender: the renderer already produces the exact tree, so Vite
-SSG would add a second toolchain for no gain on the static path. `@nocms/build` +
-`@nocms/renderer` are vendored (node target — they pull the MDX compiler, fine for the CI
-build bundle) into the starter so a fork builds with no monorepo (D1) — verified against a
-monorepo-less copy.
-
-**Island hydration / client JS — RESOLVED (the interactivity layer over the static path).**
-Curated components prerender static; an interactive subset hydrates in the browser, reusing
-the one renderer's component model (Preact `hydrate` over the same components — never a second
-renderer or component registry). The contract:
-
-- *How an island boundary is declared → the registry `island: true` flag (per-component).* A
-  component is interactive because of what it *is*, declared once on its `@nocms/components`
-  registry entry (`{ component, island?: boolean }`) — not per usage. **Rejected: per-usage MDX
-  annotation** (Astro-style `<Counter client:load/>`). Per-usage would scatter the decision
-  across every call site and add an annotation DSL, against the project's component-defined
-  philosophy (props-discovery already derives behavior from the component, not from
-  annotations). Trade-off accepted: every instance of an island hydrates; per-instance opt-out
-  (e.g. a static `<Counter/>` in a context that never interacts) is a future escape hatch, not
-  v1. A thin per-usage override could layer on later without changing the marker/hydration
-  format.
-- *Marker + props format.* At prerender each island root is wrapped in a layout-neutral
-  (`display:contents`) `<div data-island="<Name>" data-island-props="<json>">` around the real
-  component's SSR output. Props serialization is **JSON in the `data-island-props` attribute**;
-  only JSON-serializable props travel. `children` and non-serializable props (functions, VNodes)
-  are dropped — children are reconstructed from the marker's SSR HTML at hydration. **v1 limit:**
-  islands that need their children (slotted content) re-rendered client-side aren't supported
-  yet (the proof island, `Counter`, is configured purely by serializable props); richer
-  slot-preserving hydration is a follow-up. Detection/serialization/wrapping live in
-  `@nocms/renderer` (`islands.ts`) and are pure (no DOM, no MDX) so they test without a browser;
-  `hydrateIslands` is the only DOM-touching seam.
-- *Manifest.* `collectIslands(tree, identify)` is the pure VNode-tree walk (names + per-instance
-  props) for a consumer holding a resolved tree (the editor). The **prerender path can't walk**
-  the tree (an MDX document renders lazily — there's no resolved tree before output), so the
-  per-page manifest is read back from the emitted markers (`islandNamesFromHtml`). Both compute
-  the same island-name set from the two representations a caller actually has (tree vs HTML).
-- *Partial, not full, hydration.* Only island sub-trees ship interactivity; island-free pages
-  emit **zero** client JS and stay byte-identical to the static-only output. (Decided against
-  whole-page hydration: it would force all content through client JS and defeat the
-  view-source-able static guarantee.)
-- *Client-JS bundling strategy → bundle once at vendor time (D1), serve a committed artifact.*
-  The island client entry (`@nocms/build`'s `island-client.ts`: import the registry +
-  `hydrateIslands`, run on load) is bundled to a self-contained browser ESM file at *vendor*
-  time in the monorepo — `Bun.build`, `target: browser`, preact **inlined** (Pages serves static
-  files, no resolver), tree-shaking the MDX compiler out — and **committed** alongside the
-  vendored `@nocms/build` bundle. `buildSite` copies it to `dist/_nocms/islands.js` and injects
-  `<script type="module">` only into pages with islands. This keeps the publish path one
-  toolchain (the Bun-based render-and-emit loop, no Vite SSG) and self-contained for forks (the
-  fork serves the committed bundle, never rebuilds it). **Rejected: bundling at site-build time**
-  (re-introduces a per-build bundler step and, in a fork resolving `@nocms/renderer` to the
-  node-target vendored bundle, would risk shipping the MDX compiler to readers).
-  `nocmsVitePlugins()` exposes the same client entry as a Vite virtual module so the dev server
-  and the publish bundle share one island entry.
-- *Page shell / layout.* The prerender emits only the content tree. The starter's dev runtime
-  (`src/main.tsx`) wraps content in an `App` shell (centered container, body font/color); the
-  static output does not, so dev and publish diverge on chrome. Where layout lives (a
-  content-tier layout vs. an emitted shell) is unsettled — likely tied to D5. Flagged, not
-  guessed.
-- *Multi-page routing.* `buildSite` maps `index.mdx`→`/`, `x.mdx`→`/x`, `x/index.mdx`→`/x` —
-  enough for the one-page starter. Params, collections, and pagination are D5.
-
-## Resolved
+**What v1 ships (`@nocms/sandbox`, host side):** a pure capability **broker** (`broker.ts`) that
+maps each `HostApi` method to its required `Capability` and refuses — without invoking the host —
+any call whose capability the owner did not grant (deny-by-default; the dispatch table is a fixed
+whitelist, so a plugin cannot reach an unlisted host property); a pure **protocol** (`protocol.ts`,
+typed request/response messages + guards); a **port** seam (`port.ts`) wiring the broker to any
+`MessagePort`-like channel (round-trip tested with a `MessageChannel` under happy-dom); a pure
+**frame policy** (`frame.ts`, `frameSandboxPolicy` → sandbox attr + CSP, network-deny-by-default)
+applied by the one DOM edge (`createSandboxFrame`); and a small guest **client** (`client.ts`) so
+plugin code speaks the protocol without ever holding a token. `loadPlugin` composes them at the
+edge. Side effects (DOM, the port transfer) sit at the boundary; the protocol core is pure.
 
 ### D8 — Site config seam → **a valibot-validated `nocms.config.json`, owned by `@nocms/core`**
 
