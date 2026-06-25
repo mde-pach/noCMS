@@ -340,9 +340,8 @@ not duplicated. `contentPathToRoute` (full `content/...` path or content-relativ
 many-to-one), `normalizeRoutePath`, and `href(routePath, base)` (joins a deployment base).
 Convention unchanged from the build's original: strip `.mdx?`, collapse a trailing `index`
 segment, root with `/` (`content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
-`content/posts/index.mdx → /posts`). FOLLOW-UP: migrate `@nocms/build`'s own
-`contentPathToRoute` to consume core's (left untouched this lane to avoid colliding with the
-parallel build work).
+`content/posts/index.mdx → /posts`). FOLLOW-UP DONE: `@nocms/build` now consumes core's
+`contentPathToRoute` (its local copy was removed), so all three tiers share the one mapping.
 
 **Navigation model → RESOLVED: static multi-page is the default; an optional, dependency-free
 History-API soft-navigation enhancement is provided; no client-router framework is adopted.**

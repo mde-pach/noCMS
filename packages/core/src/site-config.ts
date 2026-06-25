@@ -33,6 +33,21 @@ export interface SiteConfig {
   feed?: FeedConfig;
 }
 
+/**
+ * The runtime config the build embeds in each page as `<script id="nocms-site">` so ①
+ * consumers can locate the ② derived files served at the site root, without hardcoding the
+ * deployment base. URLs are base-relative (ready for `fetch`); fields are present only when
+ * the corresponding artifact is produced.
+ */
+export interface SiteRuntime {
+  base: string;
+  feedUrl?: string;
+  translationsUrl?: string;
+}
+
+/** The DOM id of the embedded `SiteRuntime` JSON script. */
+export const SITE_RUNTIME_ID = "nocms-site";
+
 const FeedConfigSchema: v.GenericSchema<FeedConfig> = v.object({
   collections: v.pipe(v.array(v.string()), v.minLength(1)),
   title: v.pipe(v.string(), v.minLength(1)),

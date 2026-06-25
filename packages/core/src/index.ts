@@ -126,5 +126,7 @@ export {
   type FeedConfig,
   loadSiteConfig,
   parseSiteConfig,
+  SITE_RUNTIME_ID,
   type SiteConfig,
+  type SiteRuntime,
 } from "./site-config";

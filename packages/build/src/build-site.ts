@@ -3,7 +3,14 @@ import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registry } from "@nocms/components";
-import { parseFrontmatter } from "@nocms/core";
+import {
+  contentPathToRoute,
+  loadSiteConfig,
+  parseFrontmatter,
+  SITE_RUNTIME_ID,
+  type SiteConfig,
+  type SiteRuntime,
+} from "@nocms/core";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
 import { type PrerenderedPage, prerenderRoutes, type Route } from "./prerender";
@@ -13,18 +20,11 @@ export interface BuildOptions {
   root: string;
   /** output dir deployed to Pages */
   outDir: string;
-  /** base path, e.g. `/<repo>/` for project Pages; `/` for a custom domain. */
-  base: string;
-}
-
-/** A content file (relative POSIX path under `content/`) → its route path. */
-export function contentPathToRoute(relPath: string): string {
-  const segments = relPath
-    .replace(/\.mdx?$/, "")
-    .split("/")
-    .filter(Boolean);
-  if (segments.at(-1) === "index") segments.pop();
-  return `/${segments.join("/")}`;
+  /**
+   * Base path, e.g. `/<repo>/` for project Pages; `/` for a custom domain. Overrides
+   * the config `base` (CI injects the repo name via this); defaults to it when omitted.
+   */
+  base?: string;
 }
 
 /** A route path → its output file. `/` → `index.html`, `/x` → `x/index.html`. */
@@ -69,7 +69,8 @@ async function loadRoutes(contentDir: string): Promise<Route[]> {
  */
 export async function buildSite(options: BuildOptions): Promise<void> {
   const { root, outDir } = options;
-  const base = normalizeBase(options.base);
+  const config = await loadSiteConfig(root);
+  const base = normalizeBase(options.base ?? config.base);
 
   const routes = await loadRoutes(join(root, "content"));
 
@@ -86,7 +87,7 @@ export async function buildSite(options: BuildOptions): Promise<void> {
   const faviconHref = existsSync(join(publicDir, "favicon.svg"))
     ? `<link rel="icon" type="image/svg+xml" href="${base}favicon.svg"/>`
     : "";
-  const head = await collectHead(root, faviconHref);
+  const head = await collectHead(root, faviconHref, config, base);
   const editor = await collectEditor(root, base);
 
   const pages = await prerenderRoutes(routes, {
@@ -181,12 +182,44 @@ async function collectCss(root: string): Promise<string | undefined> {
   return parts.length ? parts.join("\n") : undefined;
 }
 
-// The favicon link plus the site's optional extra <head> markup (`head.html`, e.g. web-font
-// links), so publish matches the dev `index.html` head.
-async function collectHead(root: string, faviconHref: string): Promise<string> {
+// The favicon link, the site's optional extra <head> markup (`head.html`, e.g. web-font
+// links), and the runtime config the ① consumers read — so publish matches the dev
+// `index.html` head and pages can locate the ② derived files.
+async function collectHead(
+  root: string,
+  faviconHref: string,
+  config: SiteConfig,
+  base: string,
+): Promise<string> {
   const headFile = join(root, "head.html");
   const extra = existsSync(headFile) ? await readFile(headFile, "utf8") : "";
-  return `${faviconHref}${extra}`;
+  return `${faviconHref}${extra}${runtimeConfigMarkup(config, base)}`;
+}
+
+// The feed discovery `<link>` (absolute, for syndication) plus a `<script id="nocms-site">`
+// carrying the base-relative URLs of the derived files the runtime consumers fetch. Each is
+// emitted only when its artifact is actually produced (feed needs siteUrl + feed config; the
+// switcher needs ≥2 locales), so a plain site ships neither. Pure — no fs, no DOM.
+export function runtimeConfigMarkup(config: SiteConfig, base: string): string {
+  const runtime: SiteRuntime = { base };
+  const parts: string[] = [];
+  if (config.siteUrl && config.feed) {
+    runtime.feedUrl = `${base}feed.json`;
+    const absolute = new URL("feed.json", config.siteUrl).href;
+    parts.push(
+      `<link rel="alternate" type="application/feed+json" href="${absolute}"/>`,
+    );
+  }
+  if (config.locales && config.locales.length >= 2) {
+    runtime.translationsUrl = `${base}i18n/translations.json`;
+  }
+  if (runtime.feedUrl || runtime.translationsUrl) {
+    const json = JSON.stringify(runtime).replace(/</g, "\\u003c");
+    parts.push(
+      `<script type="application/json" id="${SITE_RUNTIME_ID}">${json}</script>`,
+    );
+  }
+  return parts.join("");
 }
 
 async function writePage(outDir: string, page: PrerenderedPage): Promise<void> {
