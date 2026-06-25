@@ -4,6 +4,9 @@
 export {
   contentPathToRoute,
   href,
+  type LocaleLink,
+  type LocaleManifest,
+  localeLinks,
   normalizeRoutePath,
   type RoutePath,
   routeToContentPath,

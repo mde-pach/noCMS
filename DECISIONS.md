@@ -383,10 +383,19 @@ History-API soft-navigation enhancement is provided; no client-router framework 
   `:param` support exists so derive/② or build/③ can *emit* param/collection/pagination routes
   later without a matcher redesign. **DEFERRED:** who generates collection/pagination routes
   (e.g. `/posts/page/:n`) and how — a derive/build concern, not the router model.
-- *i18n locale prefixes.* **DEFERRED.** Two viable shapes when needed: a `:lang` leading param
-  in the table, or treating the locale like a second `base` segment. Not built — no consumer
-  yet; flagged so it isn't designed away (the matcher + base-stripping already accommodate
-  either).
+- *i18n locale prefixes.* **RESOLVED: the locale is an ordinary leading static path segment;
+  the route table stays locale-agnostic.** The i18n content convention (D3) already authors a
+  non-default locale under its own directory (`content/fr/about.mdx`) and the default locale at
+  the root (`content/about.mdx`), so core's `contentPathToRoute` yields `/fr/about` and `/about`
+  as plain static routes with **zero** special-casing — every localized page is its own
+  prerendered route, consistent with "every content file is its own route." The language
+  switcher is driven entirely by the derived `i18n/translations.json` (core's
+  `localeLinks(manifest, currentRoute, base)`: find the group containing the current route, emit
+  one `href` per locale), **not** by route-pattern locale logic. Rejected the two deferred
+  shapes: a **`:lang` leading param** would impose a dynamic-route model where none is needed
+  (the locale set is finite and every page is static) and force the matcher to special-case the
+  first segment; **locale-as-second-base-segment** would fragment the one shared route table
+  per locale. So the matcher is untouched, and the default locale simply has no prefix.
 - *Page shell / layout* (overlaps D6). **DEFERRED to the integrator** — where the page chrome
   lives (content-tier layout vs. an emitted shell) is unsettled and tied to island hydration,
   owned by the parallel build/renderer lane. The router provides the matched route + payload;

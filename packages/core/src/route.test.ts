@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   contentPathToRoute,
   href,
+  type LocaleManifest,
+  localeLinks,
   normalizeRoutePath,
   type RepoPath,
   routeToContentPath,
@@ -91,5 +93,40 @@ describe("href", () => {
 
   it("joins the root route against a project base", () => {
     expect(href("/", "/repo/")).toBe("/repo/");
+  });
+});
+
+describe("localeLinks", () => {
+  const manifest: LocaleManifest = {
+    locales: ["en", "fr"],
+    groups: [
+      { translations: { en: "/", fr: "/fr" } },
+      { translations: { en: "/about", fr: "/fr/about" } },
+      { translations: { en: "/en-only" } },
+    ],
+  };
+
+  it("returns one link per locale of the current page's group, marking the current", () => {
+    expect(localeLinks(manifest, "/fr/about")).toEqual([
+      { locale: "en", route: "/about", href: "/about", current: false },
+      { locale: "fr", route: "/fr/about", href: "/fr/about", current: true },
+    ]);
+  });
+
+  it("orders links by the manifest locale order and applies the base", () => {
+    expect(localeLinks(manifest, "/", "/repo/")).toEqual([
+      { locale: "en", route: "/", href: "/repo/", current: true },
+      { locale: "fr", route: "/fr", href: "/repo/fr", current: false },
+    ]);
+  });
+
+  it("omits locales the page has no translation for", () => {
+    expect(localeLinks(manifest, "/en-only")).toEqual([
+      { locale: "en", route: "/en-only", href: "/en-only", current: true },
+    ]);
+  });
+
+  it("returns nothing for a route outside any group", () => {
+    expect(localeLinks(manifest, "/missing")).toEqual([]);
   });
 });

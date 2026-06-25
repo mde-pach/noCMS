@@ -114,6 +114,9 @@ export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";
 export {
   contentPathToRoute,
   href,
+  type LocaleLink,
+  type LocaleManifest,
+  localeLinks,
   normalizeRoutePath,
   type RoutePath,
   routeToContentPath,
