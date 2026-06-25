@@ -1,31 +1,100 @@
-// The plugin security boundary. Plugin UI runs in a sandboxed iframe and plugin
-// logic in an isolated VM; neither gets the host DOM, the GitHub token, or
-// network by default. The only channel is a capability-scoped postMessage API,
-// and all repo writes go through the host, which holds the credential.
+// The plugin security boundary (invariant #8). Plugin code runs in a sandboxed,
+// null-origin iframe and reaches the host only through a capability-scoped
+// postMessage broker over a transferred MessagePort. It never receives the
+// GitHub token, the host DOM, or — by default — the network. v1 is iframe-only;
+// QuickJS-in-WASM is a documented defense-in-depth escalation (DECISIONS.md D4).
 
 import type { Capability, PluginManifest } from "@nocms/core";
+import { createBroker, type HostApi } from "./broker.js";
+import { createSandboxFrame, frameSandboxPolicy, withCspMeta } from "./frame.js";
+import { serveBroker } from "./port.js";
+import { PROTOCOL } from "./protocol.js";
 
-// Opaque until the host API firms up; validated by the host on receipt.
-type ComponentRegistration = unknown;
+export type { HostApi, HostMethod } from "./broker.js";
+export { createBroker, METHOD_CAPABILITY } from "./broker.js";
+export { createHostClient, type RemoteHostApi, SandboxError } from "./client.js";
+export {
+  createSandboxFrame,
+  frameSandboxPolicy,
+  type SandboxPolicy,
+  withCspMeta,
+} from "./frame.js";
+export type { PortLike } from "./port.js";
+export { serveBroker } from "./port.js";
+export {
+  type ErrorCode,
+  type HostMessage,
+  type InvokeMessage,
+  PROTOCOL,
+} from "./protocol.js";
 
-/** The capability-scoped surface a plugin may call — never the raw token. */
-export interface HostApi {
-  registerComponent(reg: ComponentRegistration): void;
-  readContentModel(): Promise<unknown>;
-  contributeTokens(flatTokenSource: string): void;
-  contributeLayout(mdx: string): void;
+export interface LoadPluginOptions {
+  /**
+   * Capabilities the owner approved at install. The effective grant is the
+   * intersection with what the manifest requests — deny-by-default. Defaults to
+   * the manifest's full request when omitted (dev convenience).
+   */
+  grant?: Capability[];
+  /**
+   * Guest document HTML loaded into the frame as `srcdoc`. The frame's CSP is
+   * injected at the top of it (`withCspMeta`), so network denial applies to the
+   * document itself. Omit to leave the frame empty (the host posts the port on
+   * load regardless, but nothing receives it).
+   */
+  source?: string;
+  /** Where to attach the frame. Defaults to `document.body`. */
+  mount?: HTMLElement;
+  /** Injected for testing; defaults to the ambient `document`. */
+  document?: Document;
 }
 
 export interface LoadedPlugin {
   manifest: PluginManifest;
-  /** capabilities the owner approved at install */
+  /** Capabilities actually in force — what the owner granted ∩ what was requested. */
   granted: Capability[];
+  frame: HTMLIFrameElement;
   dispose(): void;
 }
 
 export function loadPlugin(
-  _manifest: PluginManifest,
-  _host: Partial<HostApi>,
-): Promise<LoadedPlugin> {
-  throw new Error("not implemented: sandboxed plugin host");
+  manifest: PluginManifest,
+  host: Partial<HostApi>,
+  options: LoadPluginOptions = {},
+): LoadedPlugin {
+  const requested = manifest.capabilities;
+  const approved = options.grant ?? requested;
+  const granted = requested.filter((cap) => approved.includes(cap));
+
+  const doc = options.document ?? document;
+  const policy = frameSandboxPolicy(granted);
+  const frame = createSandboxFrame(doc, policy);
+  if (options.source !== undefined) {
+    frame.setAttribute("srcdoc", withCspMeta(options.source, policy.csp));
+  }
+  (options.mount ?? doc.body).appendChild(frame);
+
+  const channel = new MessageChannel();
+  const detach = serveBroker(channel.port1, createBroker(host, granted));
+
+  // Hand the guest its end of the channel and its grant once the frame loads.
+  const onLoad = () => {
+    frame.contentWindow?.postMessage(
+      { protocol: PROTOCOL, kind: "ready", capabilities: granted },
+      "*",
+      [channel.port2],
+    );
+  };
+  frame.addEventListener("load", onLoad);
+
+  return {
+    manifest,
+    granted,
+    frame,
+    dispose() {
+      frame.removeEventListener("load", onLoad);
+      detach();
+      channel.port1.close();
+      frame.remove();
+    },
+  };
 }

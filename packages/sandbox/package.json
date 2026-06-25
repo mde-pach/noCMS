@@ -12,7 +12,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "bun run e2e/serve.ts"
   },
   "dependencies": {
     "@nocms/core": "workspace:*"
