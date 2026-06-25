@@ -888,3 +888,56 @@ D4 (iframe-only sandbox). Most plugin marketplace/discovery stays deferred; the 
 
 - **Distribution mirrors D1:** the plugin bundle is vendored + committed, with an `integrity` hash
   and the grant recorded in `nocms.config.json` — self-contained and reproducible, no marketplace.
+
+### D15 — Editor block model: one uniform block tree, container slots, canonical MDX → **RESOLVED.**
+The editor's core model, settled in design discussion. Refines `authoring-shell` + `component-library`.
+
+- **Everything is a block.** Content, layout, and plugin-contributed components are all blocks in
+  one uniform tree — same insert palette, same schema-derived props panel (D9), same canvas
+  behaviour. The curated library is just "the first-party blocks"; a plugin block (D14) is
+  indistinguishable from a native one.
+
+- **Containers are blocks with slots.** A container (`Stack`/`Grid`/`Section`, or a plugin's
+  Tabs/Carousel) declares named slots that hold child blocks. The block owns the *surrounding
+  structure*; the host owns the *children* (the user's content — selectable, inline-editable,
+  drag-reorderable, living in the user's MDX). This is what lets a plugin ship a new container
+  *without touching user content or breaking the one-renderer/security boundary* (invariants #1,
+  #8): the block renders slot markers, the host fills them. It is what makes "layout as a block"
+  succeed and extensibility safe.
+
+- **Slots freeform by default, optionally typed later.** No accepted-type constraint in v1; the
+  slot declaration is designed so a block can later opt into "accepts only X" without a format change.
+
+- **Deep, composable, no free positioning.** Editing goes deep — you can recompose *inside* a
+  section — but always through typed containers, never absolute/pixel positioning (responsive-safe
+  by construction; reaffirms the component-library rule and the Wix-Studio anti-pattern).
+
+- **Text is a block.** A paragraph/heading is a block like any other, but the text block's
+  *interior* is the rich-text (prose) editor — uniform on the outside, prose's special needs
+  contained within.
+
+- **Persisted as canonical MDX.** The block tree and the on-disk JSX are the same tree, two views
+  (the editor never makes anyone read text). A **deterministic serializer** writes a fixed
+  *generated-MDX house style* — stable attribute order, consistent indentation, one fixed
+  slot/children syntax — so the same tree always yields the same text. This is the load-bearing
+  property: it delivers both readability *and* clean, churn-free git diffs (a non-deterministic
+  serializer is what quietly breaks "git-backed" editors). The editor owns content formatting the
+  way Biome owns code formatting. Lives at the parse↔serialize seam (builds on D2, reaffirms #5).
+
+### D16 — Build strategy: vertical tracer-slice before breadth → **RESOLVED.**
+Build the thinnest end-to-end loop first, on a pre-existing repo, then widen.
+
+- **The slice:** open an existing repo's page → it renders on the canvas → select a block, edit
+  text inline → insert a block via `/` → reorder → change a prop → serialize to canonical MDX (D15)
+  → commit → publish to Pages → see it live. ~5 blocks (`Section`, `Stack`, `Heading`, `Text`,
+  `Image`/`Button`). **No** onboarding, media, collections, structure, SEO, design panel, or plugins.
+
+- **Why:** it retires the existential risk — *does visual editing over MDX feel good AND round-trip
+  cleanly* (the hardest, most-integrated part, including the D15 serializer determinism) — on day
+  one, and produces something to actually *feel* and judge in weeks. Everything else is additive
+  breadth that does not change the core loop.
+
+- **Reframes the roadmap:** M0–M5 (`ROADMAP.md`) is no longer "complete each layer in order" but
+  "prove the spine, then widen it" — the milestones become breadth added to a working core, not
+  blind gates. The audience is *motivated people who want to run their own site*, so onboarding
+  (breadth) genuinely comes last.

@@ -6,10 +6,12 @@ gets there. This is the *product* companion to `CLAUDE.md` (architecture invaria
 `DECISIONS.md` (open forks). It is forward-looking and durable; it supersedes the
 background in `noCMSVISION.md`.
 
-> **Feature-ready** = a non-developer can go from *zero* to a *published, real website*
-> without leaving the browser or seeing a config file — and **every stage of that journey
-> has no dead end**. noCMS is a CMS, not a site-type template: the generality lives in the
-> primitives; the audience fit comes from progressive disclosure, not from picking a niche.
+> **Feature-ready** = a *motivated person who wants to run their own site* can go from *zero*
+> to a *published, real website* without leaving the browser — and **every stage of that journey
+> has no dead end**. The audience is people willing to learn a little (GitHub is *explained, not
+> hidden*), not the absolute-zero-knowledge non-dev — so onboarding is good guided education, not
+> magic. noCMS is a CMS, not a site-type template: the generality lives in the primitives; the
+> audience fit comes from progressive disclosure, not from picking a niche.
 
 ## The spine: layered exposure
 

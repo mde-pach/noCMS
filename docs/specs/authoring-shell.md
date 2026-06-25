@@ -22,6 +22,13 @@ A three-region shell over the live renderer:
 
 The shell chrome is intentionally minimal; the canvas is the product.
 
+**The block model (D15).** Everything on the canvas is a block in one uniform tree — content,
+layout, and plugin blocks alike. Containers (`Section`/`Stack`/`Grid`, or a plugin's) are blocks
+with **slots** that hold child blocks: the block owns the surrounding structure, the host owns the
+children (the user's MDX, selectable/editable here). Text is a block whose interior is the prose
+editor. The tree is persisted as **canonical MDX** by a deterministic serializer (readable +
+churn-free diffs). All canvas interactions below are transforms on this one tree.
+
 ## 1. Direct manipulation on the canvas
 
 **Selection.** Click selects the nearest selectable node (`SELECTABLE_TYPES` from `@nocms/editor`).

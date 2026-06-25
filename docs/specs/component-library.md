@@ -43,6 +43,11 @@ ships 16 primitives; this spec defines the target catalog and the rules every br
 Legend: **I** = island (hydrates). Bold = already in the registry today.
 
 ### Layout — structure the page
+Layout components are **blocks with slots** (D15): they hold child blocks the host owns and the user
+edits. They are blocks like any other — same insert/select/props flow — which is what makes "layout
+as a block" and plugin-contributed containers work. Slots are freeform by default (optionally typed
+later); composition is deep but always through these typed containers, never free positioning.
+
 | Component | I | Key props (control) | Notes |
 |---|---|---|---|
 | **Section** | | `background` (color/token), `padding` (range), `width` (select) | The page's top-level band; sections are the primary reorder/insert unit. |

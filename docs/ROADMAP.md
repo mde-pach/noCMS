@@ -21,6 +21,27 @@ One sentence: **derive controls from schemas → build the bricks → compose th
 publish to Pages → wrap it in a zero-to-live onboarding.** M4 (content/media) and the infra
 track run alongside; M5 lands users into what M2/M3 already made real.
 
+## Build strategy: tracer-slice first (D16)
+
+**Do not build the milestones layer-by-layer.** Build one thin *vertical* slice through the entire
+loop first, then widen. The milestones below are **breadth added to a working core, not blind
+gates** — "prove the spine, then widen it."
+
+**The tracer slice** (the first thing to build, on a *pre-existing* repo):
+
+> open an existing repo's page → it renders on the canvas → select a block, edit text inline →
+> insert a block via `/` → reorder → change a prop → serialize to **canonical MDX** → commit →
+> publish to Pages → see it live.
+
+Just **~5 blocks** (`Section`, `Stack`, `Heading`, `Text`, `Image`/`Button`). **No** onboarding,
+media, collections, structure, SEO, design panel, or plugins.
+
+Why first: it retires the existential risk — *does visual editing over MDX feel good AND round-trip
+cleanly?* — including the canonical-serializer determinism (D15), on day one. It produces something
+to *feel* in weeks, not after all of M0–M5. Everything else is additive. If the spine feels wrong,
+you find out before building the breadth. The slice cuts through M0 (a minimal mapper), M1 (5
+blocks), M2 (a minimal shell), and M3 (a minimal publish) at once.
+
 ## What already exists (engine, from the survey)
 
 Substantial. `renderer` (one MDX→Preact engine), `github` (`createCommitOnBranch`), `auth`
