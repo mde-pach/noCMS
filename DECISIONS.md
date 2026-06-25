@@ -6,253 +6,6 @@ resolved, record the choice + rationale and move it to the "Resolved" section.
 
 ## Open
 
-### D2 — Editor engine architecture
-
-**Product vision (Maxime, the north star).** A flexible, versatile website builder that
-*feels Figma-like* but targets **non-developers/non-designers**: assemble sites from
-pre-built **layouts + components**, with an **opinionated** way of building (e.g. design
-**tokens-as-bricks**), every concept understandable with **zero web/design knowledge** —
-"standard-user-proof." The cat-next TipTap editor below was a reference for the
-**props-discovery philosophy only**, not an editor recommendation.
-
-**Key finding from library research (2026-06): no full builder is adoptable.** Every
-component-based visual builder is disqualified for noCMS by a locked JSON-tree data model
-(Puck, Craft.js, Plasmic, Builder), a centralized/hosted editor that breaks decentralization
-(Builder, Plasmic), or dormancy (Craft.js) — all against noCMS's MDX-text-source / Preact /
-decentralized constraints. So the editor is **bespoke composition of packages noCMS already
-has**, on top of a few small primitives. The big builders are **UX/architecture references
-only**.
-
-**Feature map (capability → what powers it):**
-1. *Canvas* — the live site is the editing surface → `@nocms/renderer` (invariant #1) +
-   DOM↔mdast mapping via source positions + iframe/shadow sandbox (kills the
-   React-context-barrier pitfall).
-2. *Insert bricks* — components + pre-built **layout sections** by drag-drop → a DnD
-   primitive + a curated layout-brick library (MDX snippets + metadata) + AST insert.
-3. *Configure* — friendly property controls → `@nocms/props-discovery` + a control-widget
-   set (prop-type → widget); never expose JSON.
-4. *Edit text in place* — see D2a.
-5. *Design: tokens-as-bricks* — semantic, opinionated token panel + presets → `@nocms/
-   tokens` (runtime CSS vars, no rebuild — invariant #3) + a color picker.
-6. *Structure* — pages, nav, a layers/outline tree from mdast → `@nocms/core` + routing (D5).
-7. *Media* — image upload/picker + alt text → `@nocms/github` + build-tier optimization (D6).
-8. *History* — one unified undo/redo over mdast/text (avoid cat-next's per-region isolation).
-9. *Save & publish* — branch-per-session + async publish → `@nocms/github`, `@nocms/auth`.
-10. *Guardrails* (cross-cutting) — valibot validation + constrained choices → `@nocms/core`.
-11. *Plugins* (later) — sandboxed extra bricks/controls → `@nocms/sandbox` (D4).
-
-**The only genuine "adopt a dependency" slots (Preact-feasible primitives):**
-- *Canvas drag-and-drop:* **Pragmatic DnD** (`@atlaskit/pragmatic-drag-and-drop`, ~4.7kB
-  vanilla, framework-agnostic — top pick) or **dnd-kit/dom** (richer, pre-1.0).
-- *Prose text widget:* **ProseMirror core** (vanilla, no framework lock) — see D2a.
-- *Small UI:* a color picker; minimal popover/menu primitives (build or vet).
-
-**References to study (do NOT adopt):** **TinaCMS** — the blueprint: edits MDX as an AST in
-git, never as a string, self-hosted; **Onlook** — DOM element ↔ source-location mapping for
-in-site editing; **Puck** — cleanest field-config + DropZone WYSIWYG UX; **GrapesJS** —
-builder panel/trait UX.
-
-**Editor build status (resume here):**
-1. ✅ Document seam — `parseMdx`/`serializeMdx` (D2b verified).
-2. ✅ Selection mapping core — `position.ts` (`nodeAtOffset`/`deepestNodeAtOffset`/
-   `nearestOfType`): a click's source offset → the mdast node path. Pure + tested.
-3. ✅ Renderer editor-mode DOM annotation — `@nocms/renderer`'s `renderEditableToVNode`
-   (`editable.ts`). Evaluates with `{ development: true }` + a wrapped `jsxDEV`; intrinsics
-   get `data-mdx-pos` injected into props, components (which don't forward unknown props)
-   are wrapped in a `display:contents` carrier; `line:col → start offset` so the DOM offset
-   feeds `nodeAtOffset` directly. Publish path stays clean (tested). Known edge: wrapping a
-   component that renders e.g. an `<li>` — `display:contents` keeps layout but not
-   HTML-nesting validity; acceptable for v1, revisit if it bites.
-4. ✅ Canvas mount — `@nocms/editor`'s `mountCanvas` (`canvas.ts`): renders the annotated
-   editable tree into a target and reports the selected mdast node path on click
-   (`offsetFromElement`/`selectionAtElement` resolve via `nodeAtOffset`). happy-dom is the
-   editor's DOM test env (per-file `@vitest-environment` docblock). Remaining canvas
-   refinements: iframe/shadow sandbox for style + React-context isolation, a visual
-   selection overlay, and a "selectable granularity" policy (nearest block/component) in
-   the editor shell — clicking a block resolves to its first inline child today; the shell
-   chooses the meaningful node via the path.
-5. ✅ Props panel — `@nocms/editor`'s `jsx-attributes.ts` (pure `getProp`/`setProp`/
-   `removeProp` over the JSX node) + `PropsPanel` (`props-panel.tsx`): a friendly control
-   per `@nocms/props-discovery` Control, bound to the selected node's attributes; edits
-   mutate the node in place and fire `onChange` for the shell to re-serialize + re-render.
-   happy-dom tested. Remaining: media control = plain text field (real media picker later);
-   the editor shell that wires canvas selection → schema lookup → panel → re-render loop.
-6. ✅ **Editor shell loop — `mountEditor` (`shell.tsx`).** Lays out a canvas region beside a
-   side panel, keeps one live `MdxDocument` (`parseMdx` once), mounts `mountCanvas`, and on
-   select resolves the meaningful node (`selectableNode` — nearest JSX component or block,
-   `selectable.ts`), looks up its **injected** schema by component name, and renders
-   `PropsPanel`. A panel edit mutates the node in place; the shell re-serializes, calls
-   `canvas.update(mdx)`, re-highlights by **index-path** (`indexPathOf`/`nodeAtIndexPath`,
-   offset-stable across edits — raw offsets shift), and fires `onChange(mdx)`. Schemas are
-   injected, not discovered live (`discoverControls` parses TS source via the compiler — a
-   Node step, impractical in-browser). Canvas gained a structural **selection overlay**
-   (`highlight(indexPath)`, non-interactive layer) and now `preventDefault`s clicks (an
-   editing surface selects, never navigates). Full click→panel→edit→live-update→`onChange`
-   loop unit-tested (happy-dom) and **browser-verified** in the starter.
-7. ✅ **Tokens-as-bricks panel — `TokensPanel` (`tokens-panel.tsx`).** Edits design tokens as
-   semantic, opinionated, human-labeled choices (brand color, fonts, spacing, radius) grouped
-   by concept, never raw var names; an edit emits updated tokens + flat source + CSS-var
-   block. Wired into `mountEditor` behind an optional `tokens` source: the shell rewrites one
-   `<style>` live on each theme edit (no rebuild — invariant #3) and surfaces the flat text
-   via `onTokensChange`. Added `formatTokens` to `@nocms/tokens` (the missing flat-text
-   serializer, inverse of `parseTokens`, round-trip tested). Browser-verified live theming.
-8. ✅ **Starter `?edit` mount + browser verification.** `?edit` lazily imports `src/edit.tsx`
-   (separate entry) → `mountEditor` with the starter's content, registry, injected schemas,
-   and tokens; the reader path and the prerender build (`scripts/build.ts`) are untouched.
-   `@nocms/editor` is a **workspace devDep** of the starter (dev-only; not in the reader
-   bundle, not vendored yet).
-
-9. ✅ **In-place prose editing — `@nocms/prose` wired into the shell (post-merge).**
-   Double-clicking a paragraph/heading (`isProseEditable`, `prose-edit.ts`) mounts a transient
-   `mountProseEditor` view over the block's DOM, seeded with the block's mdast inline children;
-   the widget's `onChange(nodes)` splices `block.children` live and fires the shell `onChange`.
-   The canvas is **not** re-rendered mid-edit (that would tear the view out) — only on commit
-   (a click outside the block, or Escape), which re-serializes, re-renders via the one renderer,
-   and re-selects the block by index-path. The canvas's new `suppressWhen` guard hands clicks
-   inside the live editor to ProseMirror untouched (no `preventDefault`, no reselect). The
-   active view is exposed via `EditorHandle.proseView()` (the escape hatch for a future
-   formatting toolbar). Full loop unit-tested (happy-dom) and **browser-verified** (double-click
-   → type → Escape re-renders the edited text through the one renderer).
-
-**Open seams for the merge (this lane):**
-- *Prose: block-level structure.* The widget edits one block's *inline* content; creating /
-  splitting / merging / deleting blocks (Enter at a paragraph end, Backspace-merge) and
-  editing list items or blockquote bodies are not wired yet — `isProseEditable` is paragraph
-  + heading only. A block-structure layer over mdast is the next prose increment.
-- *Schema production.* Schemas are injected; the starter's are **hand-authored** in
-  `edit.tsx`. The real source is `discoverControls` over component TS at build/vendor time,
-  shipped as a `Record<name, ComponentSchema>` — unbuilt, out of scope this lane.
-- *Fork-vendoring the editor.* `@nocms/editor` isn't in the vendor `PACKAGES`, so `?edit`
-  works only in the monorepo. Vendoring it (browser target; it pulls the MDX compiler — heavy,
-  loads only in edit mode) so a fork is self-contained is the D1 follow-up.
-- *Editor content source.* `edit.tsx` **inlines** the MDX as text because the build lane's
-  `@mdx-js/rollup` plugin (enforce:pre, in the off-limits `vite.config.ts`) compiles every
-  `.mdx` request — `?raw` included — so a raw-text import is impossible without touching it.
-  The real editor loads content as text from the **GitHub API** (the repo is the database),
-  so this is a dev-harness shim, not the intended path.
-- *Dev-flow wrinkle (D1).* `predev` regenerates `vendor/*`, but bun's `file:` store keeps the
-  copy from the last `bun install`, so a new vendored export (e.g. `formatTokens`) needs a
-  `bun install` to surface in Vite dev. Harmless for forks (bundles are committed,
-  never regenerated); a monorepo-dev paper cut worth smoothing later.
-
----
-
-WYSIWYG over MDX with lossless round-trip. Reference studied (props-philosophy only,
-a POC): cat-next TipTap editor at
-`/Users/maximedepachtere/project/papernest/cat-next/apps/front/features/editor`.
-
-**What the cat-next engine does well (worth adopting):**
-- *Descriptor-driven, zero-config.* Component authors write ordinary typed
-  components; editability is inferred from the TS prop types — no annotation DSL.
-  noCMS already has this as `@nocms/props-discovery`, and better: at runtime via
-  the TS compiler API, so there is no build-time descriptor generation step.
-- *Render the real component as the canvas.* The node view renders the actual
-  component for instant WYSIWYG preview. noCMS already has the matching piece —
-  `@nocms/renderer.renderToVNode` is the one renderer and is meant to be the canvas.
-- *Three edit surfaces:* a props panel (from the descriptor), click-to-edit on
-  rendered text, a native content slot for children, and nested editors for
-  rich-text props. Good UX to mirror.
-
-**Where noCMS must diverge (hard constraint):**
-- cat-next's source of truth is **ProseMirror/TipTap JSON** (a tree AST). That
-  violates noCMS invariant #5 — layout/content is **MDX text, line-mergeable, no
-  JSON tree**. So we cannot persist ProseMirror JSON.
-
-**Proposed model — MDX-AST as the document, MDX text as the artifact:**
-- Parse MDX → mdast (remark + `mdast-util-mdx`) as the in-memory model; persist by
-  serializing back to MDX text (`mdast-util-to-markdown` + mdx). Text is the source
-  of truth, so round-trip is structural, not a lossy re-derivation.
-- Preview by feeding the same MDX/AST to `@nocms/renderer` (reuse the one renderer —
-  satisfies the preview===publish guarantee for free).
-- Map visual selection → AST via remark **source positions** (`node.position`),
-  NOT by stringifying values and DOM-searching (the POC's fragile click-to-edit).
-- Edit component props with `@nocms/props-discovery` controls, mutating the JSX
-  node's attributes in the AST, then re-serialize. Single undo over the AST/text
-  (avoid the POC's per-region isolated undo).
-
-**Pitfalls flagged in the POC to design around:** DOM value-search binding (use
-positions), isolated rich-text undo (unify), React-context barrier across node
-views (each preview island is its own root — keep components context-light or
-provide context at the canvas root), heuristic async-render timing.
-
-**Sub-decisions still open:**
-- D2a — prose editing widget. **DECIDED: ProseMirror core as a transient view over mdast,
-  with CodeMirror as a scaffold/code-view (option B-with-A-scaffold).** A prose paragraph
-  parses to mdast inline nodes that interleave standard marks
-  (`strong`/`emphasis`/`inlineCode`/`link`/`text`) with **MDX inline atoms** —
-  `mdxJsxTextElement` (inline `<Badge/>`) and `mdxTextExpression` (`{expr}`). Preserving
-  those atoms while editing is the whole problem. The widget sits behind a small region-edit
-  seam (block source range in, edited MDX text out), so the two parts compose.
-
-  No WYSIWYG framework treats mdast as the source of truth — every one (ProseMirror, Lexical,
-  Slate) owns its own JSON model and *drops inline constructs it has no explicit handler
-  for*; generic converters (`prosemirror-markdown`, `@lexical/markdown`) confirm the
-  data-loss trap. So a mdast-authoritative editor must be **built, not adopted**, on
-  **ProseMirror core directly** (vanilla, no UI-framework lock, no third-party editor
-  framework in the dependency path). We do not use TipTap (a wrapper over the same engine).
-
-  - **(A) CodeMirror 6 source + live preview — scaffold / power-user code view.** Edits the
-    MDX text, so the verified `mdx-document` round-trip stays authoritative and inline atoms
-    are literally just text (lossless by construction). It shows raw markup, so it is *not*
-    the non-dev surface — it's the low-risk scaffold to stand up the editor loop, and stays
-    as an optional code view. (MDX-aware highlighting is DIY; CommonMark/GFM is turn-key.)
-  - **(B) ProseMirror core as a transient edit view over mdast — the non-dev WYSIWYG
-    surface.** Build the PM doc *from* a prose span's mdast and serialize *back* to mdast on
-    commit, so mdast stays the truth (inverting Milkdown's PM-as-truth default). Because we
-    own the schema, `mdxJsxTextElement` / `mdxTextExpression` are modeled as inline **atom**
-    nodes and survive deterministically. This delivers the Figma-like "click and type like a
-    doc" feel *and* preserves inline atoms. The bidirectional mdast↔PM-schema transformer
-    for prose spans is the entire risk — prototype + round-trip-test it the way D2b proved
-    the mdast↔MDX round-trip. References to mine (not depend on): Milkdown's
-    `$node`/`parseMarkdown`/`toMarkdown` transformer design and MDXEditor's inline-vs-flow
-    `jsxComponentDescriptor` split.
-
-  **Build status (`@nocms/prose`) — IMPLEMENTED (option B, the ProseMirror widget).** A new
-  standalone package operates purely on mdast inline nodes (`PhrasingContent[]` in/out), so it
-  depends only on mdast types + ProseMirror core — no dependency on `@nocms/editor` (clean
-  boundary). Pieces:
-  - `proseSchema` — a PM schema for a prose span: `doc` (inline content) + `text`, marks
-    `link`/`em`/`strong`/`code`, and inline **atom** nodes `mdxJsxText` / `mdxExpression` (each
-    carries its source mdast node verbatim in an attr, rendered as a non-editable chip). Mark
-    declaration order *is* the canonical serialization nesting (link ⊃ emphasis ⊃ strong),
-    matching remark.
-  - `mdastInlineToDoc` / `docToMdastInline` — the pure bidirectional transformer. **Lossless
-    round-trip verified** over 15 fixtures (text, nested marks, links ±title, inline code as a
-    leaf-shaping mark, breaks, JSX/expression atoms incl. `data.estree`, a dense mixture).
-  - `mountProseEditor(target, { nodes, onChange })` → `{ view, destroy() }` — transient PM
-    view with span-scoped history + a mod-b/i/\` mark keymap; emits updated mdast on every
-    doc-changing transaction. happy-dom tested via applied transactions.
-
-  **Preservation decisions / caveats (the host should know):**
-  - *Mark nesting is normalized.* PM marks are an unordered set, so the relative nesting of
-    strong/emphasis/link is canonicalized to schema order on serialize. Matches remark for the
-    common case; inverse-authored nesting (`**_x_**`) round-trips to the canonical form —
-    semantically identical, structurally normalized. Inherent to mark-based editing; accepted.
-  - *Nothing is dropped.* Any inline mdast type we don't model explicitly (inline `image`, raw
-    `html`, …) is preserved verbatim as an opaque `unknownInline` atom rather than discarded.
-  - *Inline JSX atoms are opaque in v1* — an `mdxJsxTextElement`'s children round-trip exactly
-    but aren't separately editable yet (the element is one chip). Revisit if in-atom editing
-    is wanted.
-  - *Host seam:* the editor shell extracts a block's `children`, calls `mountProseEditor`, and
-    splices `onChange`'s `PhrasingContent[]` back into the document before re-serializing.
-- D2b — **VERIFIED.** Toolchain: `unified` + `remark-parse` + `remark-frontmatter`
-  + `remark-mdx` + `remark-stringify`, one processor for both directions
-  (`@nocms/editor`'s `parseMdx`/`serializeMdx`, see `mdx-document.ts`). A
-  parse→serialize→parse cycle is **structurally lossless** on JSX flow/inline
-  elements, all attribute kinds (string, `={expr}`, boolean shorthand, `{...spread}`),
-  flow/text expressions, comments, and frontmatter, and serialization is a stable
-  fixpoint (`mdx-document.test.ts`, 14 cases). The *only* change is cosmetic
-  formatting normalization (e.g. list bullet `-`→`*`) — which is D2c's problem, not
-  a losslessness failure. Conclusion: persisting MDX text (not ProseMirror JSON) is
-  sound; the riskiest assumption holds.
-- D2c — how AST mutations re-serialize while preserving unrelated formatting
-  (minimize diff noise so git line-merges stay clean).
-
-**Recommendation:** adopt the descriptor-driven + render-the-real-component
-philosophy; invert the data model to MDX-text/AST; reuse `@nocms/renderer` and
-`@nocms/props-discovery`; map via source positions. Prototype D2b (lossless
-round-trip) first — it is the riskiest assumption.
-
 ### D3 — Derive ② toolbox (per feature)
 Search index (e.g. Pagefind vs custom sharded index), i18n bundle format, manifest
 /feed shapes. Decide per feature; each may differ.
@@ -474,6 +227,304 @@ renderer or component registry). The contract:
   enough for the one-page starter. Params, collections, and pagination are D5.
 
 ## Resolved
+
+### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**
+
+**Decision.** The editing surface is a **bespoke composition of noCMS's own packages**, not
+an adopted visual builder. The live site *is* the canvas: `@nocms/renderer` renders the
+MDX→Preact tree in editor mode (annotated with source positions) — the *same* tree the
+publish build prerenders — so "what you preview is what you publish" (invariant #1) holds by
+construction, with no second renderer or component model. MDX text is the source of truth
+(invariant #5); the in-memory model is its mdast tree. The editing surfaces, all over that one
+tree (`mountEditor`/`shell.tsx` is the loop):
+- *Select* — a canvas click resolves via injected `data-mdx-pos` source offsets → mdast node
+  path (`position.ts`), then up to the meaningful node (`selectable.ts`); tracked by
+  **index-path** (offset-stable across edits) and drawn with a non-interactive overlay.
+- *Configure* — `@nocms/props-discovery` schemas (injected ahead of time — live TS-compiler
+  discovery is a build/vendor step, impractical in-browser) drive a control-per-prop panel that
+  mutates the JSX node's attributes (`props-panel.tsx`, `jsx-attributes.ts`); never raw JSON
+  (invariant #10).
+- *Edit text in place* (D2a) — a transient ProseMirror view over a block's mdast inline nodes
+  (`@nocms/prose`), serialized back to mdast on commit.
+- *Theme* (tokens-as-bricks) — `@nocms/tokens` runtime CSS variables rewritten into one
+  `<style>` live; never a rebuild (invariant #3).
+- *Persist* — re-serialize mdast→MDX (`mdx-document.ts`, D2b lossless round-trip) and fire
+  `onChange`; saving/publishing wires onto that seam (`@nocms/session`, D7).
+
+**Rejected.**
+- *Adopt a component visual builder* (Puck, Craft.js, Plasmic, Builder.io) — each disqualified
+  by a locked **JSON-tree data model** (against invariant #5: layout is line-mergeable MDX
+  text), a **centralized/hosted** editor (against invariant #2: decentralized), or dormancy.
+  Kept as UX/architecture references only.
+- *A second renderer or component model for the canvas* — violates invariant #1; the whole
+  correctness property is one renderer, two moments.
+- *ProseMirror / Lexical / Slate as the document source of truth* (D2a) — every WYSIWYG
+  framework owns its own JSON model and silently drops inline MDX constructs it has no handler
+  for. So the mdast↔PM transformer is **built in-house on ProseMirror core** (vanilla, no
+  editor-framework lock), modeling inline MDX atoms as schema atom nodes that survive
+  deterministically. TipTap (a wrapper over the same engine) is not adopted.
+
+**Adopted dependencies (the only ones, all MIT-compatible).** ProseMirror core for the prose
+widget. A DnD primitive (Pragmatic DnD) for brick insertion is the documented next increment,
+not yet wired.
+
+**Resolved sub-decisions.** D2a (prose widget) → ProseMirror-core transient view over mdast
+(`@nocms/prose`), lossless round-trip verified. D2b (persist MDX text, not PM JSON) → verified
+structurally lossless, stable fixpoint.
+
+**Open follow-up.** D2c — re-serialization currently normalizes cosmetic formatting (e.g.
+bullet `-`→`*`); minimizing diff noise so git line-merges stay clean is a deferrable
+refinement, not an architecture blocker.
+
+**Post-v1 seams (flagged, not built).** Block-level prose structure (Enter/Backspace block
+ops — `isProseEditable` is paragraph+heading only); brick insertion (DnD + a layout-brick
+library + AST insert); schema production via `discoverControls` at build/vendor time (the
+starter's are hand-authored); fork-vendoring `@nocms/editor` (D1); media picker (D6);
+plugin-contributed bricks (D4).
+
+The full research and the implementation map are retained below.
+
+#### D2 — research & implementation detail
+
+**Product vision (Maxime, the north star).** A flexible, versatile website builder that
+*feels Figma-like* but targets **non-developers/non-designers**: assemble sites from
+pre-built **layouts + components**, with an **opinionated** way of building (e.g. design
+**tokens-as-bricks**), every concept understandable with **zero web/design knowledge** —
+"standard-user-proof." The cat-next TipTap editor below was a reference for the
+**props-discovery philosophy only**, not an editor recommendation.
+
+**Key finding from library research (2026-06): no full builder is adoptable.** Every
+component-based visual builder is disqualified for noCMS by a locked JSON-tree data model
+(Puck, Craft.js, Plasmic, Builder), a centralized/hosted editor that breaks decentralization
+(Builder, Plasmic), or dormancy (Craft.js) — all against noCMS's MDX-text-source / Preact /
+decentralized constraints. So the editor is **bespoke composition of packages noCMS already
+has**, on top of a few small primitives. The big builders are **UX/architecture references
+only**.
+
+**Feature map (capability → what powers it):**
+1. *Canvas* — the live site is the editing surface → `@nocms/renderer` (invariant #1) +
+   DOM↔mdast mapping via source positions + iframe/shadow sandbox (kills the
+   React-context-barrier pitfall).
+2. *Insert bricks* — components + pre-built **layout sections** by drag-drop → a DnD
+   primitive + a curated layout-brick library (MDX snippets + metadata) + AST insert.
+3. *Configure* — friendly property controls → `@nocms/props-discovery` + a control-widget
+   set (prop-type → widget); never expose JSON.
+4. *Edit text in place* — see D2a.
+5. *Design: tokens-as-bricks* — semantic, opinionated token panel + presets → `@nocms/
+   tokens` (runtime CSS vars, no rebuild — invariant #3) + a color picker.
+6. *Structure* — pages, nav, a layers/outline tree from mdast → `@nocms/core` + routing (D5).
+7. *Media* — image upload/picker + alt text → `@nocms/github` + build-tier optimization (D6).
+8. *History* — one unified undo/redo over mdast/text (avoid cat-next's per-region isolation).
+9. *Save & publish* — branch-per-session + async publish → `@nocms/github`, `@nocms/auth`.
+10. *Guardrails* (cross-cutting) — valibot validation + constrained choices → `@nocms/core`.
+11. *Plugins* (later) — sandboxed extra bricks/controls → `@nocms/sandbox` (D4).
+
+**The only genuine "adopt a dependency" slots (Preact-feasible primitives):**
+- *Canvas drag-and-drop:* **Pragmatic DnD** (`@atlaskit/pragmatic-drag-and-drop`, ~4.7kB
+  vanilla, framework-agnostic — top pick) or **dnd-kit/dom** (richer, pre-1.0).
+- *Prose text widget:* **ProseMirror core** (vanilla, no framework lock) — see D2a.
+- *Small UI:* a color picker; minimal popover/menu primitives (build or vet).
+
+**References to study (do NOT adopt):** **TinaCMS** — the blueprint: edits MDX as an AST in
+git, never as a string, self-hosted; **Onlook** — DOM element ↔ source-location mapping for
+in-site editing; **Puck** — cleanest field-config + DropZone WYSIWYG UX; **GrapesJS** —
+builder panel/trait UX.
+
+**v1 implementation (complete — `bun run verify` green):**
+1. ✅ Document seam — `parseMdx`/`serializeMdx` (D2b verified).
+2. ✅ Selection mapping core — `position.ts` (`nodeAtOffset`/`deepestNodeAtOffset`/
+   `nearestOfType`): a click's source offset → the mdast node path. Pure + tested.
+3. ✅ Renderer editor-mode DOM annotation — `@nocms/renderer`'s `renderEditableToVNode`
+   (`editable.ts`). Evaluates with `{ development: true }` + a wrapped `jsxDEV`; intrinsics
+   get `data-mdx-pos` injected into props, components (which don't forward unknown props)
+   are wrapped in a `display:contents` carrier; `line:col → start offset` so the DOM offset
+   feeds `nodeAtOffset` directly. Publish path stays clean (tested). Known edge: wrapping a
+   component that renders e.g. an `<li>` — `display:contents` keeps layout but not
+   HTML-nesting validity; acceptable for v1, revisit if it bites.
+4. ✅ Canvas mount — `@nocms/editor`'s `mountCanvas` (`canvas.ts`): renders the annotated
+   editable tree into a target and reports the selected mdast node path on click
+   (`offsetFromElement`/`selectionAtElement` resolve via `nodeAtOffset`). happy-dom is the
+   editor's DOM test env (per-file `@vitest-environment` docblock). Remaining canvas
+   refinements: iframe/shadow sandbox for style + React-context isolation, a visual
+   selection overlay, and a "selectable granularity" policy (nearest block/component) in
+   the editor shell — clicking a block resolves to its first inline child today; the shell
+   chooses the meaningful node via the path.
+5. ✅ Props panel — `@nocms/editor`'s `jsx-attributes.ts` (pure `getProp`/`setProp`/
+   `removeProp` over the JSX node) + `PropsPanel` (`props-panel.tsx`): a friendly control
+   per `@nocms/props-discovery` Control, bound to the selected node's attributes; edits
+   mutate the node in place and fire `onChange` for the shell to re-serialize + re-render.
+   happy-dom tested. Remaining: media control = plain text field (real media picker later);
+   the editor shell that wires canvas selection → schema lookup → panel → re-render loop.
+6. ✅ **Editor shell loop — `mountEditor` (`shell.tsx`).** Lays out a canvas region beside a
+   side panel, keeps one live `MdxDocument` (`parseMdx` once), mounts `mountCanvas`, and on
+   select resolves the meaningful node (`selectableNode` — nearest JSX component or block,
+   `selectable.ts`), looks up its **injected** schema by component name, and renders
+   `PropsPanel`. A panel edit mutates the node in place; the shell re-serializes, calls
+   `canvas.update(mdx)`, re-highlights by **index-path** (`indexPathOf`/`nodeAtIndexPath`,
+   offset-stable across edits — raw offsets shift), and fires `onChange(mdx)`. Schemas are
+   injected, not discovered live (`discoverControls` parses TS source via the compiler — a
+   Node step, impractical in-browser). Canvas gained a structural **selection overlay**
+   (`highlight(indexPath)`, non-interactive layer) and now `preventDefault`s clicks (an
+   editing surface selects, never navigates). Full click→panel→edit→live-update→`onChange`
+   loop unit-tested (happy-dom) and **browser-verified** in the starter.
+7. ✅ **Tokens-as-bricks panel — `TokensPanel` (`tokens-panel.tsx`).** Edits design tokens as
+   semantic, opinionated, human-labeled choices (brand color, fonts, spacing, radius) grouped
+   by concept, never raw var names; an edit emits updated tokens + flat source + CSS-var
+   block. Wired into `mountEditor` behind an optional `tokens` source: the shell rewrites one
+   `<style>` live on each theme edit (no rebuild — invariant #3) and surfaces the flat text
+   via `onTokensChange`. Added `formatTokens` to `@nocms/tokens` (the missing flat-text
+   serializer, inverse of `parseTokens`, round-trip tested). Browser-verified live theming.
+8. ✅ **Starter `?edit` mount + browser verification.** `?edit` lazily imports `src/edit.tsx`
+   (separate entry) → `mountEditor` with the starter's content, registry, injected schemas,
+   and tokens; the reader path and the prerender build (`scripts/build.ts`) are untouched.
+   `@nocms/editor` is a **workspace devDep** of the starter (dev-only; not in the reader
+   bundle, not vendored yet).
+
+9. ✅ **In-place prose editing — `@nocms/prose` wired into the shell (post-merge).**
+   Double-clicking a paragraph/heading (`isProseEditable`, `prose-edit.ts`) mounts a transient
+   `mountProseEditor` view over the block's DOM, seeded with the block's mdast inline children;
+   the widget's `onChange(nodes)` splices `block.children` live and fires the shell `onChange`.
+   The canvas is **not** re-rendered mid-edit (that would tear the view out) — only on commit
+   (a click outside the block, or Escape), which re-serializes, re-renders via the one renderer,
+   and re-selects the block by index-path. The canvas's new `suppressWhen` guard hands clicks
+   inside the live editor to ProseMirror untouched (no `preventDefault`, no reselect). The
+   active view is exposed via `EditorHandle.proseView()` (the escape hatch for a future
+   formatting toolbar). Full loop unit-tested (happy-dom) and **browser-verified** (double-click
+   → type → Escape re-renders the edited text through the one renderer).
+
+**Open seams for the merge (this lane):**
+- *Prose: block-level structure.* The widget edits one block's *inline* content; creating /
+  splitting / merging / deleting blocks (Enter at a paragraph end, Backspace-merge) and
+  editing list items or blockquote bodies are not wired yet — `isProseEditable` is paragraph
+  + heading only. A block-structure layer over mdast is the next prose increment.
+- *Schema production.* Schemas are injected; the starter's are **hand-authored** in
+  `edit.tsx`. The real source is `discoverControls` over component TS at build/vendor time,
+  shipped as a `Record<name, ComponentSchema>` — unbuilt, out of scope this lane.
+- *Fork-vendoring the editor.* `@nocms/editor` isn't in the vendor `PACKAGES`, so `?edit`
+  works only in the monorepo. Vendoring it (browser target; it pulls the MDX compiler — heavy,
+  loads only in edit mode) so a fork is self-contained is the D1 follow-up.
+- *Editor content source.* `edit.tsx` **inlines** the MDX as text because the build lane's
+  `@mdx-js/rollup` plugin (enforce:pre, in the off-limits `vite.config.ts`) compiles every
+  `.mdx` request — `?raw` included — so a raw-text import is impossible without touching it.
+  The real editor loads content as text from the **GitHub API** (the repo is the database),
+  so this is a dev-harness shim, not the intended path.
+- *Dev-flow wrinkle (D1).* `predev` regenerates `vendor/*`, but bun's `file:` store keeps the
+  copy from the last `bun install`, so a new vendored export (e.g. `formatTokens`) needs a
+  `bun install` to surface in Vite dev. Harmless for forks (bundles are committed,
+  never regenerated); a monorepo-dev paper cut worth smoothing later.
+
+---
+
+WYSIWYG over MDX with lossless round-trip. Reference studied (props-philosophy only,
+a POC): cat-next TipTap editor at
+`/Users/maximedepachtere/project/papernest/cat-next/apps/front/features/editor`.
+
+**What the cat-next engine does well (worth adopting):**
+- *Descriptor-driven, zero-config.* Component authors write ordinary typed
+  components; editability is inferred from the TS prop types — no annotation DSL.
+  noCMS already has this as `@nocms/props-discovery`, and better: at runtime via
+  the TS compiler API, so there is no build-time descriptor generation step.
+- *Render the real component as the canvas.* The node view renders the actual
+  component for instant WYSIWYG preview. noCMS already has the matching piece —
+  `@nocms/renderer.renderToVNode` is the one renderer and is meant to be the canvas.
+- *Three edit surfaces:* a props panel (from the descriptor), click-to-edit on
+  rendered text, a native content slot for children, and nested editors for
+  rich-text props. Good UX to mirror.
+
+**Where noCMS must diverge (hard constraint):**
+- cat-next's source of truth is **ProseMirror/TipTap JSON** (a tree AST). That
+  violates noCMS invariant #5 — layout/content is **MDX text, line-mergeable, no
+  JSON tree**. So we cannot persist ProseMirror JSON.
+
+**Proposed model — MDX-AST as the document, MDX text as the artifact:**
+- Parse MDX → mdast (remark + `mdast-util-mdx`) as the in-memory model; persist by
+  serializing back to MDX text (`mdast-util-to-markdown` + mdx). Text is the source
+  of truth, so round-trip is structural, not a lossy re-derivation.
+- Preview by feeding the same MDX/AST to `@nocms/renderer` (reuse the one renderer —
+  satisfies the preview===publish guarantee for free).
+- Map visual selection → AST via remark **source positions** (`node.position`),
+  NOT by stringifying values and DOM-searching (the POC's fragile click-to-edit).
+- Edit component props with `@nocms/props-discovery` controls, mutating the JSX
+  node's attributes in the AST, then re-serialize. Single undo over the AST/text
+  (avoid the POC's per-region isolated undo).
+
+**Pitfalls flagged in the POC to design around:** DOM value-search binding (use
+positions), isolated rich-text undo (unify), React-context barrier across node
+views (each preview island is its own root — keep components context-light or
+provide context at the canvas root), heuristic async-render timing.
+
+**Sub-decisions still open:**
+- D2a — prose editing widget. **DECIDED: ProseMirror core as a transient view over mdast,
+  with CodeMirror as a scaffold/code-view (option B-with-A-scaffold).** A prose paragraph
+  parses to mdast inline nodes that interleave standard marks
+  (`strong`/`emphasis`/`inlineCode`/`link`/`text`) with **MDX inline atoms** —
+  `mdxJsxTextElement` (inline `<Badge/>`) and `mdxTextExpression` (`{expr}`). Preserving
+  those atoms while editing is the whole problem. The widget sits behind a small region-edit
+  seam (block source range in, edited MDX text out), so the two parts compose.
+
+  No WYSIWYG framework treats mdast as the source of truth — every one (ProseMirror, Lexical,
+  Slate) owns its own JSON model and *drops inline constructs it has no explicit handler
+  for*; generic converters (`prosemirror-markdown`, `@lexical/markdown`) confirm the
+  data-loss trap. So a mdast-authoritative editor must be **built, not adopted**, on
+  **ProseMirror core directly** (vanilla, no UI-framework lock, no third-party editor
+  framework in the dependency path). We do not use TipTap (a wrapper over the same engine).
+
+  - **(A) CodeMirror 6 source + live preview — scaffold / power-user code view.** Edits the
+    MDX text, so the verified `mdx-document` round-trip stays authoritative and inline atoms
+    are literally just text (lossless by construction). It shows raw markup, so it is *not*
+    the non-dev surface — it's the low-risk scaffold to stand up the editor loop, and stays
+    as an optional code view. (MDX-aware highlighting is DIY; CommonMark/GFM is turn-key.)
+  - **(B) ProseMirror core as a transient edit view over mdast — the non-dev WYSIWYG
+    surface.** Build the PM doc *from* a prose span's mdast and serialize *back* to mdast on
+    commit, so mdast stays the truth (inverting Milkdown's PM-as-truth default). Because we
+    own the schema, `mdxJsxTextElement` / `mdxTextExpression` are modeled as inline **atom**
+    nodes and survive deterministically. This delivers the Figma-like "click and type like a
+    doc" feel *and* preserves inline atoms. The bidirectional mdast↔PM-schema transformer
+    for prose spans is the entire risk — prototype + round-trip-test it the way D2b proved
+    the mdast↔MDX round-trip. References to mine (not depend on): Milkdown's
+    `$node`/`parseMarkdown`/`toMarkdown` transformer design and MDXEditor's inline-vs-flow
+    `jsxComponentDescriptor` split.
+
+  **Build status (`@nocms/prose`) — IMPLEMENTED (option B, the ProseMirror widget).** A new
+  standalone package operates purely on mdast inline nodes (`PhrasingContent[]` in/out), so it
+  depends only on mdast types + ProseMirror core — no dependency on `@nocms/editor` (clean
+  boundary). Pieces:
+  - `proseSchema` — a PM schema for a prose span: `doc` (inline content) + `text`, marks
+    `link`/`em`/`strong`/`code`, and inline **atom** nodes `mdxJsxText` / `mdxExpression` (each
+    carries its source mdast node verbatim in an attr, rendered as a non-editable chip). Mark
+    declaration order *is* the canonical serialization nesting (link ⊃ emphasis ⊃ strong),
+    matching remark.
+  - `mdastInlineToDoc` / `docToMdastInline` — the pure bidirectional transformer. **Lossless
+    round-trip verified** over 15 fixtures (text, nested marks, links ±title, inline code as a
+    leaf-shaping mark, breaks, JSX/expression atoms incl. `data.estree`, a dense mixture).
+  - `mountProseEditor(target, { nodes, onChange })` → `{ view, destroy() }` — transient PM
+    view with span-scoped history + a mod-b/i/\` mark keymap; emits updated mdast on every
+    doc-changing transaction. happy-dom tested via applied transactions.
+
+  **Preservation decisions / caveats (the host should know):**
+  - *Mark nesting is normalized.* PM marks are an unordered set, so the relative nesting of
+    strong/emphasis/link is canonicalized to schema order on serialize. Matches remark for the
+    common case; inverse-authored nesting (`**_x_**`) round-trips to the canonical form —
+    semantically identical, structurally normalized. Inherent to mark-based editing; accepted.
+  - *Nothing is dropped.* Any inline mdast type we don't model explicitly (inline `image`, raw
+    `html`, …) is preserved verbatim as an opaque `unknownInline` atom rather than discarded.
+  - *Inline JSX atoms are opaque in v1* — an `mdxJsxTextElement`'s children round-trip exactly
+    but aren't separately editable yet (the element is one chip). Revisit if in-atom editing
+    is wanted.
+  - *Host seam:* the editor shell extracts a block's `children`, calls `mountProseEditor`, and
+    splices `onChange`'s `PhrasingContent[]` back into the document before re-serializing.
+- D2b — **VERIFIED.** Toolchain: `unified` + `remark-parse` + `remark-frontmatter`
+  + `remark-mdx` + `remark-stringify`, one processor for both directions
+  (`@nocms/editor`'s `parseMdx`/`serializeMdx`, see `mdx-document.ts`). A
+  parse→serialize→parse cycle is **structurally lossless** on JSX flow/inline
+  elements, all attribute kinds (string, `={expr}`, boolean shorthand, `{...spread}`),
+  flow/text expressions, comments, and frontmatter, and serialization is a stable
+  fixpoint (`mdx-document.test.ts`, 14 cases). The *only* change is cosmetic
+  formatting normalization (e.g. list bullet `-`→`*`) — which is D2c's problem, not
+  a losslessness failure. Conclusion: persisting MDX text (not ProseMirror JSON) is
+  sound; the riskiest assumption holds.
+- D2c — how AST mutations re-serialize while preserving unrelated formatting
+  (minimize diff noise so git line-merges stay clean).
 
 ### D1 — Package distribution model → **vendor a built bundle**
 A fork of `templates/starter` lives outside the monorepo and can't resolve
