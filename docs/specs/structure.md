@@ -85,7 +85,7 @@ the nav editor wires components to routes; the runtime resolves active/ancestor 
 
 Content that appears on every page splits cleanly along the same text-vs-config line:
 
-- **Header & footer = singleton content files** (e.g. `content/_header.mdx`, `content/_footer.mdx`)
+- **Header & footer = singleton content files** (`content/globals/header.mdx`, `content/globals/footer.mdx`)
   holding composed component trees. They are *layout* — large, hand-edited, line-merged — so they are
   **text** (invariant #5), edited in the ordinary authoring shell, and composed into every page by
   the renderer via a layout slot (invariant #1: the same tree previews and publishes). Edit once,
@@ -95,10 +95,11 @@ Content that appears on every page splits cleanly along the same text-vs-config 
   OG — small, flat, machine-read, rarely edited. This is exactly the config the site-config seam was
   built for; it is *not* layout, so JSON is correct here.
 
-**Non-routable convention (open question).** Singletons and partials must *not* become routes. The
-spec assumes a leading-`_` prefix (`content/_header.mdx`) is excluded from `contentPathToRoute` and
-the route table; the exact convention (`_` prefix vs a `globals/` dir vs a frontmatter `route:
-false`) is flagged below.
+**Non-routable convention → RESOLVED (D11): a `content/globals/` directory.** Singletons and
+partials live under `content/globals/` (`header.mdx`, `footer.mdx`, optional `nav.mdx`) and the
+route mapper skips that directory — chosen over a `_`-prefix (cryptic) or a `route: false`
+frontmatter flag (invisible until every file is parsed). A directory is explicit, scannable, and
+needs no per-file parse to know what's routable.
 
 ## 4. Content collections in the UI
 
@@ -145,8 +146,8 @@ wrote — **same files underneath**. You never have to go up a layer to get some
 
 ## 7. Open questions → Claude Design exploration targets
 
-- **Non-routable convention** — `_`-prefix vs `globals/` dir vs frontmatter `route: false` for
-  singletons/partials. (Decision needed; affects `contentPathToRoute`.)
+- **Non-routable convention** — RESOLVED (D11): `content/globals/` directory, skipped by
+  `contentPathToRoute`.
 - **Explicit nav format** — confirm the `<Navigation>`/`<NavLink>`/`<NavGroup>` component-tree
   singleton as the curated-menu file shape.
 - **Standardized `nav.*` frontmatter vocabulary** in core — which keys (`label`, `order`, `parent`,
