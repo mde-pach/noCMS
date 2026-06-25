@@ -13,6 +13,39 @@ import { nodeAtIndexPath, nodeAtOffset } from "./position.js";
 
 const POS_ATTR = "data-mdx-pos";
 
+// Collect the laid-out boxes under `el`. The editor wraps each *component* in a
+// `display:contents` carrier that holds its source offset but generates no box of its
+// own (so layout is untouched); descend through such carriers to the real elements.
+function layoutRects(el: Element, out: DOMRect[]): void {
+  const rect = el.getBoundingClientRect();
+  if (rect.width > 0 || rect.height > 0) {
+    out.push(rect);
+    return;
+  }
+  for (const child of el.children) layoutRects(child, out);
+}
+
+/** A measurable box for `el`, falling back to the union of its descendants' boxes when
+ *  `el` itself is a boxless `display:contents` carrier. */
+function boundingRect(el: Element): DOMRect {
+  const own = el.getBoundingClientRect();
+  if (own.width > 0 || own.height > 0) return own;
+  const rects: DOMRect[] = [];
+  layoutRects(el, rects);
+  if (rects.length === 0) return own;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const r of rects) {
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+  return new DOMRect(left, top, right - left, bottom - top);
+}
+
 export interface CanvasSelection {
   /** source offset of the clicked element's nearest annotated ancestor */
   offset: number;
@@ -125,7 +158,7 @@ export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle>
       overlay.style.pointerEvents = "none";
       host.appendChild(overlay);
     }
-    const rect = el.getBoundingClientRect();
+    const rect = boundingRect(el);
     const hostRect = host.getBoundingClientRect();
     overlay.style.left = `${rect.left - hostRect.left}px`;
     overlay.style.top = `${rect.top - hostRect.top}px`;
