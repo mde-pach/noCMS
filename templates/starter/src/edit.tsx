@@ -36,6 +36,11 @@ description: Build a real website on GitHub, edit it in place, and publish with 
   design tokens, or double-click text to rewrite it. What you preview is exactly what publishes.
 </Callout>
 
+<Section tone="muted" padding="lg">
+  <Image src="https://placehold.co/640x280/4b3fd6/ffffff?text=noCMS" alt="A placeholder banner" rounded={true} />
+  <Button label="Get started" href="https://example.com" variant="primary" />
+</Section>
+
 <Divider spacing="lg" />
 
 ## One curated component library
