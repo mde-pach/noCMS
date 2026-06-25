@@ -42,9 +42,12 @@ backend. noCMS is software people adopt, not a service they depend on. Open sour
    token lives only in the host/auth context.
 9. **Everything is public on the free path.** A public repo means content, drafts, branches,
    and history are world-readable. Don't design features that assume private staging.
-10. **Components integrate by type.** Editor controls are derived by parsing component
-    TypeScript prop types — no annotation DSL. A thin optional field-config is the only escape
-    hatch.
+10. **Components integrate by schema.** Editor controls are derived by introspecting a
+    component's valibot props schema; `v.InferOutput` makes that schema the single source for
+    both the prop types and the controls, so they can't drift (no separate annotation DSL).
+    Meta-types (`v.metadata({ control })`) map bare values to rich controls (color, image,
+    range). One schema→control mapper in `core` serves both component props and collection
+    fields. A thin optional field-config is the only override. See D9.
 
 ## Package map
 
@@ -54,7 +57,7 @@ API** — cross-package use goes through that seam only.
 - `packages/core` — shared types + content-collection schema (valibot). The shared vocabulary.
 - `packages/renderer` — the single MDX→Preact engine (browser preview + Node prerender).
 - `packages/tokens` — flat token file ↔ CSS variables ↔ DTCG interop.
-- `packages/props-discovery` — component TS types → editor controls.
+- `packages/props-discovery` — introspect a component's valibot props schema → editor controls.
 - `packages/components` — curated, props-discoverable component library.
 - `packages/editor` — in-site WYSIWYG + visual layout + live token theming.
 - `packages/github` — browser GitHub client; branch-per-session commits.

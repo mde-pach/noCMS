@@ -725,3 +725,138 @@ lives in session rather than appending a writer to core, keeping the new surface
   `/merges` can 409 on a conflict. Retry/rebase/surfacing strategy is the integrator's to
   define — the seam throws a `GitHubError` the host can catch.
 - *Large-repo tree escalation* (paginated subtree vs batched GraphQL blob fetch) — see above.
+
+### D9 — Editor controls derivation → **RESOLVED: schema-introspection over a per-component valibot props schema, not TypeScript-source parsing.**
+Invariant #10 said controls are derived by *parsing component TypeScript prop types*. That
+holds for the curated first-party library (its `.ts` source is on hand) but has two structural
+limits the editor and plugins hit:
+- **Plugins can't be parsed.** A sandboxed plugin component (invariant #8) ships as compiled
+  JS — there is no TypeScript source at runtime to derive controls from. TS-source parsing
+  cannot give a plugin component an editor panel; schema-introspection can, because the schema
+  travels *with* the component and is read at runtime inside the sandbox.
+- **Bare types are control-poor.** A `string` can't say it is a color, a URL, or rich text, so
+  a parser maps everything to a text box unless branded — and branding in raw TS is awkward.
+
+**Resolution.** A component declares a **valibot** schema for its props; the component's prop
+type is `v.InferOutput<typeof Schema>`, so the schema *is* the single source of truth and types
+cannot drift from controls (this *strengthens* invariant #10's intent — "no annotation DSL that
+drifts" — rather than weakening it). Controls are derived by **introspecting the schema object**:
+each entry's base type maps to a base control (`string`→text, `number`→number, `boolean`→toggle,
+`picklist`→select, nested `object`→group), and **meta-types** attach a richer control via
+`v.metadata({ control: 'color' | 'url' | 'image' | 'range' | 'richtext' | … })` (or `v.brand`),
+e.g. `v.pipe(v.string(), v.metadata({ control: 'color' }))` → color picker. The thin optional
+field-config stays as an *override-only* escape hatch, never the source.
+
+**Why valibot, not zod.** `core` already standardizes on valibot (content-collection schema; the
+`nocms.config.json` schema in D8). Adding zod would be a second schema library for a job already
+solved (dependency bar + "don't add a second pattern"). Valibot is introspectable, has
+`InferOutput`, and supports `brand`/`metadata` for meta-types — it covers the need.
+
+**Consolidation.** `core` already maps `FieldDef` → controls for collection fields. Schema-driven
+component props means **one** schema→control derivation serves both component props *and*
+collection fields; that mapper belongs in `core`, consumed by `@nocms/props-discovery` (reworked
+from TS-parsing to schema-introspection) and the editor's props panel.
+
+**Cost (accepted):** reworks `@nocms/props-discovery`'s core and updates invariant #10's wording
+in `CLAUDE.md` from "parsing component TypeScript prop types" to "introspecting a component's
+valibot props schema (`InferOutput` keeps types and controls a single source)."
+
+### D10 — Onboarding repo bootstrap → **RESOLVED (mechanism): template-generate via a GitHub App; the template ships its own Pages workflow. Exact App permissions pending verification (see `docs/research/github-app-onboarding.md`).**
+The zero→live flow (Phase 0, `docs/specs/onboarding.md`) bootstraps a user's site from a
+stateless launcher page. Three sub-decisions:
+
+- **Repo creation → template-generate, not fork.** `POST /repos/{template}/generate` creates an
+  *independent* repo: clean history, no "forked from" badge, private-able later, no upstream
+  coupling. This matches D1 (sites are self-contained and vendor their `@nocms/*` bundles; they do
+  not pull upstream via git), so the one thing a fork buys — upstream merges — is not wanted. The
+  starter repo (`templates/starter`) is marked a **template repository**. Fork is the fallback.
+
+- **Identity → a GitHub App (verdict confirmed).** Per `docs/research/github-app-onboarding.md`:
+  repo-from-template via `POST /repos/{template}/generate` **works with a user-to-server (PKCE)
+  token**; creation is authorized at the *account level* by **Administration: write**, not by the
+  (nonexistent) new repo being pre-installed. Required App permissions: **Administration R/W** (create
+  repo), **Contents R/W** (commits), **Pages R/W** (enable Pages), **Actions R/W** (dispatch/poll
+  the deploy), **Metadata R** (forced). The two consent moments collapse into **one screen** via
+  "Request user authorization (OAuth) during installation"; repo creation works immediately after.
+  All needed endpoints are **CORS-enabled** (browser-callable) — only the code→token exchange stays
+  in the relay. Token lifetimes confirmed unchanged (8h / 6mo single-use rotating). The fine-grained
+  PAT remains the zero-relay power-user fallback (invariant #7).
+  *Two residual empirical checks (owner action):* (a) whether a user token can write Contents/Pages
+  on a `/generate`d repo under a **"selected repositories"** install, or whether a
+  `PUT /user/installations/{id}/repositories/{repo_id}` add-call is needed — **defaulting installs
+  to "All repositories" sidesteps this**; (b) that `POST /pages {build_type:"workflow"}` succeeds on
+  a brand-new repo with no prior Pages config.
+
+- **Pages → the template ships the deploy workflow AND the launcher makes one enable call
+  (corrected).** Research overturned "no separate enable call": owning a `deploy-pages` workflow does
+  **not** auto-enable Pages — the `github-pages` environment must exist first. So the flow is: the
+  generated repo carries `.github/workflows/*` (`actions/deploy-pages`, source = GitHub Actions),
+  **and** the launcher makes one `POST /repos/{owner}/{repo}/pages {build_type:"workflow"}` to create
+  the environment. This is why **Pages R/W** is in the permission set above.
+
+### D11 — Content conventions: singletons, navigation vocabulary, collection storage, slug-change → **RESOLVED (recommended defaults; reversible).**
+Resolves the open questions surfaced by the Phase 2 structure spec (`docs/specs/structure.md`).
+All four keep layout/nav as line-diffable text (invariant #5) and the repo as the database (#4).
+
+- **Non-routable singletons → a `content/globals/` directory.** Header, footer, and an optional
+  explicit nav live as `content/globals/header.mdx` etc. The route mapper skips `globals/`. Chosen
+  over a `_`-prefix (cryptic) or a `route: false` frontmatter flag (invisible until every file is
+  parsed) — a directory is explicit, scannable, and needs no per-file parse to know what's routable.
+
+- **Navigation → derived-by-default, explicit-override.** The menu is derived from per-page
+  frontmatter so it can't drift from the pages that exist, using a small vocabulary owned by `core`:
+  `nav.label` (string), `nav.order` (number), `nav.parent` (route ref, for nesting), `nav.hidden`
+  (boolean). When
+  curation is needed, an optional `content/globals/nav.mdx` holds a `<Navigation>` component tree
+  that overrides the derived menu — layout as text, one renderer (invariant #1/#5), explicitly **not**
+  a JSON array in config.
+
+- **Collection definitions → `nocms.config.json` (D8, valibot).** `CollectionDef`s are structural
+  config, not page content, so they live in the config seam; entries live as content files under the
+  collection's directory, and entry forms are driven by D9's schema→control mapper reading `FieldDef`
+  (one mapper, two callers).
+
+- **Slug change → atomic internal rewrite, optional external tombstone.** Renaming a page moves the
+  file and rewrites internal links in the *same* commit (structure spec). External inbound links
+  can't be server-redirected (Pages has no redirect rules), so a rename may optionally leave a
+  client-redirect tombstone (a tiny HTML at the old path) — **off by default** to keep the tree
+  clean; opt-in when an established URL must not break.
+
+### D12 — Dark mode in the flat token file → **RESOLVED (recommended default; reversible): a `@mode` qualifier compiling to scoped CSS variables, one source of truth.**
+Phase 3 (`docs/specs/design-theming.md`) needs dark mode without breaking invariants #3 (runtime,
+no rebuild) or #5 (flat one-token-per-line is canonical). Resolution: extend the flat file with a
+**mode qualifier** — `color.primary@dark = …` lines sit alongside the base `color.primary = …` —
+which `@nocms/tokens` compiles to scoped overrides (`[data-theme="dark"] { --color-primary: … }`).
+A root class toggles the active mode, defaulting to `prefers-color-scheme`. Only color/shadow tokens
+take mode variants; spacing/type/radius ramps are mode-invariant and never qualified.
+
+This keeps **one canonical source** (no parallel dark-theme file to drift), stays line-diffable
+(#5), and restyles instantly via CSS-var swap (#3). Themes (D-? presets in Phase 3) and modes are
+orthogonal: a preset supplies base + `@dark` values together.
+
+**Cost (accepted, bounded):** `parseTokens` learns the `@mode` suffix and `toCssVariables` emits the
+scoped block. Alternatives rejected: separate `tokens.dark` file (drifts, two sources — violates #5
+spirit), media-query-only with no override (can't theme), JSON theme object (not text). The exact
+qualifier syntax (`@dark` vs `[dark]` vs a `:dark` segment) is the one detail to finalize when the
+tokens-package extension is implemented.
+
+### D13 — v1 policy resolutions: SVG sanitization, new-site crawl posture, publish conflict resolution → **RESOLVED.**
+Three small but real policy forks the Phase 4/5/6 specs surfaced, decided with the project owner.
+
+- **SVG uploads → allowed, sanitized by an established library (never hand-rolled).** Per owner
+  direction ("proper libs, don't try to implement weaknesses"): `.svg` uploads are permitted but
+  passed through a maintained, battle-tested sanitizer — **DOMPurify** (MIT, browser-side) with an
+  SVG profile that strips `<script>`/`<foreignObject>`, event handlers (`on*`), and external
+  references — before commit. We do **not** hand-roll SVG sanitization; reusing a maintained
+  sanitizer is the same "don't reinvent the hard, security-critical part" stance as D3 (MiniSearch),
+  and respects invariant #8. Raster uploads keep the resize-to-WebP path (Phase 4).
+
+- **New-site crawl posture → discouraged until first publish.** A freshly generated site ships
+  `noindex` (placeholder/seed content shouldn't land in search results); the first real Publish
+  flips it to indexable. Framed as crawler hygiene, not privacy (invariant #9). The `robots.txt`
+  question (template-shipped vs derive-emit) stays a thin implementation choice under this posture.
+
+- **Publish conflict resolution → ask only on same-section overlap.** When live has advanced under
+  an open draft: auto-rebase and publish when draft and live touched *different* sections; prompt
+  the user only when the *same* section diverged. Resolves the policy D7 explicitly left to the
+  integrator — low friction in the common case, a prompt only on a genuine conflict.
