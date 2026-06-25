@@ -56,6 +56,20 @@ export function href(routePath: RoutePath | string, base = "/"): string {
   return `${normalizedBase}${rel}`;
 }
 
+/**
+ * A browser `location.pathname` (which carries the deployment base) → its base-less
+ * route, so a runtime consumer can match the current page against the base-less routes
+ * the derived artifacts use. A pathname that does not lie under `base` is returned as-is.
+ */
+export function routeFromPathname(pathname: string, base = "/"): RoutePath {
+  const prefix = (base.endsWith("/") ? base : `${base}/`).replace(/\/$/, "");
+  if (prefix && pathname.startsWith(prefix)) {
+    const rest = pathname.slice(prefix.length);
+    if (rest === "" || rest.startsWith("/")) return normalizeRoutePath(rest || "/");
+  }
+  return normalizeRoutePath(pathname);
+}
+
 /** A page's localized variant: the locale and the route it is served at. */
 export interface LocaleLink {
   locale: string;

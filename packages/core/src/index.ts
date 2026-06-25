@@ -119,6 +119,7 @@ export {
   localeLinks,
   normalizeRoutePath,
   type RoutePath,
+  routeFromPathname,
   routeToContentPath,
 } from "./route";
 export { schemaForCollection, validateEntryData } from "./schema";

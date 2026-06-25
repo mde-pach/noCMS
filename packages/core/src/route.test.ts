@@ -6,6 +6,7 @@ import {
   localeLinks,
   normalizeRoutePath,
   type RepoPath,
+  routeFromPathname,
   routeToContentPath,
 } from "./index";
 
@@ -93,6 +94,23 @@ describe("href", () => {
 
   it("joins the root route against a project base", () => {
     expect(href("/", "/repo/")).toBe("/repo/");
+  });
+});
+
+describe("routeFromPathname", () => {
+  it("strips a project base from the pathname", () => {
+    expect(routeFromPathname("/repo/fr/about", "/repo/")).toBe("/fr/about");
+    expect(routeFromPathname("/repo/", "/repo/")).toBe("/");
+    expect(routeFromPathname("/repo", "/repo/")).toBe("/");
+  });
+
+  it("passes a root-based pathname through", () => {
+    expect(routeFromPathname("/fr/about")).toBe("/fr/about");
+    expect(routeFromPathname("/")).toBe("/");
+  });
+
+  it("does not strip a base that is only a string prefix of the pathname", () => {
+    expect(routeFromPathname("/repository/x", "/repo/")).toBe("/repository/x");
   });
 });
 

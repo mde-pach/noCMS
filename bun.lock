@@ -45,6 +45,7 @@
       "name": "@nocms/components",
       "version": "0.0.0",
       "dependencies": {
+        "@nocms/core": "workspace:*",
         "preact": "^10.27.0",
       },
       "devDependencies": {

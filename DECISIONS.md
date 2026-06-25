@@ -395,10 +395,16 @@ History-API soft-navigation enhancement is provided; no client-router framework 
   (the locale set is finite and every page is static) and force the matcher to special-case the
   first segment; **locale-as-second-base-segment** would fragment the one shared route table
   per locale. So the matcher is untouched, and the default locale simply has no prefix.
-- *Page shell / layout* (overlaps D6). **DEFERRED to the integrator** — where the page chrome
-  lives (content-tier layout vs. an emitted shell) is unsettled and tied to island hydration,
-  owned by the parallel build/renderer lane. The router provides the matched route + payload;
-  it does not own layout.
+- *Page shell / layout* (overlaps D6). **The broad layout system stays DEFERRED; resolved
+  minimally for the runtime-derive consumers:** chrome that needs runtime data (the language
+  switcher, the latest-feed list) ships as **island components authored into content**, reusing
+  the existing island hydration — NOT a new build-emitted shell/layout. Only head-level metadata
+  is build-emitted: the feed discovery `<link rel="alternate">` and a `<script id="nocms-site">`
+  carrying the base-relative URLs of the ② derived files, both injected into `<head>` by the
+  build (like the favicon / `head.html`). So a published page hosts these consumers wherever the
+  author drops `<LanguageSwitcher/>` / `<LatestPosts/>`, and the build owns only `<head>` — the
+  content-tier-layout-vs-emitted-shell question is untouched. The router still provides the
+  matched route + payload; it does not own layout.
 
 **Integration seam (for the merge — `@nocms/router` is not wired into anything yet):**
 - `@nocms/build` (③): build its route list with `routeTableFromEntries`/`contentPathToRoute`

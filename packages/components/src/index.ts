@@ -15,6 +15,8 @@ import { Grid } from "./primitives/Grid";
 import { Hero } from "./primitives/Hero";
 import { Image } from "./primitives/Image";
 import { Input } from "./primitives/Input";
+import { LanguageSwitcher } from "./primitives/LanguageSwitcher";
+import { LatestPosts } from "./primitives/LatestPosts";
 import { Section } from "./primitives/Section";
 import { Select } from "./primitives/Select";
 import { Stack } from "./primitives/Stack";
@@ -55,6 +57,8 @@ export const registry: ComponentRegistry = {
   Textarea: entry(Textarea),
   Select: entry(Select),
   Counter: island(Counter),
+  LanguageSwitcher: island(LanguageSwitcher),
+  LatestPosts: island(LatestPosts),
 };
 
 export { Badge, type BadgeProps } from "./primitives/Badge";
@@ -69,7 +73,13 @@ export { Grid, type GridProps } from "./primitives/Grid";
 export { Hero, type HeroProps } from "./primitives/Hero";
 export { Image, type ImageProps } from "./primitives/Image";
 export { Input, type InputProps } from "./primitives/Input";
+export {
+  LanguageSwitcher,
+  type LanguageSwitcherProps,
+} from "./primitives/LanguageSwitcher";
+export { LatestPosts, type LatestPostsProps } from "./primitives/LatestPosts";
 export { Section, type SectionProps } from "./primitives/Section";
 export { Select, type SelectProps } from "./primitives/Select";
 export { Stack, type StackProps } from "./primitives/Stack";
 export { Textarea, type TextareaProps } from "./primitives/Textarea";
+export { readSiteRuntime } from "./site-runtime";

@@ -166,6 +166,8 @@ describe("registry", () => {
       "Hero",
       "Image",
       "Input",
+      "LanguageSwitcher",
+      "LatestPosts",
       "Section",
       "Select",
       "Stack",
@@ -173,8 +175,10 @@ describe("registry", () => {
     ]);
   });
 
-  it("marks Counter as an island and leaves static primitives unmarked", () => {
+  it("marks interactive consumers as islands and leaves static primitives unmarked", () => {
     expect(registry.Counter?.island).toBe(true);
+    expect(registry.LanguageSwitcher?.island).toBe(true);
+    expect(registry.LatestPosts?.island).toBe(true);
     expect(registry.Button?.island).toBeUndefined();
   });
 });

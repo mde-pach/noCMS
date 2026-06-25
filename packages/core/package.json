@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "description": "Shared types and the structured-content collection schema. The vocabulary every other package speaks: content models, token shapes, repo coordinates, capability descriptors. Runtime validation via valibot.",
+  "sideEffects": false,
   "module": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
