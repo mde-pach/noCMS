@@ -6,14 +6,19 @@
 
 import type { Capability, PluginManifest } from "@nocms/core";
 import { createBroker, type HostApi } from "./broker.js";
-import { createSandboxFrame, frameSandboxPolicy } from "./frame.js";
+import { createSandboxFrame, frameSandboxPolicy, withCspMeta } from "./frame.js";
 import { serveBroker } from "./port.js";
 import { PROTOCOL } from "./protocol.js";
 
 export type { HostApi, HostMethod } from "./broker.js";
 export { createBroker, METHOD_CAPABILITY } from "./broker.js";
 export { createHostClient, type RemoteHostApi, SandboxError } from "./client.js";
-export { frameSandboxPolicy, type SandboxPolicy } from "./frame.js";
+export {
+  createSandboxFrame,
+  frameSandboxPolicy,
+  type SandboxPolicy,
+  withCspMeta,
+} from "./frame.js";
 export type { PortLike } from "./port.js";
 export { serveBroker } from "./port.js";
 export {
@@ -30,6 +35,13 @@ export interface LoadPluginOptions {
    * the manifest's full request when omitted (dev convenience).
    */
   grant?: Capability[];
+  /**
+   * Guest document HTML loaded into the frame as `srcdoc`. The frame's CSP is
+   * injected at the top of it (`withCspMeta`), so network denial applies to the
+   * document itself. Omit to leave the frame empty (the host posts the port on
+   * load regardless, but nothing receives it).
+   */
+  source?: string;
   /** Where to attach the frame. Defaults to `document.body`. */
   mount?: HTMLElement;
   /** Injected for testing; defaults to the ambient `document`. */
@@ -54,7 +66,11 @@ export function loadPlugin(
   const granted = requested.filter((cap) => approved.includes(cap));
 
   const doc = options.document ?? document;
-  const frame = createSandboxFrame(doc, frameSandboxPolicy(granted));
+  const policy = frameSandboxPolicy(granted);
+  const frame = createSandboxFrame(doc, policy);
+  if (options.source !== undefined) {
+    frame.setAttribute("srcdoc", withCspMeta(options.source, policy.csp));
+  }
   (options.mount ?? doc.body).appendChild(frame);
 
   const channel = new MessageChannel();

@@ -36,6 +36,25 @@ describe("loadPlugin", () => {
     plugin.dispose();
   });
 
+  test("loads guest source into srcdoc with the CSP injected", () => {
+    const plugin = loadPlugin(
+      manifest([]),
+      {},
+      { source: "<head></head><body>hi</body>" },
+    );
+    const srcdoc = plugin.frame.getAttribute("srcdoc") ?? "";
+    expect(srcdoc).toContain("hi");
+    expect(srcdoc).toContain('http-equiv="Content-Security-Policy"');
+    expect(srcdoc).toContain("connect-src 'none'");
+    plugin.dispose();
+  });
+
+  test("leaves srcdoc unset when no source is given", () => {
+    const plugin = loadPlugin(manifest([]), {});
+    expect(plugin.frame.hasAttribute("srcdoc")).toBe(false);
+    plugin.dispose();
+  });
+
   test("mounts into a provided target", () => {
     const mount = document.createElement("div");
     document.body.appendChild(mount);
