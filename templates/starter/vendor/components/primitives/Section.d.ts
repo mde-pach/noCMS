@@ -1,7 +1,10 @@
 import type { ComponentChildren } from "preact";
-export interface SectionProps {
-    tone?: "default" | "muted" | "accent";
-    padding?: "sm" | "md" | "lg";
+import * as v from "valibot";
+export declare const SectionSchema: v.ObjectSchema<{
+    readonly tone: v.OptionalSchema<v.PicklistSchema<["default", "muted", "accent"], undefined>, "default">;
+    readonly padding: v.OptionalSchema<v.PicklistSchema<["sm", "md", "lg"], undefined>, "lg">;
+}, undefined>;
+export type SectionProps = v.InferInput<typeof SectionSchema> & {
     children?: ComponentChildren;
-}
+};
 export declare function Section({ tone, padding, children }: SectionProps): import("preact").JSX.Element;
