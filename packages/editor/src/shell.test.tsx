@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import type { ComponentRegistry } from "@nocms/components";
+import { type ComponentRegistry, defineSavedComponent } from "@nocms/components";
 import { type ComponentType, h } from "preact";
 import * as v from "valibot";
 import { describe, expect, test, vi } from "vitest";
@@ -496,6 +496,61 @@ describe("save as component (D20)", () => {
         target.querySelectorAll(".nocms-editor-canvas .btn").length,
       ).toBeGreaterThan(1),
     );
+
+    handle.dispose();
+  });
+
+  test("rehydrates a persisted definition on mount so its instance renders", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+
+    const primaryCta = defineSavedComponent({
+      name: "PrimaryCTA",
+      base: "Button",
+      props: { label: "Get started", variant: "secondary" },
+      expose: ["label"],
+    });
+
+    const handle = await mountEditor({
+      target,
+      mdx: `<PrimaryCTA label="Hello" />\n`,
+      components: savedComponents,
+      savedComponents: [primaryCta],
+    });
+
+    // The page references a saved component; loading its definition lets it render,
+    // baking the locked variant=secondary.
+    const el = target.querySelector(".nocms-editor-canvas .btn-secondary");
+    expect(el?.textContent).toBe("Hello");
+
+    handle.dispose();
+  });
+
+  test("emits the authored definition through onSaveComponent (the persist seam)", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onSaveComponent = vi.fn();
+    const handle = await mountEditor({
+      target,
+      mdx: `<Button label="Go" variant="secondary" />\n`,
+      components: savedComponents,
+      onSaveComponent,
+    });
+
+    openSaveDialog(target);
+    const variant = target.querySelector(
+      '.nocms-expose-toggle[data-key="variant"]',
+    ) as HTMLElement;
+    variant.click();
+    await vi.waitFor(() => expect(variant.getAttribute("aria-pressed")).toBe("false"));
+    await nameAndConfirm(target, "PrimaryCTA");
+
+    await vi.waitFor(() => expect(onSaveComponent).toHaveBeenCalled());
+    const def = onSaveComponent.mock.calls.at(-1)?.[0];
+    expect(def.name).toBe("PrimaryCTA");
+    expect(def.base).toBe("Button");
+    expect(def.exposed).toEqual({ label: "Go" });
+    expect(def.locked).toEqual({ variant: "secondary" });
 
     handle.dispose();
   });

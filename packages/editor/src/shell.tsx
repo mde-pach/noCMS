@@ -22,6 +22,7 @@ import {
   defineSavedComponent,
   type PropPrimitive,
   registryManifest,
+  type SavedComponentDef,
   savedBlockFromDefinition,
 } from "@nocms/components";
 import {
@@ -105,6 +106,12 @@ export interface EditorOptions {
   onChange?: (mdx: string) => void;
   /** fired with the flat token source after a theme edit — the seam to save/commit. */
   onTokensChange?: (tokens: string) => void;
+  /** saved-component definitions to load into the registry at mount, so a page that
+   *  references them renders. The host reads these from the repo (the persistence seam). */
+  savedComponents?: SavedComponentDef[];
+  /** fired with a new saved-component definition when one is authored — the seam to
+   *  persist it to the repo so it survives a reload (symmetric with `onChange`). */
+  onSaveComponent?: (def: SavedComponentDef) => void;
   /** the host shown in the top bar identity; defaults to a placeholder. */
   siteHost?: string;
   /** the page label shown in the top-bar pill. */
@@ -178,6 +185,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // The canvas reads this map live on every paint, so registering a saved component is a
   // mutation of `components` (controls/manifests) plus `componentMap` (what the canvas renders).
   const componentMap = toComponentMap(components);
+  const registerSaved = (def: SavedComponentDef): void => {
+    const block = savedBlockFromDefinition(def, components);
+    components[def.name] = block;
+    componentMap[def.name] = block.component;
+  };
+  // Rehydrate persisted definitions before the first paint so a page referencing them renders.
+  for (const def of options.savedComponents ?? []) registerSaved(def);
   let doc: MdxDocument = parseMdx(mdx);
   const history = createHistory(serializeMdx(doc));
   const initialMdx = mdx;
@@ -571,9 +585,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       description: `Saved from ${base}.`,
       category: "Saved",
     });
-    const block = savedBlockFromDefinition(def, components);
-    components[name] = block;
-    componentMap[name] = block.component;
+    registerSaved(def);
+    options.onSaveComponent?.(def);
 
     node.name = name;
     node.attributes = [];
