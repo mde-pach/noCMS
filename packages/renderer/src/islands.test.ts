@@ -8,6 +8,7 @@ import {
   ISLAND_ATTR,
   ISLAND_PROPS_ATTR,
   islandNamesFromHtml,
+  renderToHtml,
   serializeIslandProps,
   wrapIslandComponents,
 } from "./index.js";
@@ -106,5 +107,44 @@ describe("islandNamesFromHtml", () => {
 
   it("finds nothing in island-free HTML", () => {
     expect(islandNamesFromHtml("<p>plain content</p>")).toEqual([]);
+  });
+});
+
+// Published output is determined by the atoms, their positions, and the island marker
+// contract — not by the engine that assembles them. So a different build-time assembler (D17)
+// can't silently diverge from the editor: rendering the same atom tree two ways — the @mdx-js
+// path and a hand-built Preact VNode tree with no MDX — must be byte-identical.
+describe("assembler portability (D17)", () => {
+  const Counter = (props: Record<string, unknown>) =>
+    h(
+      "button",
+      { type: "button", class: "counter" },
+      `${props.label ?? "Count"}: ${props.start ?? 0}`,
+    );
+  const Section = (props: Record<string, unknown>) =>
+    h("section", { class: "sec" }, props.children as never);
+  const wrapped = wrapIslandComponents({ Counter, Section }, ["Counter"]);
+
+  it("renders an island alone identically via MDX and via a hand-built VNode tree", async () => {
+    const viaMdx = await renderToHtml({
+      mdx: `<Counter label="Votes" start={2} />`,
+      components: wrapped,
+    });
+    const viaVNode = renderToString(
+      h(wrapped.Counter as never, { label: "Votes", start: 2 }),
+    );
+    expect(viaMdx).toBe(viaVNode);
+    expect(viaMdx).toContain(`${ISLAND_ATTR}="Counter"`);
+  });
+
+  it("renders an island nested in a container identically via both assemblers", async () => {
+    const viaMdx = await renderToHtml({
+      mdx: `<Section><Counter start={1} /></Section>`,
+      components: wrapped,
+    });
+    const viaVNode = renderToString(
+      h(wrapped.Section as never, null, h(wrapped.Counter as never, { start: 1 })),
+    );
+    expect(viaMdx).toBe(viaVNode);
   });
 });

@@ -236,6 +236,48 @@ renderer or component registry). The contract:
 - *Multi-page routing.* `buildSite` maps `index.mdx`→`/`, `x.mdx`→`/x`, `x/index.mdx`→`/x` —
   enough for the one-page starter. Params, collections, and pagination are D5.
 
+### D17 — Build-assembler portability & Astro capability adoption
+
+Recurring question: should noCMS build on / adopt **Astro** to gain build-time capability
+(image pipeline, syntax highlighting, integrations, view transitions, SSR)? Investigated deeply
+across renderer, build, editor tree, and components.
+
+**Finding — the publish assembler is already a swappable seam.** preview≡publish is delivered by
+*portable contracts*, not the literal engine: the lossless canonical mdast↔MDX round-trip (D2b),
+pre-built shared Preact atoms (one registry across all moments), the engine-independent island
+marker (`<div data-island data-island-props style="display:contents">`, D6), and runtime token
+CSS vars (#3). Verified empirically — a hand-built Preact VNode tree (no `@mdx-js`) emits
+byte-identical HTML + markers to the MDX path. So `@mdx-js` / `preact-render-to-string` is an
+implementation choice, not an architectural lock; `@nocms/build` already never imports `@mdx-js`
+(build → renderer → mdx, one indirection).
+
+**Governing constraint — WYSIWYG taxes content-changing capabilities.** The editor keeps its own
+*in-browser* renderer regardless (Astro can't render live per-keystroke on a forked Pages site),
+so adopting Astro is *additive* (a second engine), not a replacement. Any publish-side capability
+that changes *rendered output* (highlighting, image transforms, GFM, transitions) must be mirrored
+in the editor renderer or the canvas lies. Capabilities invisible to the canvas (sitemap, feed,
+build speed, prefetch) carry no parity cost — but those are the ones noCMS already owns cheaply in
+tier ②.
+
+**Decision — adopt capabilities as libraries; gate framework adoption on a strategic bet.**
+- *Default:* harvest wanted capabilities as standalone libraries wired into **both** moments
+  (editor renderer + publish) — e.g. `shiki` (highlighting), `sharp`/`unpic` (images, tier ③),
+  the native View Transitions API. Buys the feature while keeping the contract + parity under our
+  control, self-contained per fork (D1), no framework lock.
+- *Adopt Astro-the-framework only if a strategic bet flips:* (a) leaving static-Pages for
+  **SSR/hybrid/edge** (the one genuinely framework-level capability, painful to retrofit), or
+  (b) **multi-framework authoring** (currently rejected — D14, #1). Absent those, wholesale
+  adoption adds a heavy second engine + an editor-parity burden + roadmap coupling, for features
+  mostly reachable as libraries.
+
+**Open triggers to revisit:** a decision to support non-Pages/SSR deployment; demand for
+multi-framework islands; a *measured* build-time bottleneck at scale (Astro 7 / Sätteri territory —
+currently moot: publish is async + free Actions on public repos).
+
+**Follow-ups (not blocking):** add an "assembler-independent output" parity test in
+`@nocms/renderer` (the proven swap is the seed) to keep the seam honest; close D2c (deterministic
+serialization) so any assembler's diffs stay clean.
+
 ## Resolved
 
 ### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**

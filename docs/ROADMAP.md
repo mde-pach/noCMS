@@ -127,7 +127,10 @@ tree; reviewer-scale).
 ## Deferred (post-v1)
 
 Plugin build-out (seam specced, D14) · form-submission backends (self-host) · custom domain ·
-i18n authoring UI · scheduled publish · OG-image generation · plugin marketplace/discovery.
+i18n authoring UI · scheduled publish · OG-image generation · plugin marketplace/discovery ·
+rich-content capabilities via the **D17 library pattern** (e.g. `shiki` syntax highlighting, GFM
+extensions) — wired into *both* the editor renderer and publish so WYSIWYG holds · publish-side
+responsive image optimization (`sharp`/`unpic`) layered on M4's commit-time resize.
 
 ## Risks & gates
 
@@ -138,3 +141,8 @@ i18n authoring UI · scheduled publish · OG-image generation · plugin marketpl
   behind a one-file adapter so a version bump can't ripple.
 - **Don't let the component library go mediocre** (the research's core failure mode) — M1 quality
   is the product's first impression; curate hard, lean on the Claude Design track.
+- **Keep the publish assembler swappable (D17).** The build engine is a portable seam (pre-built
+  atoms + the `data-island` marker contract + canonical AST), now guarded by an
+  assembler-parity test in `@nocms/renderer`. Before adding any *content-changing* build
+  capability, wire it into **both** moments and close **D2c** (deterministic serialization) so the
+  editor and publish — and git diffs — can't drift.
