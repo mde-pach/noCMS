@@ -129,6 +129,7 @@ export {
   type ComponentManifest,
   type ComponentPack,
   type ComponentRegistry,
+  controlsOf,
   createRegistry,
   definePack,
   manifestOf,
