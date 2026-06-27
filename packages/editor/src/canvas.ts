@@ -27,7 +27,7 @@ function layoutRects(el: Element, out: DOMRect[]): void {
 
 /** A measurable box for `el`, falling back to the union of its descendants' boxes when
  *  `el` itself is a boxless `display:contents` carrier. */
-function boundingRect(el: Element): DOMRect {
+export function boundingRect(el: Element): DOMRect {
   const own = el.getBoundingClientRect();
   if (own.width > 0 || own.height > 0) return own;
   const rects: DOMRect[] = [];

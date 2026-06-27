@@ -10,11 +10,10 @@ export {
   offsetFromElement,
   selectionAtElement,
 } from "./canvas.js";
+export { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+export { createHistory, type History } from "./history.js";
 export { blockFromManifest, insertBlock } from "./insert.js";
-export {
-  InsertPalette,
-  type InsertPaletteProps,
-} from "./insert-palette.js";
+export { InsertPalette, type InsertPaletteProps } from "./insert-palette.js";
 export {
   buildJsxElement,
   getProp,
@@ -41,8 +40,13 @@ export {
   selectableNode,
 } from "./selectable.js";
 export {
+  SelectionToolbar,
+  type SelectionToolbarProps,
+} from "./selection-toolbar.js";
+export {
   type EditorHandle,
   type EditorOptions,
   mountEditor,
 } from "./shell.js";
 export { TokensPanel, type TokensPanelProps } from "./tokens-panel.js";
+export { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
