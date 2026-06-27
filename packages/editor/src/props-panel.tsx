@@ -330,6 +330,15 @@ export function PropsPanel({
   onPickImage,
 }: PropsPanelProps): VNode {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // Controls that show their value through derived markup (segmented `aria-pressed`,
+  // the toggle, the color swatch, the image preview) only reflect an edit when the panel
+  // re-renders. An edit mutates the node in place, so a local re-render re-reads the fresh
+  // props; the focused field's DOM is reused, so typing in a text field isn't disturbed.
+  const [, bump] = useState(0);
+  const handleChange = (): void => {
+    onChange();
+    bump((n) => n + 1);
+  };
   const visible = controls.filter((c) => isVisible(c, element));
   const primary = visible.filter((c) => !c.advanced);
   const advanced = visible.filter((c) => c.advanced);
@@ -351,7 +360,7 @@ export function PropsPanel({
             key={control.key}
             control={control}
             element={element}
-            onChange={onChange}
+            onChange={handleChange}
             onPickImage={onPickImage}
           />
         ))}
@@ -372,7 +381,7 @@ export function PropsPanel({
                     key={control.key}
                     control={control}
                     element={element}
-                    onChange={onChange}
+                    onChange={handleChange}
                     onPickImage={onPickImage}
                   />
                 ))

@@ -101,8 +101,17 @@ describe("PropsPanel", () => {
     expect(getProp(element, "dark")).toBe(true);
   });
 
-  test("selecting an option writes the choice", () => {
+  test("selecting an option writes the choice and moves the active segment", async () => {
     segOption(container, "variant", "secondary").click();
     expect(getProp(element, "variant")).toBe("secondary");
+    // The panel re-reads the node so the segmented control reflects the new value.
+    await vi.waitFor(() => {
+      expect(
+        segOption(container, "variant", "secondary").getAttribute("aria-pressed"),
+      ).toBe("true");
+      expect(
+        segOption(container, "variant", "primary").getAttribute("aria-pressed"),
+      ).toBe("false");
+    });
   });
 });
