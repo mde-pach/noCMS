@@ -1,57 +1,33 @@
-// Tokens-as-bricks: the design panel edits tokens as semantic, opinionated choices
-// (brand color, fonts, spacing, radius) — human-labeled and grouped, never raw var
-// names. An edit updates the token's value, emits the new flat source (the file written
-// back to git) and the CSS-variable block (applied live with no rebuild — invariant #3).
+// Tokens-as-bricks: the Design & brand panel edits tokens as semantic, opinionated
+// choices — a brand color picked from a curated swatch palette and a corner-radius slider —
+// never raw var names. An edit updates the token's value, emits the new flat source (the
+// file written back to git) and the CSS-variable block (applied live with no rebuild —
+// invariant #3). Template / appearance / typography / spacing are the "more tokens" rows.
 
 import { formatTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { VNode } from "preact";
+import { useState } from "preact/hooks";
+import { ChevronRight } from "./icons.js";
 
-type FieldKind = "color" | "text";
-
-interface SemanticField {
-  /** the flat token name this field edits */
-  token: string;
-  label: string;
-  kind: FieldKind;
-}
-
-interface TokenGroup {
-  title: string;
-  fields: SemanticField[];
-}
-
-// The opinionated map from human concepts to the starter's token names. A field whose
-// token is absent from the document is simply skipped, so this degrades gracefully.
-const GROUPS: TokenGroup[] = [
-  {
-    title: "Color",
-    fields: [
-      { token: "color.brand.500", label: "Brand", kind: "color" },
-      { token: "color.brand.600", label: "Brand (hover)", kind: "color" },
-      { token: "color.text", label: "Text", kind: "color" },
-      { token: "color.bg", label: "Background", kind: "color" },
-    ],
-  },
-  {
-    title: "Typography",
-    fields: [
-      { token: "font.heading", label: "Heading font", kind: "text" },
-      { token: "font.body", label: "Body font", kind: "text" },
-    ],
-  },
-  {
-    title: "Spacing",
-    fields: [
-      { token: "space.sm", label: "Small", kind: "text" },
-      { token: "space.md", label: "Medium", kind: "text" },
-      { token: "space.lg", label: "Large", kind: "text" },
-    ],
-  },
-  {
-    title: "Shape",
-    fields: [{ token: "radius.md", label: "Corner radius", kind: "text" }],
-  },
+// The curated palette a site owner picks a primary color from (handoff brand swatches).
+const SWATCHES: [name: string, hex: string][] = [
+  ["Terracotta", "#B0542F"],
+  ["Olive", "#5B6B4A"],
+  ["Slate blue", "#3D5A98"],
+  ["Ochre", "#BC9A4A"],
+  ["Near-black", "#1A1916"],
 ];
+
+const BRAND_TOKEN = "color.brand.500";
+const BRAND_HOVER_TOKEN = "color.brand.600";
+const RADIUS_TOKEN = "radius.md";
+
+function radiusPx(value: string | undefined): number {
+  if (!value) return 10;
+  const n = Number.parseFloat(value);
+  if (Number.isNaN(n)) return 10;
+  return value.includes("rem") ? Math.round(n * 16) : Math.round(n);
+}
 
 export interface TokensPanelProps {
   tokens: Token[];
@@ -60,54 +36,95 @@ export interface TokensPanelProps {
 }
 
 export function TokensPanel({ tokens, onChange }: TokensPanelProps): VNode {
+  const [template, setTemplate] = useState<"Editorial" | "Studio">("Editorial");
   const byName = new Map(tokens.map((t) => [t.name, t]));
+  const brand = byName.get(BRAND_TOKEN)?.value ?? "";
+  const radius = radiusPx(byName.get(RADIUS_TOKEN)?.value);
 
-  const setValue = (name: string, value: string) => {
-    const next = tokens.map((t) => (t.name === name ? { ...t, value } : t));
+  const setValues = (updates: Record<string, string>) => {
+    const next = tokens.map((t) =>
+      t.name in updates ? { ...t, value: updates[t.name] as string } : t,
+    );
     onChange(next, formatTokens(next), toCssVariables(next));
+  };
+
+  const pickBrand = (hex: string) => {
+    const updates: Record<string, string> = { [BRAND_TOKEN]: hex };
+    if (byName.has(BRAND_HOVER_TOKEN)) updates[BRAND_HOVER_TOKEN] = hex;
+    setValues(updates);
   };
 
   return (
     <div class="nocms-tokens">
-      {GROUPS.map((group) => {
-        const present = group.fields.filter((f) => byName.has(f.token));
-        if (present.length === 0) return null;
-        return (
-          <section key={group.title} class="nocms-tokens-group">
-            <h3 class="nocms-tokens-title">{group.title}</h3>
-            {present.map((field) => (
-              <TokenField
-                key={field.token}
-                field={field}
-                value={byName.get(field.token)?.value ?? ""}
-                onInput={(value) => setValue(field.token, value)}
+      <div class="nc-field">
+        <span class="nc-mono nc-label">Template</span>
+        <div class="nc-segmented" role="group" aria-label="Template">
+          {(["Editorial", "Studio"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              class="nc-seg"
+              aria-pressed={template === t}
+              onClick={() => setTemplate(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {byName.has(BRAND_TOKEN) ? (
+        <div class="nc-field">
+          <span class="nc-mono nc-label">Primary color</span>
+          <div class="nc-swatch-row">
+            {SWATCHES.map(([name, hex]) => (
+              <button
+                key={hex}
+                type="button"
+                name={BRAND_TOKEN}
+                value={hex}
+                class="nc-swatch"
+                title={name}
+                aria-label={name}
+                aria-pressed={brand.toLowerCase() === hex.toLowerCase()}
+                style={`background:${hex}`}
+                onClick={() => pickBrand(hex)}
               />
             ))}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
+          </div>
+        </div>
+      ) : null}
 
-interface TokenFieldProps {
-  field: SemanticField;
-  value: string;
-  onInput: (value: string) => void;
-}
+      {byName.has(RADIUS_TOKEN) ? (
+        <div class="nc-field">
+          <div class="nc-slider-head">
+            <span class="nc-mono nc-label" style="margin-bottom:0">
+              Corner radius
+            </span>
+            <span class="nc-slider-val">{radius}px</span>
+          </div>
+          <input
+            class="nc-slider"
+            name={RADIUS_TOKEN}
+            type="range"
+            min={0}
+            max={24}
+            value={String(radius)}
+            onInput={(e) => setValues({ [RADIUS_TOKEN]: `${e.currentTarget.value}px` })}
+          />
+        </div>
+      ) : null}
 
-function TokenField({ field, value, onInput }: TokenFieldProps): VNode {
-  const id = `nocms-token-${field.token}`;
-  return (
-    <div class="nocms-field">
-      <label for={id}>{field.label}</label>
-      <input
-        id={id}
-        name={field.token}
-        type={field.kind === "color" ? "color" : "text"}
-        value={value}
-        onInput={(e) => onInput(e.currentTarget.value)}
-      />
+      <div class="nc-more-rows">
+        <div class="nc-more-row">
+          <span>Typography scale</span>
+          <ChevronRight size={12} />
+        </div>
+        <div class="nc-more-row">
+          <span>Spacing density</span>
+          <ChevronRight size={12} />
+        </div>
+      </div>
     </div>
   );
 }

@@ -32,6 +32,12 @@ function field(container: Element, name: string): HTMLInputElement & HTMLSelectE
   return el as HTMLInputElement & HTMLSelectElement;
 }
 
+function segOption(container: Element, name: string, value: string): HTMLElement {
+  const el = container.querySelector(`[name="${name}"][value="${value}"]`);
+  if (!el) throw new Error(`no option ${name}=${value}`);
+  return el as HTMLElement;
+}
+
 let container: HTMLElement;
 let element: JsxElement;
 let onChange: ReturnType<typeof vi.fn<() => void>>;
@@ -56,12 +62,15 @@ describe("PropsPanel", () => {
   test("renders the component name and one field per scalar control", () => {
     expect(container.querySelector(".nocms-props-title")?.textContent).toBe("Button");
     // text, select, number, boolean — the nested group is excluded.
-    expect(container.querySelectorAll(".nocms-field").length).toBe(4);
+    expect(container.querySelectorAll(".nc-field").length).toBe(4);
   });
 
   test("shows current prop values", () => {
     expect(field(container, "label").value).toBe("Go");
-    expect(field(container, "variant").value).toBe("primary");
+    // a 2-option select renders as a segmented control; the active option is pressed.
+    expect(
+      segOption(container, "variant", "primary").getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 
   test("editing text writes the attribute and notifies", () => {
@@ -87,16 +96,13 @@ describe("PropsPanel", () => {
   });
 
   test("toggling a boolean writes true", () => {
-    const input = field(container, "dark");
-    input.checked = true;
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+    // boolean renders as a toggle switch; clicking it flips the value.
+    field(container, "dark").click();
     expect(getProp(element, "dark")).toBe(true);
   });
 
   test("selecting an option writes the choice", () => {
-    const select = field(container, "variant");
-    select.value = "secondary";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    segOption(container, "variant", "secondary").click();
     expect(getProp(element, "variant")).toBe("secondary");
   });
 });

@@ -10,10 +10,22 @@ export {
   offsetFromElement,
   selectionAtElement,
 } from "./canvas.js";
+export {
+  CatalogCard,
+  type CatalogCardProps,
+  InsertSheet,
+  type InsertSheetProps,
+} from "./catalog.js";
+export {
+  type Appearance,
+  type BreakpointId,
+  type PublishStatus,
+  TopBar,
+  type TopBarProps,
+} from "./chrome.js";
 export { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
 export { createHistory, type History } from "./history.js";
 export { blockFromManifest, insertBlock } from "./insert.js";
-export { InsertPalette, type InsertPaletteProps } from "./insert-palette.js";
 export {
   buildJsxElement,
   getProp,
@@ -33,6 +45,8 @@ export {
   nodeAtOffset,
 } from "./position.js";
 export { PropsPanel, type PropsPanelProps } from "./props-panel.js";
+export { PublishPopover, type PublishPopoverProps } from "./publish.js";
+export { PageRail, type PageRailProps } from "./rail.js";
 export {
   BLOCK_TYPES,
   JSX_TYPES,

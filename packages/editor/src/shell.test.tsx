@@ -129,16 +129,19 @@ describe("mountEditor", () => {
     );
     expect(styles.some((c) => c.includes("--color-brand-500: #3b82f6;"))).toBe(true);
 
-    const brand = target.querySelector('[name="color.brand.500"]') as HTMLInputElement;
-    brand.value = "#ff0000";
-    brand.dispatchEvent(new Event("input", { bubbles: true }));
+    // The brand color is picked from the Design & brand swatch palette; expand it first.
+    (target.querySelector(".nc-brand-entry") as HTMLElement).click();
+    const slate = target.querySelector(
+      '.nc-swatch[name="color.brand.500"][value="#3D5A98"]',
+    ) as HTMLElement;
+    slate.click();
 
     const themed = [...target.querySelectorAll("style")].map(
       (s) => s.textContent ?? "",
     );
-    expect(themed.some((c) => c.includes("--color-brand-500: #ff0000;"))).toBe(true);
+    expect(themed.some((c) => c.includes("--color-brand-500: #3D5A98;"))).toBe(true);
     expect(onTokensChange).toHaveBeenCalledWith(
-      expect.stringContaining("color.brand.500: #ff0000"),
+      expect.stringContaining("color.brand.500: #3D5A98"),
     );
 
     handle.dispose();
@@ -247,7 +250,7 @@ describe("structural editing (D15 tree-transforms)", () => {
     const handle = await mountEditor({ target, mdx: TWO, components, onChange });
 
     selectFirst(target, ".btn"); // select Button "A"
-    expect(target.querySelector(".nocms-tool-tag")?.textContent).toBe("Button");
+    expect(target.querySelector(".nocms-props-title")?.textContent).toBe("Button");
 
     target
       .querySelector(".nocms-tool-down")
@@ -300,7 +303,7 @@ describe("structural editing (D15 tree-transforms)", () => {
     handle.dispose();
   });
 
-  test("the insert palette adds the chosen block to the document", async () => {
+  test("the catalog sheet adds the chosen block to the document", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
     const onChange = vi.fn();
@@ -311,12 +314,18 @@ describe("structural editing (D15 tree-transforms)", () => {
       onChange,
     });
 
-    // The palette lists every registry block; pick Image.
-    const image = [
-      ...target.querySelectorAll(".nocms-editor-panel .nocms-palette-item"),
-    ].find((b) => b.textContent?.includes("Image"));
-    if (!image) throw new Error("no Image palette item");
-    image.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // "Add a section" opens the catalog modal, which lists every registry block.
+    const addSection = [
+      ...target.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
+    ].find((b) => b.textContent?.includes("Add a section"));
+    if (!addSection) throw new Error("no Add a section button");
+    (addSection as HTMLElement).click();
+
+    const image = [...target.querySelectorAll(".nocms-catalog-card")].find((b) =>
+      b.textContent?.includes("Image"),
+    );
+    if (!image) throw new Error("no Image catalog card");
+    (image as HTMLElement).click();
 
     await vi.waitFor(() =>
       expect(target.querySelector(".nocms-editor-canvas .img")).not.toBeNull(),

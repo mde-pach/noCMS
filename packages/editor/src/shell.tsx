@@ -1,21 +1,19 @@
-// The editor shell: the interaction loop that turns the pieces into a usable editor.
-// It lays out a canvas region beside a side panel, keeps one live MdxDocument, and on
-// every selection resolves the meaningful node, looks up its controls, and renders the
-// props panel. A panel edit mutates the node in place; the shell re-serializes, re-renders
-// the canvas from the updated source, and re-highlights the same node by its index-path —
-// never by raw offset, which shifts when the edit changes the source length.
+// The editor shell: the interaction loop that turns the pieces into a usable editor. It
+// frames the canvas with the app chrome (top bar) and a docked right rail, keeps one live
+// MdxDocument, and on every selection resolves the meaningful node, looks up its controls,
+// and renders the props panel. A panel edit mutates the node in place; the shell
+// re-serializes, re-renders the canvas from the updated source, and re-highlights the same
+// node by its index-path — never by raw offset, which shifts when the edit changes length.
 //
-// Every structural change — insert, delete, reorder, drag — is one tree-transform over
-// the uniform block tree (D15), addressed by index-path, then re-serialized to canonical
+// Every structural change — insert, delete, duplicate, reorder, drag — is one tree-transform
+// over the uniform block tree (D15), addressed by index-path, then re-serialized to canonical
 // MDX. Because every edit funnels through one commit that snapshots the serialized MDX,
-// undo/redo is a single uniform stack, not one history per edit kind. Nothing here
-// special-cases a block type, so a brick added to the registry reorders and deletes with
-// zero changes here.
+// undo/redo is a single uniform stack. Nothing here special-cases a block type.
 //
-// Double-clicking a paragraph or heading edits its text in place via @nocms/prose: a
-// transient ProseMirror view mounts over the block, edits splice into the live document,
-// and the canvas re-renders only on commit (a click elsewhere, or Escape) — re-rendering
-// mid-edit would tear the view out.
+// Presentational chrome state (breakpoint, appearance, dirty, publish status, the active
+// overlay, the expanded design panel) lives alongside the document state and is pushed into
+// pure presenter components via small render functions, mirroring how the canvas overlay and
+// toolbar are kept in sync.
 
 import {
   type ComponentManifest,
@@ -25,8 +23,8 @@ import {
 } from "@nocms/components";
 import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
-import { parseTokens, toCssVariables } from "@nocms/tokens";
-import type { Nodes, Parent, PhrasingContent } from "mdast";
+import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
+import type { Nodes, Parent, PhrasingContent, Yaml } from "mdast";
 import { render } from "preact";
 import {
   boundingRect,
@@ -35,10 +33,16 @@ import {
   mountCanvas,
   offsetFromElement,
 } from "./canvas.js";
+import { InsertSheet } from "./catalog.js";
+import {
+  type Appearance,
+  type BreakpointId,
+  type PublishStatus,
+  TopBar,
+} from "./chrome.js";
 import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
 import { createHistory } from "./history.js";
 import { blockFromManifest, insertBlock } from "./insert.js";
-import { InsertPalette } from "./insert-palette.js";
 import { isJsxElement } from "./jsx-attributes.js";
 import { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 import {
@@ -50,10 +54,21 @@ import {
 } from "./position.js";
 import { PropsPanel } from "./props-panel.js";
 import { isProseEditable, type ProseBlock } from "./prose-edit.js";
+import { PublishPopover } from "./publish.js";
+import { PageRail } from "./rail.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
+import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 import { TokensPanel } from "./tokens-panel.js";
-import { moveChild, moveNode, removeAt } from "./tree-edit.js";
+import { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
+
+const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
+  L0: "390px",
+  L1: "600px",
+  L2: "834px",
+  L3: "1040px",
+  L4: "100%",
+};
 
 export interface EditorOptions {
   /** DOM node the editor mounts into; the shell owns its contents. */
@@ -73,11 +88,14 @@ export interface EditorOptions {
   onChange?: (mdx: string) => void;
   /** fired with the flat token source after a theme edit — the seam to save/commit. */
   onTokensChange?: (tokens: string) => void;
+  /** the host shown in the top bar identity; defaults to a placeholder. */
+  siteHost?: string;
+  /** the page label shown in the top-bar pill. */
+  pageName?: string;
 }
 
 export interface EditorHandle {
-  /** The live prose view when a text block is being edited in place, else undefined.
-   *  The escape hatch for host UI (a formatting toolbar) and tests. */
+  /** The live prose view when a text block is being edited in place, else undefined. */
   proseView(): ProseEditorHandle["view"] | undefined;
   /** The index-path of the selected block, or undefined when nothing is selected. */
   selection(): IndexPath | undefined;
@@ -106,6 +124,34 @@ function isTextEntry(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+function frontmatterNode(doc: MdxDocument): Yaml | undefined {
+  return doc.children.find((n): n is Yaml => n.type === "yaml");
+}
+
+function readFrontmatter(doc: MdxDocument): { title: string; description: string } {
+  const text = frontmatterNode(doc)?.value ?? "";
+  const get = (key: string): string => {
+    const match = text.match(new RegExp(`^${key}:\\s*(.*)$`, "m"));
+    return match?.[1] ? match[1].trim().replace(/^["']|["']$/g, "") : "";
+  };
+  return { title: get("title"), description: get("description") };
+}
+
+function writeFrontmatter(doc: MdxDocument, key: string, value: string): void {
+  let node = frontmatterNode(doc);
+  if (!node) {
+    node = { type: "yaml", value: "" };
+    doc.children.unshift(node);
+  }
+  const line = `${key}: ${value}`;
+  const re = new RegExp(`^${key}:.*$`, "m");
+  node.value = re.test(node.value)
+    ? node.value.replace(re, line)
+    : node.value
+      ? `${node.value}\n${line}`
+      : line;
+}
+
 /**
  * Mount the in-site editor into `target`. Resolves once the canvas has rendered.
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
@@ -114,82 +160,282 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const { target, mdx, components, data, onChange, onTokensChange } = options;
   let doc: MdxDocument = parseMdx(mdx);
   const history = createHistory(serializeMdx(doc));
+  const initialMdx = mdx;
+  const initialTokensSrc = options.tokens;
 
+  // --- presentational chrome state -------------------------------------------------
+  let breakpoint: BreakpointId = "L3";
+  let appearance: Appearance = "light";
+  let dirty = false;
+  let publishStatus: PublishStatus = "idle";
+  let overlay: "catalog" | "publish" | null = null;
+  let brandExpanded = false;
+  let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
+  let publishTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // --- DOM scaffold ----------------------------------------------------------------
   const style = document.createElement("style");
   style.textContent = EDITOR_CSS;
+  const fontsLink = document.createElement("link");
+  fontsLink.rel = "stylesheet";
+  fontsLink.href = FONTS_HREF;
+  document.head.appendChild(fontsLink);
+
   const layout = document.createElement("div");
   layout.className = "nocms-editor";
-  const canvasRegion = document.createElement("div");
-  canvasRegion.className = "nocms-editor-canvas";
+  const chromeHost = document.createElement("div");
+  const body = document.createElement("div");
+  body.className = "nocms-body";
+  const canvasScroll = document.createElement("div");
+  canvasScroll.className = "nocms-canvas-region";
+  const surface = document.createElement("div");
+  surface.className = "nocms-editor-canvas";
+  surface.style.width = BREAKPOINT_WIDTH[breakpoint];
   const toolbarHost = document.createElement("div");
   toolbarHost.className = "nocms-toolbar-host";
+  const hoverHost = document.createElement("div");
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
-  const paletteHost = document.createElement("div");
-  const propsHost = document.createElement("div");
-  const tokensHost = document.createElement("div");
-  panelRegion.append(paletteHost, propsHost, tokensHost);
-  layout.append(canvasRegion, panelRegion);
+  const railHost = document.createElement("div");
+  const modalHost = document.createElement("div");
+  const popoverHost = document.createElement("div");
+
+  panelRegion.append(railHost);
+  canvasScroll.append(surface);
+  body.append(canvasScroll, panelRegion, modalHost);
+  layout.append(chromeHost, body, popoverHost);
   target.append(style, layout);
 
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
   const themeStyle = document.createElement("style");
   if (options.tokens !== undefined) {
-    themeStyle.textContent = toCssVariables(parseTokens(options.tokens));
+    themeStyle.textContent = toCssVariables(tokens);
     target.append(themeStyle);
-    render(
-      <TokensPanel
-        tokens={parseTokens(options.tokens)}
-        onChange={(_next, flat, css) => {
-          themeStyle.textContent = css;
-          onTokensChange?.(flat);
-        }}
-      />,
-      tokensHost,
-    );
   }
 
   let selectedPath: IndexPath | undefined;
   let dragFrom: IndexPath | undefined;
 
-  // A live in-place prose edit. While one is active the canvas hands clicks inside `el`
-  // to the ProseMirror view untouched (see `suppressWhen`), and the canvas is not
-  // re-rendered (that would tear the view out); edits splice into `doc` live and the
-  // canvas only re-renders on commit.
   let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
 
   const childCountAt = (path: IndexPath): number =>
     childrenOf(nodeAtIndexPath(doc, path)).length;
 
-  // The floating toolbar is positioned in the canvas's *content* space — coordinates
-  // that scroll with the page — so it tracks the selected block.
-  const contentTop = (el: Element): number => {
-    const region = canvasRegion.getBoundingClientRect();
-    // A component renders inside a boxless `display:contents` carrier; use the union of
-    // its real descendant boxes, as the selection overlay does.
-    return boundingRect(el).top - (region.top - canvasRegion.scrollTop);
-  };
+  // The floating toolbar and hover box are positioned in the surface's content space.
+  const surfaceTop = (el: Element): number =>
+    boundingRect(el).top - surface.getBoundingClientRect().top + surface.scrollTop;
+  const surfaceLeft = (el: Element): number =>
+    boundingRect(el).left - surface.getBoundingClientRect().left + surface.scrollLeft;
 
   const elementAtPath = (path: IndexPath): Element | null => {
     const offset = nodeAtIndexPath(doc, path)?.position?.start.offset;
     return offset === undefined
       ? null
-      : canvasRegion.querySelector(`[data-mdx-pos="${offset}"]`);
+      : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
 
-  // A prop edit mutates the selected node in place, so the doc is re-serialized but not
-  // re-parsed (that would invalidate the panel's node reference and steal input focus).
+  const markDirty = (): void => {
+    if (!dirty) {
+      dirty = true;
+      renderChrome();
+    }
+  };
+
+  // --- chrome / rail / overlay renderers -------------------------------------------
+  function renderChrome(): void {
+    render(
+      <TopBar
+        siteHost={options.siteHost ?? "nocms.github.io"}
+        pageName={options.pageName ?? "Home"}
+        breakpoint={breakpoint}
+        onBreakpoint={setBreakpoint}
+        appearance={appearance}
+        onAppearance={toggleAppearance}
+        dirty={dirty}
+        onReset={() => void resetEdits()}
+        publishStatus={publishStatus}
+        onPublish={togglePublish}
+        onMenu={() => {}}
+        onPagePill={() => {}}
+        avatarInitial="A"
+      />,
+      chromeHost,
+    );
+  }
+
+  const brandPanel = (): ReturnType<typeof TokensPanel> | null => {
+    if (tokens.length === 0) return null;
+    return (
+      <TokensPanel
+        tokens={tokens}
+        onChange={(next, flat, css) => {
+          tokens = next;
+          themeStyle.textContent = css;
+          onTokensChange?.(flat);
+          markDirty();
+          renderRail();
+        }}
+      />
+    );
+  };
+
+  function renderRail(): void {
+    const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
+    if (node && selectedPath && selectedPath.length > 0) {
+      if (isJsxElement(node) && node.name) {
+        const def = components[node.name];
+        const controls = def ? controlsOf(def) : [];
+        if (controls.length > 0) {
+          render(
+            <PropsPanel
+              element={node}
+              component={node.name}
+              meta="SECTION · CORE"
+              controls={controls}
+              onChange={handleEdit}
+            />,
+            railHost,
+          );
+          return;
+        }
+      }
+      render(
+        <p class="nocms-empty">No editable properties for this block.</p>,
+        railHost,
+      );
+      return;
+    }
+
+    const fm = readFrontmatter(doc);
+    render(
+      <PageRail
+        pageName={options.pageName ?? "Home"}
+        route="/"
+        title={fm.title}
+        description={fm.description}
+        onTitle={(v) => editFrontmatter("title", v)}
+        onDescription={(v) => editFrontmatter("description", v)}
+        brandExpanded={brandExpanded}
+        onToggleBrand={() => {
+          brandExpanded = !brandExpanded;
+          renderRail();
+        }}
+        brandPanel={brandPanel()}
+        onAddSection={openCatalog}
+      />,
+      railHost,
+    );
+  }
+
+  function renderOverlays(): void {
+    if (overlay === "catalog") {
+      render(
+        <InsertSheet
+          manifests={registryManifest(components)}
+          onInsert={(manifest) => void handleInsert(manifest)}
+          onClose={closeOverlay}
+        />,
+        modalHost,
+      );
+    } else {
+      render(null, modalHost);
+    }
+
+    if (overlay === "publish") {
+      render(
+        <PublishPopover
+          changes={changeset()}
+          lastDeploy="2d ago"
+          onPublish={() => void runPublish()}
+          onClose={closeOverlay}
+        />,
+        popoverHost,
+      );
+    } else {
+      render(null, popoverHost);
+    }
+  }
+
+  // --- chrome actions --------------------------------------------------------------
+  function setBreakpoint(bp: BreakpointId): void {
+    breakpoint = bp;
+    surface.style.width = BREAKPOINT_WIDTH[bp];
+    renderChrome();
+    // Geometry shifted: re-anchor the selection overlay and toolbar.
+    canvas.highlight(selectedPath);
+    renderToolbar();
+  }
+
+  function toggleAppearance(): void {
+    appearance = appearance === "light" ? "dark" : "light";
+    surface.dataset.appearance = appearance;
+    renderChrome();
+  }
+
+  async function resetEdits(): Promise<void> {
+    if (initialTokensSrc !== undefined) {
+      tokens = parseTokens(initialTokensSrc);
+      themeStyle.textContent = toCssVariables(tokens);
+      onTokensChange?.(formatTokens(tokens));
+    }
+    dirty = false;
+    publishStatus = "idle";
+    await commit(initialMdx, undefined);
+    dirty = false;
+    renderChrome();
+    renderRail();
+  }
+
+  function togglePublish(): void {
+    if (publishStatus === "publishing") return;
+    overlay = overlay === "publish" ? null : "publish";
+    renderOverlays();
+  }
+
+  function changeset(): { kind: "edit" | "add"; label: string }[] {
+    if (!dirty) return [];
+    return [{ kind: "edit", label: "Unpublished edits on this page" }];
+  }
+
+  async function runPublish(): Promise<void> {
+    overlay = null;
+    renderOverlays();
+    publishStatus = "publishing";
+    renderChrome();
+    publishTimer = setTimeout(() => {
+      publishStatus = "published";
+      dirty = false;
+      renderChrome();
+    }, 1600);
+  }
+
+  const openCatalog = (): void => {
+    overlay = "catalog";
+    renderOverlays();
+  };
+  const closeOverlay = (): void => {
+    overlay = null;
+    renderOverlays();
+  };
+
+  function editFrontmatter(key: string, value: string): void {
+    writeFrontmatter(doc, key, value);
+    const next = serializeMdx(doc);
+    history.push(next);
+    onChange?.(next);
+    markDirty();
+  }
+
+  // --- document edits --------------------------------------------------------------
   const handleEdit = async (): Promise<void> => {
     const next = serializeMdx(doc);
     history.push(next);
     await canvas.update(next);
     canvas.highlight(selectedPath);
     onChange?.(next);
+    markDirty();
   };
 
-  // Apply already-serialized MDX as the new document: re-parse (so positions and node
-  // references are fresh), re-render the canvas, restore selection. Used by every
-  // structural transform and by undo/redo — not by in-place prop/prose edits.
   const apply = async (
     nextMdx: string,
     nextPath: IndexPath | undefined,
@@ -206,6 +452,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     history.push(nextMdx);
     await apply(nextMdx, nextPath);
     onChange?.(nextMdx);
+    markDirty();
   };
 
   const undo = (): void => {
@@ -222,6 +469,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   const handleInsert = async (manifest: ComponentManifest): Promise<void> => {
     if (prose) await commitProse();
+    overlay = null;
+    renderOverlays();
     const path = insertBlock(doc, blockFromManifest(manifest), selectedPath);
     await commit(serializeMdx(doc), path);
   };
@@ -230,6 +479,16 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (!selectedPath || selectedPath.length === 0) return;
     const next = removeAt(doc, selectedPath);
     await commit(serializeMdx(next), undefined);
+  };
+
+  const duplicateSelected = async (): Promise<void> => {
+    if (!selectedPath || selectedPath.length === 0) return;
+    const node = nodeAtIndexPath(doc, selectedPath);
+    if (!node) return;
+    const parentPath = selectedPath.slice(0, -1);
+    const index = selectedPath[selectedPath.length - 1] ?? 0;
+    const next = insertAt(doc, parentPath, index + 1, node);
+    await commit(serializeMdx(next), [...parentPath, index + 1]);
   };
 
   const moveSelected = async (direction: -1 | 1): Promise<void> => {
@@ -242,23 +501,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     await commit(serializeMdx(next), [...parentPath, to]);
   };
 
-  // Drag-reorder among siblings: the drop position is geometry (drag.ts), the move
-  // itself is a `moveNode` tree-transform — drag holds no separate model, so it shares
-  // the one undo stack with every other edit.
   const siblingBoxes = (parentPath: IndexPath): BlockBox[] => {
     const siblings = childrenOf(nodeAtIndexPath(doc, parentPath));
-    const region = canvasRegion.getBoundingClientRect();
+    const region = surface.getBoundingClientRect();
     const boxes: BlockBox[] = [];
     siblings.forEach((child, index) => {
-      // Frontmatter is pinned at the top and isn't a reorderable block; it also shares
-      // source offset 0 with the document-root carrier, so measuring it would yield a
-      // box spanning the whole canvas and poison every gap.
       if (child.type === "yaml") return;
       const offset = child.position?.start.offset;
       const el =
         offset === undefined
           ? null
-          : canvasRegion.querySelector(`[data-mdx-pos="${offset}"]`);
+          : surface.querySelector(`[data-mdx-pos="${offset}"]`);
       if (!el) return;
       const rect = boundingRect(el);
       boxes.push({
@@ -275,7 +528,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     event.preventDefault();
     const parentPath = dragFrom.slice(0, -1);
     const from = dragFrom[dragFrom.length - 1] ?? 0;
-    const region = canvasRegion.getBoundingClientRect();
+    const region = surface.getBoundingClientRect();
     const gap = dropGapAt(siblingBoxes(parentPath), event.clientY - region.top);
     const to = destinationIndex(from, gap);
     dragFrom = undefined;
@@ -297,8 +550,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const label = "name" in node && node.name ? String(node.name) : node.type;
     const el = elementAtPath(selectedPath);
     if (el) {
-      // Float just above the block, clamped so it never hides above the scroll origin.
-      toolbarHost.style.top = `${Math.max(contentTop(el) - 34, 4)}px`;
+      toolbarHost.style.top = `${Math.max(surfaceTop(el) - 17, 6)}px`;
+      toolbarHost.style.right = "10px";
+      toolbarHost.style.left = "auto";
       toolbarHost.style.display = "block";
     }
     render(
@@ -308,7 +562,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         canMoveDown={from < count - 1}
         onMoveUp={() => void moveSelected(-1)}
         onMoveDown={() => void moveSelected(1)}
+        onDuplicate={() => void duplicateSelected()}
         onDelete={() => void deleteSelected()}
+        onSettings={() => panelRegion.scrollTo({ top: 0 })}
         onDragStart={(event) => {
           dragFrom = selectedPath;
           event.dataTransfer?.setData("text/plain", "");
@@ -321,9 +577,65 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
+  // --- hover affordance ------------------------------------------------------------
+  function showHover(el: Element | undefined, label: string | undefined): void {
+    if (!el) {
+      render(null, hoverHost);
+      return;
+    }
+    const top = surfaceTop(el);
+    const left = surfaceLeft(el);
+    const rect = boundingRect(el);
+    render(
+      <>
+        <div
+          class="nocms-hover"
+          style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
+        />
+        {label ? (
+          <div class="nc-hover-label" style={`top:${top + 8}px;left:${left + 8}px`}>
+            {label}
+          </div>
+        ) : null}
+      </>,
+      hoverHost,
+    );
+  }
+
+  const clearHover = (): void => showHover(undefined, undefined);
+
+  const handleHover = (event: MouseEvent): void => {
+    if (prose || dragFrom) {
+      clearHover();
+      return;
+    }
+    const t = event.target;
+    if (!(t instanceof Element)) return;
+    const offset = offsetFromElement(t);
+    const path = offset === undefined ? [] : nodeAtOffset(doc, offset);
+    const node = offset === undefined ? undefined : selectableNode(path);
+    if (!node) {
+      clearHover();
+      return;
+    }
+    const indexPath = indexPathOf(path, node);
+    if (indexPath && selectedPath && indexPath.join() === selectedPath.join()) {
+      clearHover();
+      return;
+    }
+    const blockOffset = node.position?.start.offset;
+    const el =
+      blockOffset === undefined
+        ? null
+        : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
+    const label = "name" in node && node.name ? String(node.name) : node.type;
+    showHover(el ?? undefined, label);
+  };
+
+  // --- prose in-place editing ------------------------------------------------------
   const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
     canvas.highlight(undefined);
-    showPanel(undefined);
+    showHover(undefined, undefined);
     renderToolbar();
     el.replaceChildren();
     const handle = mountProseEditor(el, {
@@ -331,6 +643,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       onChange: (nodes: PhrasingContent[]) => {
         block.children = nodes;
         onChange?.(serializeMdx(doc));
+        markDirty();
       },
     });
     handle.view.focus();
@@ -348,51 +661,23 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     return path;
   };
 
-  function showPanel(node: Nodes | undefined): void {
-    if (node && isJsxElement(node) && node.name) {
-      const def = components[node.name];
-      const controls = def ? controlsOf(def) : [];
-      if (controls.length > 0) {
-        render(
-          <PropsPanel
-            element={node}
-            component={node.name}
-            controls={controls}
-            onChange={handleEdit}
-          />,
-          propsHost,
-        );
-        return;
-      }
-    }
-    render(
-      <p class="nocms-empty">
-        {node ? "No editable properties." : "Select an element to edit it."}
-      </p>,
-      propsHost,
-    );
-  }
-
   function select(path: IndexPath | undefined): void {
     selectedPath = path;
     canvas.highlight(path);
-    showPanel(path ? nodeAtIndexPath(doc, path) : undefined);
+    renderRail();
     renderToolbar();
   }
 
   const handleSelect = async (
     selection: CanvasSelection | undefined,
   ): Promise<void> => {
-    // A click outside the active prose block reaches here (clicks inside it are
-    // suppressed): commit the edit first, then select what was clicked.
     if (prose) await commitProse();
     const node = selection ? selectableNode(selection.path) : undefined;
     select(node ? indexPathOf(selection?.path ?? [], node) : undefined);
   };
 
-  // Double-click a paragraph or heading to edit its text in place via the prose widget.
   const handleActivate = (event: Event): void => {
-    if (prose) return; // inside an active edit — let ProseMirror handle the double-click
+    if (prose) return;
     const el = event.target;
     if (!(el instanceof Element)) return;
     const offset = offsetFromElement(el);
@@ -406,7 +691,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const blockEl =
       blockOffset === undefined
         ? null
-        : canvasRegion.querySelector(`[data-mdx-pos="${blockOffset}"]`);
+        : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
     if (blockEl) startProse(block, blockEl, indexPath);
   };
 
@@ -417,9 +702,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
   };
 
-  // Block-level shortcuts live on the whole editor so they work whether the canvas or a
-  // panel has focus, but defer to any text field (including the prose view) so typing is
-  // never hijacked.
   const handleShortcuts = (event: KeyboardEvent): void => {
     if (isTextEntry(event.target)) return;
     const mod = event.metaKey || event.ctrlKey;
@@ -432,6 +714,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (mod && event.key === "y") {
       event.preventDefault();
       redo();
+      return;
+    }
+    if (event.key === "Escape" && overlay) {
+      closeOverlay();
       return;
     }
     if (prose) return;
@@ -452,34 +738,33 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   };
 
   const canvas: CanvasHandle = await mountCanvas({
-    target: canvasRegion,
+    target: surface,
     mdx,
     components: toComponentMap(components),
     data,
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
-  canvasRegion.append(toolbarHost);
+  surface.append(hoverHost, toolbarHost);
 
-  canvasRegion.addEventListener("dblclick", handleActivate);
-  canvasRegion.addEventListener("keydown", handleKeydown);
-  canvasRegion.addEventListener("dragover", (event) => {
+  surface.addEventListener("dblclick", handleActivate);
+  surface.addEventListener("keydown", handleKeydown);
+  surface.addEventListener("mousemove", handleHover);
+  surface.addEventListener("mouseleave", () => showHover(undefined, undefined));
+  surface.addEventListener("dragover", (event) => {
     if (dragFrom) event.preventDefault();
   });
-  canvasRegion.addEventListener("drop", (event) => void handleDrop(event));
+  surface.addEventListener("drop", (event) => void handleDrop(event));
   layout.addEventListener("keydown", handleShortcuts);
-  // The toolbar tracks the selected block's geometry, which shifts on resize.
-  const reposition = (): void => renderToolbar();
+  const reposition = (): void => {
+    canvas.highlight(selectedPath);
+    renderToolbar();
+  };
   window.addEventListener("resize", reposition);
 
-  render(
-    <InsertPalette
-      manifests={registryManifest(components)}
-      onInsert={(manifest) => void handleInsert(manifest)}
-    />,
-    paletteHost,
-  );
-  showPanel(undefined);
+  renderChrome();
+  renderRail();
+  renderOverlays();
 
   return {
     proseView: () => prose?.handle.view,
@@ -487,66 +772,25 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     undo,
     redo,
     dispose() {
+      if (publishTimer) clearTimeout(publishTimer);
       prose?.handle.destroy();
       prose = undefined;
-      canvasRegion.removeEventListener("dblclick", handleActivate);
-      canvasRegion.removeEventListener("keydown", handleKeydown);
+      surface.removeEventListener("dblclick", handleActivate);
+      surface.removeEventListener("keydown", handleKeydown);
+      surface.removeEventListener("mousemove", handleHover);
       layout.removeEventListener("keydown", handleShortcuts);
       window.removeEventListener("resize", reposition);
       canvas.dispose();
-      render(null, paletteHost);
-      render(null, propsHost);
-      render(null, tokensHost);
+      render(null, chromeHost);
+      render(null, railHost);
       render(null, toolbarHost);
+      render(null, hoverHost);
+      render(null, modalHost);
+      render(null, popoverHost);
       layout.remove();
       style.remove();
       themeStyle.remove();
+      fontsLink.remove();
     },
   };
 }
-
-const EDITOR_CSS = `
-.nocms-editor { display: flex; align-items: stretch; min-height: 100vh; position: relative; }
-.nocms-editor-canvas { flex: 1 1 auto; overflow: auto; position: relative; }
-.nocms-editor-panel {
-  flex: 0 0 18rem; overflow: auto; padding: 1rem; background: #fafafa;
-  border-left: 1px solid #e5e7eb; font: 14px/1.4 system-ui, sans-serif; color: #111827;
-}
-.nocms-overlay { outline: 2px solid #3b82f6; border-radius: 3px; background: rgba(59,130,246,0.08); }
-.nocms-editor-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid #3b82f6; outline-offset: 2px; border-radius: 3px; }
-.nocms-props-title { font-size: 14px; margin: 0 0 0.75rem; }
-.nocms-field { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; }
-.nocms-field label { font-weight: 600; font-size: 12px; }
-.nocms-field input, .nocms-field select { padding: 0.35rem; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
-.nocms-help { color: #6b7280; font-size: 12px; margin: 0; }
-.nocms-empty { color: #6b7280; font-size: 13px; }
-.nocms-palette { margin-bottom: 1.25rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem; }
-.nocms-palette-title { font-size: 14px; margin: 0 0 0.75rem; }
-.nocms-palette-search { width: 100%; box-sizing: border-box; padding: 0.35rem; margin-bottom: 0.75rem; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
-.nocms-palette-cat { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0.5rem 0 0.25rem; }
-.nocms-palette-item { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; padding: 0.4rem 0.5rem; margin-bottom: 0.25rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; cursor: pointer; font: inherit; }
-.nocms-palette-item:hover { border-color: #3b82f6; background: #f0f6ff; }
-.nocms-palette-name { font-weight: 600; font-size: 13px; }
-.nocms-palette-desc { color: #6b7280; font-size: 11px; }
-.nocms-field-color { display: grid; grid-template-columns: 2.5rem 1fr; align-items: center; gap: 0.4rem; }
-.nocms-field-color label { grid-column: 1 / -1; }
-.nocms-field-color input[type="color"] { height: 2rem; padding: 0.1rem; }
-.nocms-toolbar-host { position: absolute; left: 8px; z-index: 9; display: none; }
-.nocms-toolbar {
-  display: inline-flex; gap: 2px; align-items: center; padding: 2px;
-  background: #1f2937; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  font: 12px/1 system-ui, sans-serif;
-}
-.nocms-toolbar button, .nocms-tool-drag {
-  border: 0; background: transparent; color: #f9fafb; cursor: pointer;
-  padding: 4px 6px; border-radius: 4px; font: inherit;
-}
-.nocms-toolbar button:disabled { opacity: 0.35; cursor: default; }
-.nocms-toolbar button:not(:disabled):hover { background: #374151; }
-.nocms-tool-drag { cursor: grab; }
-.nocms-tool-tag { color: #9ca3af; padding: 0 4px; }
-.nocms-tokens { margin-top: 1.25rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
-.nocms-tokens-group { margin-bottom: 1rem; }
-.nocms-tokens-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0 0 0.5rem; }
-.nocms-tokens .nocms-field input[type="color"] { height: 2rem; padding: 0.1rem; }
-`;

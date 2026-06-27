@@ -1,15 +1,19 @@
-// The contextual toolbar shown on the selected block (§1 of the shell spec): the block
-// name as a node tag plus the structural actions every block shares — reorder, delete,
-// and a drag handle. It is type-agnostic: the same actions apply to a Hero, a heading, or
-// a plugin block, because each is one node in the uniform tree. A pure presenter — it
-// raises intent; the shell turns each into a tree-transform. (Insertion lives in the
-// library palette, not here.)
-//
-// Each action stops the click propagating: the toolbar floats over the canvas, whose
-// click handler would otherwise read the click as empty space and deselect the very
-// block being acted on.
+// The contextual toolbar on the selected block: a floating dark bar with the structural
+// actions every block shares — reorder up/down, duplicate, delete, settings — plus a drag
+// handle. Type-agnostic: the same actions apply to a Hero, a heading, or a plugin block,
+// because each is one node in the uniform tree. A pure presenter; the shell turns each
+// intent into a tree-transform. Each action stops propagation so the canvas click handler
+// doesn't read it as empty space and deselect the very block being acted on.
 
 import type { VNode } from "preact";
+import {
+  ArrowDown,
+  ArrowUp,
+  DuplicateIcon,
+  GripIcon,
+  SettingsIcon,
+  TrashIcon,
+} from "./icons.js";
 
 export interface SelectionToolbarProps {
   label: string;
@@ -17,7 +21,9 @@ export interface SelectionToolbarProps {
   canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
+  onSettings: () => void;
   /** native HTML5 drag-reorder; the shell resolves the drop to a `moveNode`. */
   onDragStart: (event: DragEvent) => void;
   onDragEnd: (event: DragEvent) => void;
@@ -34,49 +40,74 @@ export function SelectionToolbar({
   canMoveDown,
   onMoveUp,
   onMoveDown,
+  onDuplicate,
   onDelete,
+  onSettings,
   onDragStart,
   onDragEnd,
 }: SelectionToolbarProps): VNode {
   return (
-    <div class="nocms-toolbar">
+    <div class="nocms-toolbar" role="toolbar" aria-label={`${label} actions`}>
       <button
         type="button"
-        class="nocms-tool-drag"
+        class="nc-tool-drag"
         draggable
         title="Drag to reorder"
+        aria-label="Drag to reorder"
         onClick={(event) => event.stopPropagation()}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
-        ⠿
+        <GripIcon size={12} />
       </button>
-      <span class="nocms-tool-tag">{label}</span>
       <button
         type="button"
         class="nocms-tool-up"
         title="Move up"
+        aria-label="Move up"
         disabled={!canMoveUp}
         onClick={act(onMoveUp)}
       >
-        ↑
+        <ArrowUp size={14} />
       </button>
       <button
         type="button"
         class="nocms-tool-down"
         title="Move down"
+        aria-label="Move down"
         disabled={!canMoveDown}
         onClick={act(onMoveDown)}
       >
-        ↓
+        <ArrowDown size={14} />
+      </button>
+      <span class="nc-tool-sep" />
+      <button
+        type="button"
+        class="nocms-tool-duplicate"
+        title="Duplicate"
+        aria-label="Duplicate"
+        onClick={act(onDuplicate)}
+      >
+        <DuplicateIcon size={13} />
       </button>
       <button
         type="button"
         class="nocms-tool-delete"
         title="Delete"
+        aria-label="Delete"
         onClick={act(onDelete)}
       >
-        🗑
+        <TrashIcon size={13} />
+      </button>
+      <span class="nc-tool-sep" />
+      <button
+        type="button"
+        class="nocms-tool-settings"
+        title="Settings"
+        aria-label="Settings"
+        onClick={act(onSettings)}
+      >
+        <SettingsIcon size={13} />
       </button>
     </div>
   );

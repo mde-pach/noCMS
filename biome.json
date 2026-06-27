@@ -15,6 +15,7 @@
       "!.claude",
       "!**/*.gen.ts",
       "!**/vendor",
+      "!design_handoff_nocms_editor",
       "!templates/starter/public/feed.json",
       "!templates/starter/public/search.json",
       "!templates/starter/public/sitemap.xml",
