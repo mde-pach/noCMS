@@ -98,19 +98,25 @@ pieces are a **runtime definition→pack loader** and the **"Save as component" 
 
 ### Phases (D16 — tracer-slice first)
 
-- **Phase 1 — the spine (specialize, one brick, scalar-only, no slots/compose/sync).** Select a
-  brick → save with lock/expose → a data definition → loader builds a `BlockDef` → it appears in the
-  catalog → insert an instance → edit exposed props (locked hidden) → **identical render in editor
-  preview and `buildSite` prerender** (invariant #1). Definition loaded from a **local file** at
-  runtime; **GitHub persistence deferred**, to isolate the novel render/registry risk from the
-  orthogonal persistence work. For a single-brick specialize the synthesized component is just
-  **partial application** of the base (locked props baked, exposed props passed through) — no
-  template substitution yet.
+- **Phase 1 — the spine (specialize, one brick, scalar-only). DONE.** `@nocms/components/saved.ts`:
+  `SavedComponentDef` + `savedBlockFromDefinition` (the synthesized block is the base
+  **partially applied** — locked props baked, exposed passed through; no template substitution yet)
+  + `savedPack` + `defineSavedComponent`. Wired one inlined example into the starter registry; it
+  appears in the catalog and renders identically in reader, editor, island, and prerender
+  (invariant #1).
+- **Phase 1.5 — authoring UX + runtime registration. DONE.** A "Save as component" toolbar action →
+  `SaveComponentDialog` (opt-out demotion: every control starts Editable, the author locks some) →
+  the shell captures the selection's props, registers the block into the **live registry + canvas
+  map** (the D19-deferred runtime registry update, by mutating the map the canvas reads each paint),
+  and converts the selection into an instance. Definitions cross the editor boundary as a
+  first-class artifact: `savedComponents` (rehydrate on mount) + `onSaveComponent` (emit on save) —
+  symmetric with `onChange`. Covered by happy-dom UX tests.
 - **Phase 2 — compose + slots.** Multi-brick subtree, opt-out demotion pruning, exposed child-region
   slots (lists fall out as children-in-a-slot). Adds the structure-template substitution mechanism.
-- **Phase 3 — auto-sync + persistence.** Wire `onChange → session → GitHubClient.commit`;
-  interface-change migration (find instances by name, rewrite attrs, `@version` drift detection, one
-  wide commit).
+- **Phase 3 — repo persistence + auto-sync.** Wire `onChange`/`onSaveComponent` → `@nocms/session` →
+  `GitHubClient.commit` (definitions become repo files the build also reads); interface-change
+  migration (find instances by name, rewrite attrs, `@version` drift detection, one wide commit).
+  The editor seams exist; the read/write wiring does not (the editor persists nothing yet).
 - **Phase 4 — library polish.** Detach, promoted-control rename / group / order, the library-manager
   surface, naming / collision rules vs `core`.
 
