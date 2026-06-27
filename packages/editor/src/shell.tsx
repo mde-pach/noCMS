@@ -82,14 +82,16 @@ import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 import { TokensPanel } from "./tokens-panel.js";
 import { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
 
-// In the in-place model a breakpoint narrows the live content column (the shell's `<main>` reads
-// `--nocms-content-width`), it does not reframe the page. L3 is the reader's natural column width,
-// so the default edit width is pixel-identical to what visitors see; L4 previews full-bleed.
+// A breakpoint resizes the *whole page* (`#app`, via `--nocms-page-width`), not just the content
+// column — so the header and nav reflow exactly as they would at that real viewport width, the way
+// a device actually renders the site. L4 ("Fit") fills the available stage and is the faithful
+// default (what visitors see, minus the docked rail); the narrower steps are real device widths,
+// centred on the editor backdrop so the page reads as a device preview.
 const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
   L0: "390px",
   L1: "600px",
   L2: "834px",
-  L3: "60rem",
+  L3: "1280px",
   L4: "100%",
 };
 
@@ -203,7 +205,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const initialTokensSrc = options.tokens;
 
   // --- presentational chrome state -------------------------------------------------
-  let breakpoint: BreakpointId = "L3";
+  let breakpoint: BreakpointId = "L4";
   let appearance: Appearance = "light";
   let dirty = false;
   let publishStatus: PublishStatus = "idle";
@@ -254,6 +256,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const formatHost = document.createElement("div");
   formatHost.className = "nocms-toolbar-host";
   const hoverHost = document.createElement("div");
+  // The selected block's name tag (sits above the selection, never over its content) and the
+  // drop-indicator line during a drag. Both live in the content surface's coordinate space.
+  const labelHost = document.createElement("div");
+  const dropHost = document.createElement("div");
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
   const railHost = document.createElement("div");
@@ -265,7 +271,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   document.body.append(chromeRoot);
 
   document.documentElement.style.setProperty(
-    "--nocms-content-width",
+    "--nocms-page-width",
     BREAKPOINT_WIDTH[breakpoint],
   );
 
@@ -506,13 +512,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   function setBreakpoint(bp: BreakpointId): void {
     breakpoint = bp;
     document.documentElement.style.setProperty(
-      "--nocms-content-width",
+      "--nocms-page-width",
       BREAKPOINT_WIDTH[bp],
     );
     renderChrome();
-    // Geometry shifted: re-anchor the selection overlay and toolbar.
-    canvas.highlight(selectedPath);
-    renderToolbar();
+    // The page width animates; keep the selection overlay and toolbar pinned to the moving
+    // element for the duration of the transition.
+    trackOverlays(360);
   }
 
   function toggleAppearance(): void {
@@ -800,11 +806,77 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const region = surface.getBoundingClientRect();
     const gap = dropGapAt(siblingBoxes(parentPath), event.clientY - region.top);
     const to = destinationIndex(from, gap);
-    dragFrom = undefined;
+    endDrag();
     if (to === undefined) return;
     const next = moveNode(doc, [...parentPath, from], parentPath, to);
     await commit(serializeMdx(next), [...parentPath, to]);
   };
+
+  // --- drag-reorder visuals --------------------------------------------------------
+  // The dragged block "pops out" (lifts with a shadow) and a drop-indicator line shows where it
+  // will land. The native drag ghost is suppressed with a 1px transparent image so what the user
+  // sees lift off the page is the real block; the reorder itself is still one `moveNode`.
+  let draggedEl: HTMLElement | undefined;
+  const dragGhost =
+    typeof Image !== "undefined"
+      ? new Image(1, 1)
+      : (undefined as unknown as undefined);
+  if (dragGhost) {
+    dragGhost.src =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  }
+
+  // A component renders behind a `display:contents` carrier with no box of its own, so the lift
+  // (transform + shadow) must land on the first element that actually generates a box.
+  const firstBox = (el: Element): HTMLElement | undefined => {
+    if (el instanceof HTMLElement) {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 || rect.height > 0) return el;
+    }
+    for (const child of el.children) {
+      const found = firstBox(child);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
+  function showDropLine(parentPath: IndexPath, clientY: number): void {
+    const boxes = siblingBoxes(parentPath);
+    const region = surface.getBoundingClientRect();
+    const gap = dropGapAt(boxes, clientY - region.top);
+    const before = boxes.find((b) => b.index === gap);
+    const after = [...boxes].reverse().find((b) => b.index === gap - 1);
+    const y = before ? before.top : after ? after.bottom : 0;
+    render(<div class="nocms-drop-line" style={`top:${y}px`} />, dropHost);
+  }
+
+  function beginDrag(event: DragEvent): void {
+    if (!selectedPath) return;
+    dragFrom = selectedPath;
+    if (event.dataTransfer) {
+      event.dataTransfer.setData("text/plain", "");
+      event.dataTransfer.effectAllowed = "move";
+      if (dragGhost) event.dataTransfer.setDragImage(dragGhost, 0, 0);
+    }
+    const el = elementAtPath(selectedPath);
+    const lift = el ? firstBox(el) : undefined;
+    if (lift) {
+      draggedEl = lift;
+      lift.classList.add("nocms-dragging");
+    }
+    canvas.highlight(undefined);
+    render(null, toolbarHost);
+    toolbarHost.style.display = "none";
+    render(null, labelHost);
+    clearHover();
+  }
+
+  function endDrag(): void {
+    dragFrom = undefined;
+    draggedEl?.classList.remove("nocms-dragging");
+    draggedEl = undefined;
+    render(null, dropHost);
+  }
 
   function renderToolbar(): void {
     const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
@@ -837,13 +909,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         onDelete={() => void deleteSelected()}
         onSettings={() => panelRegion.scrollTo({ top: 0 })}
         onSaveAsComponent={saveable ? openSaveComponent : undefined}
-        onDragStart={(event) => {
-          dragFrom = selectedPath;
-          event.dataTransfer?.setData("text/plain", "");
-        }}
-        onDragEnd={() => {
-          dragFrom = undefined;
-        }}
+        onDragStart={beginDrag}
+        onDragEnd={endDrag}
       />,
       toolbarHost,
     );
@@ -967,11 +1034,32 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     return path;
   };
 
+  // The block's name tag, anchored just above the selection's top-left so it labels the
+  // selection without ever overlapping the content inside it.
+  function renderSelectionLabel(): void {
+    const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
+    const el = selectedPath ? elementAtPath(selectedPath) : null;
+    if (!node || !selectedPath || selectedPath.length === 0 || prose || !el) {
+      render(null, labelHost);
+      return;
+    }
+    const label = "name" in node && node.name ? String(node.name) : node.type;
+    const top = surfaceTop(el);
+    const left = surfaceLeft(el);
+    render(
+      <div class="nc-sel-label" style={`top:${Math.max(top, 0)}px;left:${left}px`}>
+        {label}
+      </div>,
+      labelHost,
+    );
+  }
+
   function select(path: IndexPath | undefined): void {
     selectedPath = path;
     canvas.highlight(path);
     renderRail();
     renderToolbar();
+    renderSelectionLabel();
   }
 
   const handleSelect = async (
@@ -1051,23 +1139,47 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
-  surface.append(hoverHost, toolbarHost, formatHost);
+  surface.append(hoverHost, toolbarHost, formatHost, labelHost, dropHost);
 
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
   surface.addEventListener("mousemove", handleHover);
   surface.addEventListener("mouseleave", () => showHover(undefined, undefined));
   surface.addEventListener("dragover", (event) => {
-    if (dragFrom) event.preventDefault();
+    if (!dragFrom) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    showDropLine(dragFrom.slice(0, -1), event.clientY);
   });
   surface.addEventListener("drop", (event) => void handleDrop(event));
   // Shortcuts are global (selection lives on the page, not in a focused frame); isTextEntry
   // keeps them from firing while typing in a field or the prose view.
   document.addEventListener("keydown", handleShortcuts);
+  // Overlays are positioned against the live page, so any reflow — web fonts landing, an image
+  // loading, a breakpoint resize, an edit — moves the element out from under them. One reposition
+  // re-pins them all; a ResizeObserver on the surface catches reflow the scroll/resize listeners
+  // miss (this is what kept the selection box drifting off its block before).
   const reposition = (): void => {
+    if (prose) {
+      showFormatBar(prose.el);
+      return;
+    }
     canvas.highlight(selectedPath);
     renderToolbar();
+    renderSelectionLabel();
   };
+  let trackRaf: number | undefined;
+  function trackOverlays(ms: number): void {
+    const start = performance.now();
+    const step = (now: number): void => {
+      reposition();
+      trackRaf = now - start < ms ? requestAnimationFrame(step) : undefined;
+    };
+    if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
+    trackRaf = requestAnimationFrame(step);
+  }
+  const overlayObserver = new ResizeObserver(() => reposition());
+  overlayObserver.observe(surface);
   window.addEventListener("resize", reposition);
   window.addEventListener("scroll", reposition, { passive: true });
 
@@ -1094,20 +1206,27 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       document.removeEventListener("keydown", handleShortcuts);
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition);
+      overlayObserver.disconnect();
+      if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
+      endDrag();
       canvas.dispose();
       render(null, chromeHost);
       render(null, railHost);
       render(null, toolbarHost);
       render(null, formatHost);
       render(null, hoverHost);
+      render(null, labelHost);
+      render(null, dropHost);
       render(null, modalHost);
       render(null, popoverHost);
       document.documentElement.classList.remove("nocms-editing");
-      document.documentElement.style.removeProperty("--nocms-content-width");
+      document.documentElement.style.removeProperty("--nocms-page-width");
       surface.classList.remove("nocms-canvas");
       hoverHost.remove();
       toolbarHost.remove();
       formatHost.remove();
+      labelHost.remove();
+      dropHost.remove();
       chromeRoot.remove();
       if (ownsStyle) style.remove();
       themeStyle.remove();

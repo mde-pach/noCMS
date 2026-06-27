@@ -2,10 +2,17 @@
 // type families, radii, shadows) and every chrome surface built from them. Scoped under
 // `.nocms-editor` so it never leaks into the rendered site on the canvas.
 //
-// Accent discipline (enforced here): the chrome accent is slate `--nc-accent` — Publish,
-// "Add a section", selection, active toggles, Insert. Terracotta `--nc-rust` is reserved
-// for live-canvas site content and the brand-token swatches a user picks from; it never
-// styles chrome. Keeping the two as distinct variables is what stops them mixing.
+// Identity discipline (enforced here): the chrome wears a tool palette that is *deliberately
+// unlike any site brand* — graphite ink `--nc-ink` for primary actions (Publish, "Add a
+// section") and a teal `--nc-accent` for selection, focus, and active toggles. Neither is a
+// common website brand colour, so the editor never blends into the site it edits. Terracotta
+// `--nc-rust` is reserved for live-canvas site content and the brand-token swatches a user
+// picks from; it never styles chrome.
+//
+// Isolation: chrome can render inside the live page (the selection toolbar lives in the content
+// host; the sign-in gate sits on the body), so the site's own element rules (`a {color: brand}`,
+// heading fonts) would otherwise bleed in. The reset below pins every chrome surface to the tool
+// font and neutralises link colour, so the editor looks identical regardless of the site's CSS.
 
 export const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";
@@ -19,8 +26,9 @@ export const EDITOR_CSS = `
   --nc-text: #1A1916;
   --nc-text-2: #6B6760;
   --nc-text-3: #A39E94;
-  --nc-accent: #3D5A98;
-  --nc-accent-tint: #EEF1F7;
+  --nc-ink: #26231E;
+  --nc-accent: #0E7C86;
+  --nc-accent-tint: #E6F2F2;
   --nc-rust: #B0542F;
   --nc-amber: #C8862F;
   --nc-olive: #5B6B4A;
@@ -46,13 +54,37 @@ export const EDITOR_CSS = `
 .nocms-editor > * { pointer-events: auto; }
 .nocms-editor *, .nocms-editor *::before, .nocms-editor *::after { box-sizing: border-box; }
 
+/* Isolation: pin every chrome surface to the tool font and neutralise site link/heading rules,
+   including the parts that mount outside .nocms-editor (the selection toolbar in the content
+   host; the sign-in gate on the body). The editor must look the same on any site. */
+.nocms-editor, .nocms-toolbar, .nc-hover-label, .nc-signin-root,
+.nocms-editor :where(button, input, textarea, select, a, h1, h2, h3, h4, h5, h6, p, span, div, label),
+.nocms-toolbar :where(button),
+.nc-signin-root :where(button, h1, h2, h3, p, span, div) {
+  font-family: var(--nc-font-ui);
+}
+.nocms-editor :where(a), .nc-signin-root :where(a) { color: inherit; text-decoration: none; }
+.nocms-editor :where(h1, h2, h3, h4, h5, h6, p, ul, ol, figure) { margin: 0; }
+
 /* ---------- in-place chrome offsets (page-level, active only while editing) ---------- */
 :root { --nocms-chrome-top: 0px; --nocms-chrome-right: 0px; }
 html.nocms-editing { --nocms-chrome-top: 56px; --nocms-chrome-right: 330px; }
 html.nocms-editing body {
   padding-top: var(--nocms-chrome-top);
   padding-right: var(--nocms-chrome-right);
+  /* A neutral editor backdrop shows around the page when a breakpoint narrows it, so the
+     constrained page reads as a real device preview rather than a floating column. */
+  background: var(--nc-shell, #EAE8E3);
   transition: padding .25s ease;
+}
+/* A breakpoint sizes the whole page; the header, content and footer reflow together. At the
+   "Fit" width the page fills the stage and the backdrop is hidden — identical to the reader. */
+html.nocms-editing #app {
+  max-width: var(--nocms-page-width, 100%);
+  margin-inline: auto;
+  background: var(--color-bg);
+  box-shadow: 0 0 0 1px var(--nc-border, #E0DDD6), 0 24px 60px rgba(26, 25, 22, 0.1);
+  transition: max-width .25s ease;
 }
 
 /* ---------- shared atoms ---------- */
@@ -72,7 +104,8 @@ html.nocms-editing body {
 }
 .nc-textarea { line-height: 1.5; resize: vertical; min-height: 54px; }
 .nc-input:focus, .nc-textarea:focus {
-  border-color: var(--nc-accent); box-shadow: 0 0 0 3px rgba(61,90,152,0.12);
+  border-color: var(--nc-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--nc-accent) 18%, transparent);
 }
 .nc-input::placeholder, .nc-textarea::placeholder { color: var(--nc-text-3); }
 
@@ -114,14 +147,14 @@ html.nocms-editing body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
-/* primary slate button */
+/* primary ink button */
 .nc-btn-primary {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-  background: var(--nc-accent); color: #fff; border: 0; padding: 11px; border-radius: var(--nc-radius);
+  background: var(--nc-ink); color: #fff; border: 0; padding: 11px; border-radius: var(--nc-radius);
   font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
-  box-shadow: 0 1px 2px rgba(61,90,152,0.25); transition: filter .12s;
+  box-shadow: 0 1px 2px rgba(26,25,22,0.25); transition: filter .12s;
 }
-.nc-btn-primary:hover { filter: brightness(1.06); }
+.nc-btn-primary:hover { filter: brightness(1.5); }
 .nc-btn-ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   border: 1px solid var(--nc-border); background: var(--nc-surface); color: var(--nc-text);
@@ -172,14 +205,14 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
   display: flex; align-items: center; gap: 7px; border: 0; cursor: pointer; font: inherit;
   padding: 8px 16px; border-radius: var(--nc-radius); font-size: 13px; font-weight: 600;
 }
-.nc-publish-idle { background: var(--nc-accent); color: #fff; box-shadow: 0 1px 2px rgba(61,90,152,0.3); }
-.nc-publish-idle:hover { filter: brightness(1.06); }
-.nc-publish-busy { background: var(--nc-surface); color: var(--nc-accent); border: 1px solid #C7D2E6; cursor: default; }
+.nc-publish-idle { background: var(--nc-ink); color: #fff; box-shadow: 0 1px 2px rgba(26,25,22,0.3); }
+.nc-publish-idle:hover { filter: brightness(1.5); }
+.nc-publish-busy { background: var(--nc-surface); color: var(--nc-accent); border: 1px solid var(--nc-border); cursor: default; }
 .nc-publish-done { background: #EEF1E9; color: #4A5A3A; }
 .nc-publish-error { background: #FBEDE9; color: #9A3B23; }
 .nc-publish-done .nc-viewlive { color: var(--nc-accent); text-decoration: underline; text-underline-offset: 2px; }
 .nc-spin {
-  width: 11px; height: 11px; border-radius: 50%; border: 2px solid #C7D2E6; border-top-color: var(--nc-accent);
+  width: 11px; height: 11px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--nc-accent) 25%, transparent); border-top-color: var(--nc-accent);
   display: inline-block; animation: nc-spin 0.7s linear infinite;
 }
 @keyframes nc-spin { to { transform: rotate(360deg); } }
@@ -191,7 +224,7 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 /* ---------- canvas (the live page is the surface) ---------- */
 .nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; z-index: 5; }
 .nocms-hover {
-  outline: 1.5px solid rgba(61,90,152,0.4); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }
 .nc-hover-label {
   position: absolute; background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
@@ -199,6 +232,31 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
   border-radius: 6px; pointer-events: none; white-space: nowrap; z-index: 6;
 }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
+
+/* selected block: a name tag pinned just above the selection's top-left, never over its content */
+.nc-sel-label {
+  position: absolute; z-index: 7; transform: translateY(-100%);
+  background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 6px 6px 6px 0; pointer-events: none; white-space: nowrap;
+}
+
+/* drag-reorder: the lifted block + the drop-indicator line */
+.nocms-dragging {
+  outline: 2px solid var(--nc-accent); outline-offset: 2px;
+  box-shadow: 0 18px 44px rgba(26,25,22,0.24) !important;
+  opacity: 0.95; transform: scale(1.015); transform-origin: center;
+  position: relative; z-index: 6; cursor: grabbing;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.nocms-drop-line {
+  position: absolute; left: 0; right: 0; height: 2px; background: var(--nc-accent);
+  z-index: 8; pointer-events: none; border-radius: 2px;
+}
+.nocms-drop-line::before {
+  content: ""; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--nc-accent);
+}
 
 /* ---------- right rail (fixed, docks in from the right) ---------- */
 .nocms-editor-panel {
@@ -330,7 +388,7 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-card-render { max-width: 88%; max-height: 116px; overflow: hidden; pointer-events: none; display: flex; align-items: center; justify-content: center; }
 .nc-card-insert { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(26,25,22,0.18); opacity: 0; transition: opacity .12s; }
 .nc-card:hover .nc-card-insert { opacity: 1; }
-.nc-card-insert span { background: var(--nc-accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 18px; border-radius: 999px; box-shadow: 0 4px 12px rgba(61,90,152,0.35); }
+.nc-card-insert span { background: var(--nc-accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 18px; border-radius: 999px; box-shadow: 0 4px 12px color-mix(in srgb, var(--nc-accent) 35%, transparent); }
 .nc-card-foot { padding: 13px 14px; display: flex; align-items: flex-start; gap: 10px; }
 .nc-card-glyph { color: var(--nc-text-3); flex-shrink: 0; margin-top: 1px; }
 .nc-card-text { flex: 1; min-width: 0; }
@@ -371,7 +429,7 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-field { display: block; margin-top: 16px; }
 .nocms-field .nc-mono-label { display: block; margin-bottom: 6px; }
 .nocms-field input { width: 100%; border: 1px solid var(--nc-border); border-radius: var(--nc-radius); padding: 10px 13px; background: var(--nc-surface-muted); font: inherit; font-size: 13.5px; color: var(--nc-text); }
-.nocms-field input:focus { outline: none; border-color: var(--nc-accent); box-shadow: 0 0 0 3px rgba(61,90,152,0.12); }
+.nocms-field input:focus { outline: none; border-color: var(--nc-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--nc-accent) 18%, transparent); }
 .nocms-expose-head { display: block; margin-bottom: 4px; }
 .nocms-expose-list { display: flex; flex-direction: column; }
 .nocms-expose-row { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--nc-border-faint); }
@@ -384,7 +442,7 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nc-media-tile { position: relative; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
 .nc-media-thumb { display: block; height: 96px; border-radius: var(--nc-radius); border: 1px solid var(--nc-border); background-size: cover; background-position: center;
   background-color: var(--nc-surface-muted); background-image: repeating-linear-gradient(45deg, #EDEAE3, #EDEAE3 8px, #F6F4EF 8px, #F6F4EF 16px); }
-.nc-media-tile.nc-selected .nc-media-thumb { border: 2px solid var(--nc-accent); box-shadow: 0 0 0 3px rgba(61,90,152,0.12); }
+.nc-media-tile.nc-selected .nc-media-thumb { border: 2px solid var(--nc-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--nc-accent) 18%, transparent); }
 .nc-media-check { position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; border-radius: 50%; background: var(--nc-accent); color: #fff; display: flex; align-items: center; justify-content: center; }
 .nc-media-name { display: block; font-size: 11.5px; color: var(--nc-text-2); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nc-media-upload { height: 96px; border: 1px dashed #D5D1C8; border-radius: var(--nc-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--nc-text-2); font-size: 12px; cursor: pointer; }

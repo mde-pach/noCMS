@@ -34,7 +34,7 @@ const components: ComponentRegistry = {
 afterEach(() => {
   document.body.replaceChildren();
   document.documentElement.classList.remove("nocms-editing");
-  document.documentElement.style.removeProperty("--nocms-content-width");
+  document.documentElement.style.removeProperty("--nocms-page-width");
 });
 
 function labels(target: Element): string[] {
