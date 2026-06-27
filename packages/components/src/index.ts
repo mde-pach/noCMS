@@ -5,7 +5,7 @@
 // this package (D18).
 
 import {
-  type BlockDef,
+  block,
   type ComponentPack,
   type ComponentRegistry,
   createRegistry,
@@ -40,10 +40,7 @@ import { Pricing, PricingSchema } from "./sections/Pricing";
 import { Stats, StatsSchema } from "./sections/Stats";
 import { Testimonials, TestimonialsSchema } from "./sections/Testimonials";
 
-const entry = (
-  component: unknown,
-  extra: Omit<BlockDef, "component"> = {},
-): BlockDef => ({ component: component as BlockDef["component"], ...extra });
+const entry = block;
 
 /** The curated component library: the always-present `core` pack a site composes with. */
 export const core: ComponentPack = definePack({
@@ -196,9 +193,11 @@ export const registry: ComponentRegistry = createRegistry(core);
 
 export {
   type BlockDef,
+  block,
   type ComponentManifest,
   type ComponentPack,
   type ComponentRegistry,
+  controlsOf,
   createRegistry,
   definePack,
   manifestOf,

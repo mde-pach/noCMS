@@ -14,6 +14,16 @@ export type { HostApi, HostMethod } from "./broker.js";
 export { createBroker, METHOD_CAPABILITY } from "./broker.js";
 export { createHostClient, type RemoteHostApi, SandboxError } from "./client.js";
 export {
+  blockFromRegistration,
+  type ComponentRegistrar,
+  type ComponentRegistrarOptions,
+  createComponentRegistrar,
+  escapeHtml,
+  fillTemplate,
+  type PluginComponentRegistration,
+  validateRegistration,
+} from "./components.js";
+export {
   createSandboxFrame,
   frameSandboxPolicy,
   type SandboxPolicy,

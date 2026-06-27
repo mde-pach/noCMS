@@ -1,6 +1,8 @@
+import type { ControlDescriptor } from "@nocms/core";
 import { expect, test } from "vitest";
 import {
   type ComponentPack,
+  controlsOf,
   core,
   createRegistry,
   definePack,
@@ -49,6 +51,17 @@ test("manifestOf tolerates a schema-less block", () => {
   expect(m.controls).toEqual([]);
   expect(m.defaults).toEqual({});
   expect(m.island).toBe(false);
+});
+
+test("controlsOf / manifestOf use pre-derived controls when a block has no schema", () => {
+  const controls: ControlDescriptor[] = [
+    { key: "headline", kind: "text", label: "Headline", required: true, default: "Hi" },
+  ];
+  const def = { component: Dummy, controls, category: "Plugin" };
+  expect(controlsOf(def)).toBe(controls);
+  const m = manifestOf("PluginCard", def);
+  expect(m.controls).toEqual(controls);
+  expect(m.defaults.headline).toBe("Hi");
 });
 
 test("registryManifest covers every block and flags islands", () => {

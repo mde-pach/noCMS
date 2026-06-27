@@ -24,6 +24,9 @@ export interface BlockDef {
   component: AnyComponent;
   /** valibot props schema → editor controls via `deriveControls`. */
   schema?: GenericSchema;
+  /** pre-derived controls, for a block with no valibot schema (a sandboxed plugin
+   *  component ships serialized controls, not a schema). Wins over `schema`. */
+  controls?: ControlDescriptor[];
   /** named child regions this container accepts; absent = leaf. */
   slots?: string[];
   /** needs client-side hydration as an island? */
@@ -41,6 +44,16 @@ export interface BlockDef {
 }
 
 export type ComponentRegistry = Record<string, BlockDef>;
+
+/** Declare a block from a component + metadata. The cast is the one place a typed Preact
+ *  component meets the registry's structural `AnyComponent`; site authors use it so they
+ *  never fight prop-type variance. */
+export function block(
+  component: unknown,
+  extra: Omit<BlockDef, "component"> = {},
+): BlockDef {
+  return { component: component as AnyComponent, ...extra };
+}
 
 /** A distributable bundle of components. The curated library is the `core` pack; plugin
  *  packs add more. `trust` records how the pack's code runs: `builtin` is trusted
@@ -118,9 +131,16 @@ function starterValue(control: ControlDescriptor): PropPrimitive | undefined {
   }
 }
 
+/** The block's controls: its pre-derived set when given, else derived from its schema,
+ *  else none. The one place schema-vs-pre-derived is resolved. */
+export function controlsOf(def: BlockDef): ControlDescriptor[] {
+  if (def.controls) return def.controls;
+  return def.schema ? deriveControls(def.schema) : [];
+}
+
 /** Derive a block's serializable manifest. */
 export function manifestOf(name: string, def: BlockDef): ComponentManifest {
-  const controls = def.schema ? deriveControls(def.schema) : [];
+  const controls = controlsOf(def);
   const defaults: Record<string, PropPrimitive> = {};
   for (const control of controls) {
     const value = starterValue(control);

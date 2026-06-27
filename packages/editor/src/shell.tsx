@@ -20,9 +20,9 @@
 import {
   type ComponentManifest,
   type ComponentRegistry,
+  controlsOf,
   registryManifest,
 } from "@nocms/components";
-import { deriveControls } from "@nocms/core";
 import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
@@ -351,7 +351,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   function showPanel(node: Nodes | undefined): void {
     if (node && isJsxElement(node) && node.name) {
       const def = components[node.name];
-      const controls = def?.schema ? deriveControls(def.schema) : [];
+      const controls = def ? controlsOf(def) : [];
       if (controls.length > 0) {
         render(
           <PropsPanel

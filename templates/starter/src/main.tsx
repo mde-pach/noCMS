@@ -1,4 +1,3 @@
-import { registry } from "@nocms/components";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
 import type { ComponentType } from "preact";
 import { render } from "preact";
@@ -7,6 +6,7 @@ import siteConfig from "../nocms.config.json";
 import themeTokens from "../theme.tokens?raw";
 import "../styles.css";
 import { App } from "./app";
+import { registry } from "./registry";
 
 // `?edit` loads the in-site editor instead of the reader. It's a separate, lazily
 // imported entry so the published reader path stays untouched and never bundles the

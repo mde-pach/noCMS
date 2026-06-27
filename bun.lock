@@ -149,7 +149,9 @@
       "name": "@nocms/sandbox",
       "version": "0.0.0",
       "dependencies": {
+        "@nocms/components": "workspace:*",
         "@nocms/core": "workspace:*",
+        "preact": "^10.27.0",
       },
     },
     "packages/session": {
@@ -178,6 +180,7 @@
         "@nocms/renderer": "file:./vendor/renderer",
         "@nocms/tokens": "file:./vendor/tokens",
         "preact": "^10.27.0",
+        "valibot": "^1.4.1",
       },
       "devDependencies": {
         "@mdx-js/rollup": "^3.1.0",

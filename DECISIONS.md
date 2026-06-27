@@ -305,8 +305,35 @@ or *distribution* seam — which is what made it feel hardcoded.
 
 - **`BlockDef` gained catalog metadata** (category/description/icon/tags) so a palette has
   something to show; the insert palette + richer props widgets (D16) make the library visibly
-  usable. Still deferred: a site-local pack that vendors a fork's *own* components (decouple
-  authorship from the monorepo), and the actual sandbox→registry wiring.
+  usable. Both follow-ups it named — site-local distribution and the sandbox→registry wiring —
+  are now resolved in **D19**.
+
+### D19 — Pluggable distribution: site-local packs + sandbox component wiring → **RESOLVED.**
+D18 built the composition seam (packs + serializable manifest). D19 makes it usable from both
+ends: a fork ships its *own* components without the monorepo, and a sandboxed plugin contributes
+components across the capability boundary. Full picture in `.claude/rules/component-packs.md`.
+
+- **The site owns the composition root and the client entrypoints.** `@nocms/build` became
+  registry-injectable (`buildSite({ registry })`, defaulting to core); the starter has
+  `src/registry.ts` = `createRegistry(core, sitePack)`, an example site-local component (`Stat`,
+  authored exactly like a curated one — valibot schema → controls), and site-owned
+  `island.client.ts` / `editor.client.ts` that compose that registry. `vendor.ts` bundles the
+  *site's* client entries (resolving `@nocms/*` to workspace source so the node-targeted vendored
+  bundles' node: paths tree-shake out for the browser). A fork adds a component in one place and
+  it renders in the reader, the editor palette, island hydration, and the publish prerender —
+  no edit to `@nocms/*`. The `block()` helper spares site authors the prop-type variance cast.
+
+- **Sandboxed plugins contribute components by manifest + template, not code.** The pre-existing
+  `registerComponent` host method (gated by `components:register`) now has a host-side registrar
+  (`createComponentRegistrar`): a plugin sends a `PluginComponentRegistration` (manifest-shaped +
+  an HTML `template`); the host validates it (untrusted input — throws on a bad name/template,
+  drops malformed controls), and renders it in an **inert sandboxed iframe** (`sandbox=""`, opaque
+  origin, no scripts; `{{key}}` props HTML-escaped) so plugin markup never touches the host DOM or
+  executes in the host context (invariant #8). `registrar.pack()` composes with `createRegistry`;
+  because `BlockDef` carries pre-derived `controls`, the editor renders/lists/configures plugin
+  components with no editor changes. **Deferred:** interactive plugin components need a host→guest
+  render protocol (the iframe is static-template only in v1); live hot-add into a mounted editor
+  needs a registry-update API (`subscribe()` is the hook).
 
 ### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**
 
