@@ -28,9 +28,12 @@ A saved component is a **symbol**, authored visually, obeying ordinary component
   loaded into the registry at **runtime**, so authoring needs no build (invariant #3). It rides the
   same pack/manifest seam as a plugin-contributed component (`component-packs.md`): manifest +
   structure template, differing only in trust and authorship.
-- **Instance** carries the **exposed interface, written explicit inline**, tagged
-  `data-symbol="Name@v"` — a source-level annotation read from the MDX AST, not necessarily emitted
-  to HTML. It does **not** carry the implementation (encapsulation).
+- **Instance** is an ordinary **component reference by name** (`<OurHero heading="…"/>`) carrying its
+  **exposed interface explicit inline**. Because a saved component is a *registered block*, instances
+  flow through the existing catalog / insert / props-panel / renderer with no special handling. The
+  link *is* the element name; an optional `@version` marker (e.g. a `data-symbol` attribute read from
+  the MDX AST, not necessarily emitted to HTML) lets the editor spot instances on an older interface
+  for migration. The instance does **not** carry the implementation (encapsulation).
 - **Exposed values are seeds** — copied at insert, then frozen per instance. Changing a master
   default only seeds *future* inserts; existing instances keep their copy.
 - **Implementation is by reference** — edit it in one place; instances re-render fresh. A saved
@@ -38,7 +41,8 @@ A saved component is a **symbol**, authored visually, obeying ordinary component
   (they retain their explicit interface).
 - **Auto-sync fires only on interface changes** (rename / add / remove an exposed prop), rewriting
   instances to the new contract. Everything else is local or encapsulated.
-- **Detach** = drop the `data-symbol` tag; the instance becomes plain owned blocks.
+- **Detach** = expand the implementation inline as plain blocks and drop the reference; the instance
+  becomes plain owned content.
 - **Slots are interface, not just scalars.** A component's interface = exposed scalar props **+
   exposed child regions** (`BlockDef.slots`). A slot's contents are per-instance, materialized
   inline, and preserved across auto-sync exactly like exposed values — so saved *containers* ("our
@@ -70,6 +74,53 @@ Saving a multi-brick selection exposes **everything by default**; the author **p
 small opinionated surface and locks the rest. Obviously-structural props (layout, direction)
 auto-lock so pruning is fast. The pruning *is* the opinionation. (Specialize is the degenerate case:
 a selection of one.)
+
+## Build plan
+
+Grounded in the current code (editor block model, the pack/manifest seam, the GitHub client). The
+design lands on seams that already exist: a saved component is the **owner-authored, in-process twin
+of a sandboxed plugin component** — a `BlockDef` built from *data* (pre-derived controls + structure)
+rather than a schema, rendered through the **one renderer** (not an iframe). The two genuinely new
+pieces are a **runtime definition→pack loader** and the **"Save as component" authoring flow**.
+
+### Exists vs. new
+
+| Piece | Exists today | New work |
+|---|---|---|
+| Instance = component reference | `blockFromManifest`, `renderToHtml` (renderer does no prop filtering) | none |
+| Catalog from manifests | `registryManifest` → `catalog.tsx` | none |
+| Edit exposed props | props panel via `controlsOf` + `get/setProp` | hide locked controls |
+| **Lock / expose** | `ControlDescriptor` + panel visibility (`showIf`) | add `symbolMode` (or `controlOverrides` on `BlockDef`), applied in `controlsOf` |
+| Runtime registry, all 4 surfaces | `createRegistry(core, sitePack)` | a **loader** that builds a pack from stored definitions (twin of `createComponentRegistrar`) |
+| Render the implementation | the one renderer | a **synthesized component**: substitute exposed props + slot children into the stored subtree |
+| Wide-commit sync | `GitHubClient.commit(repo, msg, files[])` = one GraphQL call, all files | a find-by-name + rewrite pass |
+| Persistence | `@nocms/session` (`stageEntry`/`commit`) + `GitHubClient` | wire editor `onChange` (today only logs) |
+
+### Phases (D16 — tracer-slice first)
+
+- **Phase 1 — the spine (specialize, one brick, scalar-only, no slots/compose/sync).** Select a
+  brick → save with lock/expose → a data definition → loader builds a `BlockDef` → it appears in the
+  catalog → insert an instance → edit exposed props (locked hidden) → **identical render in editor
+  preview and `buildSite` prerender** (invariant #1). Definition loaded from a **local file** at
+  runtime; **GitHub persistence deferred**, to isolate the novel render/registry risk from the
+  orthogonal persistence work. For a single-brick specialize the synthesized component is just
+  **partial application** of the base (locked props baked, exposed props passed through) — no
+  template substitution yet.
+- **Phase 2 — compose + slots.** Multi-brick subtree, opt-out demotion pruning, exposed child-region
+  slots (lists fall out as children-in-a-slot). Adds the structure-template substitution mechanism.
+- **Phase 3 — auto-sync + persistence.** Wire `onChange → session → GitHubClient.commit`;
+  interface-change migration (find instances by name, rewrite attrs, `@version` drift detection, one
+  wide commit).
+- **Phase 4 — library polish.** Detach, promoted-control rename / group / order, the library-manager
+  surface, naming / collision rules vs `core`.
+
+### Crux & risks
+
+- **Static → dynamic registry is the one new architectural seam.** `registry.ts` is static TS
+  imported by all four surfaces today; saved components must merge in at runtime from stored
+  definitions, in the browser (editor/reader) *and* node (build). Where definition files live and how
+  each surface discovers them is the load-bearing decision.
+- **Persistence is unwired** (`onChange` logs only) — Phase 1 sidesteps it; Phase 3 depends on it.
 
 ## Open — details
 

@@ -348,11 +348,16 @@ a saved component is the owner-authored, trusted twin of a plugin-contributed on
 - **A symbol with proper encapsulation — instances depend on the *interface*, never the
   *implementation*.** The master (in the site pack via `createRegistry`) owns the internal structure
   *and* the interface (exposed scalar props + exposed slots + their defaults), stored as text and
-  loaded into the registry at **runtime** (no build — invariant #3). An instance carries only the
-  **exposed interface, written explicit inline**, tagged `data-symbol="Name@v"` (a source-level
-  annotation read from the MDX AST, not necessarily emitted to HTML). The implementation is never
-  inlined — delete the master and instances keep their interface but lose their internals; a saved
-  component is a real dependency, as a component should be.
+  loaded into the registry at **runtime** (no build — invariant #3). An instance is an ordinary
+  **component reference by name** carrying its **exposed interface explicit inline** — so it flows
+  through the existing catalog/insert/props-panel/renderer unchanged; the link *is* the element name,
+  and an optional `@version` marker (a `data-symbol` annotation read from the MDX AST, not
+  necessarily emitted to HTML) only flags instances on an older interface for migration. The
+  implementation is never inlined — delete the master and instances keep their interface but lose
+  their internals; a saved component is a real dependency. Mechanically it is the owner-authored,
+  in-process twin of a sandboxed plugin component (`createComponentRegistrar`, D19): a `BlockDef`
+  built from data (pre-derived controls + structure), rendered through the one renderer rather than
+  an inert iframe. Build plan + tracer-slice phasing live in the spec.
 
 - **Exposed values are seeds; implementation is by reference; sync is interface-scoped.** An exposed
   value is copied at insert and frozen per instance (editing a master *default* seeds only future
