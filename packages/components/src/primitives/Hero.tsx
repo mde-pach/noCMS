@@ -1,10 +1,14 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface HeroProps {
-  title: string;
-  subtitle?: string;
+export const HeroSchema = v.object({
+  title: v.string(),
+  subtitle: v.optional(v.string()),
+});
+
+export type HeroProps = v.InferInput<typeof HeroSchema> & {
   children?: ComponentChildren;
-}
+};
 
 export function Hero({ title, subtitle, children }: HeroProps) {
   return (

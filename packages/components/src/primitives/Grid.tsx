@@ -1,10 +1,17 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface GridProps {
-  columns?: number;
-  gap?: "sm" | "md" | "lg";
+export const GridSchema = v.object({
+  columns: v.optional(
+    v.pipe(v.number(), v.minValue(1), v.maxValue(6), v.metadata({ control: "range" })),
+    2,
+  ),
+  gap: v.optional(v.picklist(["sm", "md", "lg"]), "md"),
+});
+
+export type GridProps = v.InferInput<typeof GridSchema> & {
   children?: ComponentChildren;
-}
+};
 
 // Lays children into equal-width columns that collapse on narrow viewports.
 export function Grid({ columns = 2, gap = "md", children }: GridProps) {

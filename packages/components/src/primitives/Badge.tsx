@@ -1,9 +1,13 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface BadgeProps {
-  variant?: "neutral" | "new" | "success" | "warn";
+export const BadgeSchema = v.object({
+  variant: v.optional(v.picklist(["neutral", "new", "success", "warn"]), "neutral"),
+});
+
+export type BadgeProps = v.InferInput<typeof BadgeSchema> & {
   children?: ComponentChildren;
-}
+};
 
 // An inline label chip. This is the canonical inline component the prose widget
 // models as an inline atom (`<Badge variant="new">…</Badge>`).

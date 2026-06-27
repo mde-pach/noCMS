@@ -1,9 +1,13 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface CalloutProps {
-  variant: "info" | "warn" | "tip";
+export const CalloutSchema = v.object({
+  variant: v.picklist(["info", "warn", "tip"]),
+});
+
+export type CalloutProps = v.InferInput<typeof CalloutSchema> & {
   children?: ComponentChildren;
-}
+};
 
 // Each variant has an accent the box tints from, so info/tip/warn read at a glance.
 const ACCENT = {

@@ -1,6 +1,10 @@
-export interface DividerProps {
-  spacing?: "sm" | "md" | "lg";
-}
+import * as v from "valibot";
+
+export const DividerSchema = v.object({
+  spacing: v.optional(v.picklist(["sm", "md", "lg"]), "md"),
+});
+
+export type DividerProps = v.InferInput<typeof DividerSchema>;
 
 // A horizontal rule with token-driven vertical breathing room.
 export function Divider({ spacing = "md" }: DividerProps) {

@@ -1,10 +1,17 @@
-export interface InputProps {
-  name: string;
-  label?: string;
-  type?: "text" | "email" | "tel" | "url" | "number" | "password";
-  placeholder?: string;
-  required?: boolean;
-}
+import * as v from "valibot";
+
+export const InputSchema = v.object({
+  name: v.string(),
+  label: v.optional(v.string()),
+  type: v.optional(
+    v.picklist(["text", "email", "tel", "url", "number", "password"]),
+    "text",
+  ),
+  placeholder: v.optional(v.string()),
+  required: v.optional(v.boolean(), false),
+});
+
+export type InputProps = v.InferInput<typeof InputSchema>;
 
 const FIELD = {
   display: "flex",

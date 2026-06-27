@@ -1,9 +1,13 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface ContainerProps {
-  width?: "narrow" | "normal" | "wide" | "full";
+export const ContainerSchema = v.object({
+  width: v.optional(v.picklist(["narrow", "normal", "wide", "full"]), "normal"),
+});
+
+export type ContainerProps = v.InferInput<typeof ContainerSchema> & {
   children?: ComponentChildren;
-}
+};
 
 const MAX_WIDTH = {
   narrow: "40rem",

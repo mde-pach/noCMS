@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import * as v from "valibot";
 import { readSiteRuntime } from "../site-runtime";
 
 // The JSON Feed item fields this component reads. A minimal structural shape (not the full
@@ -10,12 +11,14 @@ interface FeedItem {
   date_published?: string;
 }
 
-export interface LatestPostsProps {
+export const LatestPostsSchema = v.object({
   /** how many items to show */
-  limit?: number;
+  limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(20)), 5),
   /** heading above the list */
-  title?: string;
-}
+  title: v.optional(v.string(), "Latest"),
+});
+
+export type LatestPostsProps = v.InferInput<typeof LatestPostsSchema>;
 
 // A runtime consumer of the ② feed artifact: it fetches `feed.json` (located via the embedded
 // site-runtime config) and lists the most recent items. An island because it fetches at view

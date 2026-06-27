@@ -1,10 +1,14 @@
 import type { ComponentChildren } from "preact";
+import * as v from "valibot";
 
-export interface CardProps {
-  title?: string;
-  href?: string;
+export const CardSchema = v.object({
+  title: v.optional(v.string()),
+  href: v.optional(v.pipe(v.string(), v.metadata({ control: "url" }))),
+});
+
+export type CardProps = v.InferInput<typeof CardSchema> & {
   children?: ComponentChildren;
-}
+};
 
 const STYLE = {
   display: "block",

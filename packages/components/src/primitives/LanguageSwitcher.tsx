@@ -1,11 +1,14 @@
 import { type LocaleLink, type LocaleManifest, localeLinks } from "@nocms/core";
 import { useEffect, useState } from "preact/hooks";
+import * as v from "valibot";
 import { readSiteRuntime } from "../site-runtime";
 
-export interface LanguageSwitcherProps {
+export const LanguageSwitcherSchema = v.object({
   /** Accessible label for the switcher's nav landmark. */
-  label?: string;
-}
+  label: v.optional(v.string(), "Language"),
+});
+
+export type LanguageSwitcherProps = v.InferInput<typeof LanguageSwitcherSchema>;
 
 // A runtime consumer of the ② i18n artifact: it fetches `i18n/translations.json` (located via
 // the embedded site-runtime config), resolves the current page's other-locale links with

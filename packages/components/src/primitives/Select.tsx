@@ -1,10 +1,14 @@
-export interface SelectProps {
-  name: string;
-  label?: string;
+import * as v from "valibot";
+
+export const SelectSchema = v.object({
+  name: v.string(),
+  label: v.optional(v.string()),
   /** Comma-separated option values, e.g. `"Small, Medium, Large"`. */
-  options: string;
-  required?: boolean;
-}
+  options: v.string(),
+  required: v.optional(v.boolean(), false),
+});
+
+export type SelectProps = v.InferInput<typeof SelectSchema>;
 
 const FIELD = {
   display: "flex",

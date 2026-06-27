@@ -1,10 +1,14 @@
-export interface TextareaProps {
-  name: string;
-  label?: string;
-  placeholder?: string;
-  rows?: number;
-  required?: boolean;
-}
+import * as v from "valibot";
+
+export const TextareaSchema = v.object({
+  name: v.string(),
+  label: v.optional(v.string()),
+  placeholder: v.optional(v.string()),
+  rows: v.optional(v.pipe(v.number(), v.minValue(2), v.maxValue(20)), 4),
+  required: v.optional(v.boolean(), false),
+});
+
+export type TextareaProps = v.InferInput<typeof TextareaSchema>;
 
 const FIELD = {
   display: "flex",
