@@ -13,6 +13,7 @@ import {
 } from "@nocms/core";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
+import type { ComponentChildren, ComponentType } from "preact";
 import { type PrerenderedPage, prerenderRoutes, type Route } from "./prerender";
 
 export interface BuildOptions {
@@ -31,6 +32,12 @@ export interface BuildOptions {
    * to the curated core set.
    */
   registry?: ComponentRegistry;
+  /**
+   * Optional site shell (header/footer/page frame) wrapping every route's content. A fork passes
+   * its own `SiteShell` so the published page carries the same shell the in-site editor and dev
+   * reader render — dev = edit = production (D21).
+   */
+  shell?: ComponentType<{ children?: ComponentChildren; base?: string }>;
 }
 
 /** A route path → its output file. `/` → `index.html`, `/x` → `x/index.html`. */
@@ -99,6 +106,8 @@ export async function buildSite(options: BuildOptions): Promise<void> {
 
   const pages = await prerenderRoutes(routes, {
     components,
+    shell: options.shell,
+    base,
     css,
     head: head || undefined,
     islands,

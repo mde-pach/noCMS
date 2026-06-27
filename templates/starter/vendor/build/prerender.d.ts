@@ -1,4 +1,5 @@
 import { type ComponentMap } from "@nocms/renderer";
+import { type ComponentChildren, type ComponentType } from "preact";
 export interface Route {
     /** output path, e.g. "/" or "/posts/first" */
     path: string;
@@ -7,6 +8,18 @@ export interface Route {
 }
 export interface PrerenderOptions {
     components?: ComponentMap;
+    /**
+     * Optional site shell wrapping every route's content (header/footer/page frame). Rendered by
+     * the one renderer, so the published page carries the same shell the editor and reader show —
+     * what you edit is what publishes, shell included (D21). The route's content becomes its
+     * children; `base` is passed through for nav links.
+     */
+    shell?: ComponentType<{
+        children?: ComponentChildren;
+        base?: string;
+    }>;
+    /** Base path passed to the shell. */
+    base?: string;
     /** CSS injected into <head>, e.g. token custom properties */
     css?: string;
     /** Raw HTML appended to <head>, e.g. a favicon link respecting `base`. */

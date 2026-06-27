@@ -30,6 +30,9 @@ backend. noCMS is software people adopt, not a service they depend on. Open sour
    in the browser; the publish build prerenders the *identical* tree to static HTML with
    `preact-render-to-string`, then hydrates islands. Never introduce a second renderer or
    component model — "what you preview is what you publish" is the core correctness property.
+   The editor proves this by editing *in place*: `?edit` overlays chrome on the actual rendered
+   page (its content host is the canvas), and one site-provided `SiteShell` wraps content in the
+   reader, the editor, and the publish prerender — so dev = edit = production (D21).
 2. **Decentralized.** The editor ships *with* each site; there is no central app a site
    depends on. The only shared infra is a *stateless* auth relay, and it is optional and
    replaceable (self-host, or PAT fallback). Nothing the project runs may break a site.

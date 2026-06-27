@@ -1,5 +1,6 @@
 import { type ComponentRegistry } from "@nocms/components";
 import { type SiteConfig } from "@nocms/core";
+import type { ComponentChildren, ComponentType } from "preact";
 export interface BuildOptions {
     /** site source root (the forked starter) */
     root: string;
@@ -16,6 +17,15 @@ export interface BuildOptions {
      * to the curated core set.
      */
     registry?: ComponentRegistry;
+    /**
+     * Optional site shell (header/footer/page frame) wrapping every route's content. A fork passes
+     * its own `SiteShell` so the published page carries the same shell the in-site editor and dev
+     * reader render — dev = edit = production (D21).
+     */
+    shell?: ComponentType<{
+        children?: ComponentChildren;
+        base?: string;
+    }>;
 }
 /** A route path → its output file. `/` → `index.html`, `/x` → `x/index.html`. */
 export declare function routeToFilePath(routePath: string): string;

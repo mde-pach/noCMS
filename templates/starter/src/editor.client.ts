@@ -1,10 +1,11 @@
-// The site's in-site editor client (lazy, `?edit` only). It mounts the editor over the
-// prerendered page using the site's composed registry, so site-local components are
-// insertable and editable on a published fork — not just in the monorepo. It reads the
-// page's inlined editor data (#nocms-editor-data) the build emits. Bundled at vendor time;
+// The site's in-site editor client (lazy, `?edit` only). On a published page it enhances the
+// prerendered page *in place* — the same shell and content visitors see — using the site's
+// composed registry, so site-local components are insertable and editable on a fork. It reads
+// the page's inlined editor data (#nocms-editor-data) the build emits. Bundled at vendor time;
 // heavy (MDX compiler + prose), so the reader path never loads it.
 
-import { mountEditor } from "@nocms/editor";
+import { CONTENT_SLOT_ID } from "./app";
+import { enterEdit } from "./edit";
 import { registry } from "./registry";
 
 const DATA_ID = "nocms-editor-data";
@@ -16,21 +17,18 @@ interface EditorData {
 
 function run(): void {
   const dataEl = document.getElementById(DATA_ID);
-  const root = document.getElementById("app");
-  if (!dataEl?.textContent || !root) return;
-
-  // On a published page `#app` holds the prerendered content; clear it so the editor owns
-  // a clean root (the dev `?edit` flow mounts into an empty `#app`).
-  root.replaceChildren();
+  // The shared shell wraps content in #nocms-content; fall back to #app for older output.
+  const host =
+    document.getElementById(CONTENT_SLOT_ID) ?? document.getElementById("app");
+  if (!dataEl?.textContent || !host) return;
 
   const data = JSON.parse(dataEl.textContent) as EditorData;
-  mountEditor({
-    target: root,
+  void enterEdit({
+    contentHost: host as HTMLElement,
     mdx: data.mdx,
-    components: registry,
-    tokens: data.tokens,
-    onChange: (mdx) => console.info("[nocms] edited (not saved)", mdx.length, "chars"),
-    onTokensChange: () => console.info("[nocms] theme edited (not saved)"),
+    tokens: data.tokens ?? "",
+    registry,
+    base: document.querySelector("base")?.getAttribute("href") ?? "/",
   });
 }
 

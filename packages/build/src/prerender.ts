@@ -1,9 +1,11 @@
 import {
   type ComponentMap,
   islandNamesFromHtml,
-  renderToHtml,
+  renderToStaticHtml,
+  renderToVNode,
   wrapIslandComponents,
 } from "@nocms/renderer";
+import { type ComponentChildren, type ComponentType, h } from "preact";
 
 export interface Route {
   /** output path, e.g. "/" or "/posts/first" */
@@ -14,6 +16,15 @@ export interface Route {
 
 export interface PrerenderOptions {
   components?: ComponentMap;
+  /**
+   * Optional site shell wrapping every route's content (header/footer/page frame). Rendered by
+   * the one renderer, so the published page carries the same shell the editor and reader show —
+   * what you edit is what publishes, shell included (D21). The route's content becomes its
+   * children; `base` is passed through for nav links.
+   */
+  shell?: ComponentType<{ children?: ComponentChildren; base?: string }>;
+  /** Base path passed to the shell. */
+  base?: string;
   /** CSS injected into <head>, e.g. token custom properties */
   css?: string;
   /** Raw HTML appended to <head>, e.g. a favicon link respecting `base`. */
@@ -102,7 +113,17 @@ export async function prerenderRoutes(
     : base;
   return Promise.all(
     routes.map(async (route) => {
-      const body = await renderToHtml({ mdx: route.mdx, components, data: route.data });
+      // Compile to a tree, optionally wrap in the site shell, then render once — the shell goes
+      // through the same renderer as content, so it can't diverge from the editor/reader.
+      const content = await renderToVNode({
+        mdx: route.mdx,
+        components,
+        data: route.data,
+      });
+      const tree = options.shell
+        ? h(options.shell, { base: options.base }, content)
+        : content;
+      const body = renderToStaticHtml(tree);
       const islands = islandNamesFromHtml(body);
       const title = options.title?.(route) ?? String(route.data?.title ?? route.path);
       const scripts =

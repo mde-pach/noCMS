@@ -82,11 +82,14 @@ import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 import { TokensPanel } from "./tokens-panel.js";
 import { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
 
+// In the in-place model a breakpoint narrows the live content column (the shell's `<main>` reads
+// `--nocms-content-width`), it does not reframe the page. L3 is the reader's natural column width,
+// so the default edit width is pixel-identical to what visitors see; L4 previews full-bleed.
 const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
   L0: "390px",
   L1: "600px",
   L2: "834px",
-  L3: "1040px",
+  L3: "60rem",
   L4: "100%",
 };
 
@@ -213,23 +216,39 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
 
   // --- DOM scaffold ----------------------------------------------------------------
-  const style = document.createElement("style");
-  style.textContent = EDITOR_CSS;
-  const fontsLink = document.createElement("link");
-  fontsLink.rel = "stylesheet";
-  fontsLink.href = FONTS_HREF;
-  document.head.appendChild(fontsLink);
+  // The editor is an overlay over the live page, not a frame around it: the page's content host
+  // (`target`) *is* the editing surface, and the chrome (top bar, rail, modals, popovers) mounts
+  // into a fixed layer above it. Entering edit adds `nocms-editing` to <html>, which slides the
+  // chrome in and offsets the page — a transition over what is already on screen.
+  // The host may have already injected the chrome stylesheet (e.g. for a sign-in gate shown
+  // before the editor); reuse it so there is one tag, and only this mount removes what it owns.
+  const existingStyle = document.getElementById(
+    "nocms-editor-css",
+  ) as HTMLStyleElement | null;
+  const style = existingStyle ?? document.createElement("style");
+  const ownsStyle = !existingStyle;
+  if (ownsStyle) {
+    style.id = "nocms-editor-css";
+    style.textContent = EDITOR_CSS;
+    document.head.appendChild(style);
+  }
+  const existingFonts = document.querySelector("link[data-nocms-fonts]");
+  const fontsLink =
+    (existingFonts as HTMLLinkElement | null) ?? document.createElement("link");
+  const ownsFonts = !existingFonts;
+  if (ownsFonts) {
+    fontsLink.rel = "stylesheet";
+    fontsLink.href = FONTS_HREF;
+    fontsLink.setAttribute("data-nocms-fonts", "");
+    document.head.appendChild(fontsLink);
+  }
 
-  const layout = document.createElement("div");
-  layout.className = "nocms-editor";
+  const surface = target as HTMLElement;
+  surface.classList.add("nocms-canvas");
+
+  const chromeRoot = document.createElement("div");
+  chromeRoot.className = "nocms-editor";
   const chromeHost = document.createElement("div");
-  const body = document.createElement("div");
-  body.className = "nocms-body";
-  const canvasScroll = document.createElement("div");
-  canvasScroll.className = "nocms-canvas-region";
-  const surface = document.createElement("div");
-  surface.className = "nocms-editor-canvas";
-  surface.style.width = BREAKPOINT_WIDTH[breakpoint];
   const toolbarHost = document.createElement("div");
   toolbarHost.className = "nocms-toolbar-host";
   const formatHost = document.createElement("div");
@@ -242,16 +261,19 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const popoverHost = document.createElement("div");
 
   panelRegion.append(railHost);
-  canvasScroll.append(surface);
-  body.append(canvasScroll, panelRegion, modalHost);
-  layout.append(chromeHost, body, popoverHost);
-  target.append(style, layout);
+  chromeRoot.append(chromeHost, panelRegion, modalHost, popoverHost);
+  document.body.append(chromeRoot);
+
+  document.documentElement.style.setProperty(
+    "--nocms-content-width",
+    BREAKPOINT_WIDTH[breakpoint],
+  );
 
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
   const themeStyle = document.createElement("style");
   if (options.tokens !== undefined) {
     themeStyle.textContent = toCssVariables(tokens);
-    target.append(themeStyle);
+    document.head.append(themeStyle);
   }
 
   let selectedPath: IndexPath | undefined;
@@ -483,7 +505,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // --- chrome actions --------------------------------------------------------------
   function setBreakpoint(bp: BreakpointId): void {
     breakpoint = bp;
-    surface.style.width = BREAKPOINT_WIDTH[bp];
+    document.documentElement.style.setProperty(
+      "--nocms-content-width",
+      BREAKPOINT_WIDTH[bp],
+    );
     renderChrome();
     // Geometry shifted: re-anchor the selection overlay and toolbar.
     canvas.highlight(selectedPath);
@@ -1036,16 +1061,23 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (dragFrom) event.preventDefault();
   });
   surface.addEventListener("drop", (event) => void handleDrop(event));
-  layout.addEventListener("keydown", handleShortcuts);
+  // Shortcuts are global (selection lives on the page, not in a focused frame); isTextEntry
+  // keeps them from firing while typing in a field or the prose view.
+  document.addEventListener("keydown", handleShortcuts);
   const reposition = (): void => {
     canvas.highlight(selectedPath);
     renderToolbar();
   };
   window.addEventListener("resize", reposition);
+  window.addEventListener("scroll", reposition, { passive: true });
 
   renderChrome();
   renderRail();
   renderOverlays();
+
+  // Play the enter transition after the chrome has painted: the bar slides down, the rail in,
+  // and the page offsets to make room — over the live page, never a reload.
+  requestAnimationFrame(() => document.documentElement.classList.add("nocms-editing"));
 
   return {
     proseView: () => prose?.handle.view,
@@ -1059,8 +1091,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       surface.removeEventListener("dblclick", handleActivate);
       surface.removeEventListener("keydown", handleKeydown);
       surface.removeEventListener("mousemove", handleHover);
-      layout.removeEventListener("keydown", handleShortcuts);
+      document.removeEventListener("keydown", handleShortcuts);
       window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition);
       canvas.dispose();
       render(null, chromeHost);
       render(null, railHost);
@@ -1069,10 +1102,16 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       render(null, hoverHost);
       render(null, modalHost);
       render(null, popoverHost);
-      layout.remove();
-      style.remove();
+      document.documentElement.classList.remove("nocms-editing");
+      document.documentElement.style.removeProperty("--nocms-content-width");
+      surface.classList.remove("nocms-canvas");
+      hoverHost.remove();
+      toolbarHost.remove();
+      formatHost.remove();
+      chromeRoot.remove();
+      if (ownsStyle) style.remove();
       themeStyle.remove();
-      fontsLink.remove();
+      if (ownsFonts) fontsLink.remove();
     },
   };
 }

@@ -1091,3 +1091,33 @@ Build the thinnest end-to-end loop first, on a pre-existing repo, then widen.
   "prove the spine, then widen it" — the milestones become breadth added to a working core, not
   blind gates. The audience is *motivated people who want to run their own site*, so onboarding
   (breadth) genuinely comes last.
+
+### D21 — In-place editor + one shared site shell → **RESOLVED (built).**
+The editor is now a trustworthy, single-page view of the real page, not a separate framed canvas.
+
+- **The problem.** The editor edited a *hardcoded MDX string* (not the real `content/index.mdx`)
+  and rendered it into a white fixed-width box with its own chrome — no site shell, no page
+  background, wrong width, `styles.css` absent. It used the one renderer (invariant #1) in letter
+  but diverged from the published page in practice. The owner wanted "what I edit is what visitors
+  see", ideally the same page transitioning into edit mode.
+
+- **In-place overlay model.** `?edit` (and the "Edit this page" action, via `pushState` with no
+  reload) keeps the actual rendered page on screen and layers editor chrome over it: a fixed top
+  bar, a docked right rail, and selection/hover/toolbars drawn on the real elements. The page's
+  content host (`#nocms-content`) *is* the editing surface; `mountEditor` attaches to it instead
+  of building a frame. Entering edit adds `nocms-editing` to `<html>`, which slides the chrome in
+  and offsets the page (CSS transition) — a transition over the live page. Breakpoints became a
+  content-width simulation (`--nocms-content-width`), not a device frame.
+
+- **One shared `SiteShell`, published.** This **supersedes the D6 deferral of a build-emitted page
+  shell.** A site provides one `SiteShell` (header/footer/content slot) rendered by the one
+  renderer in all three moments — dev reader, in-site editor, and the publish prerender
+  (`buildSite({ shell })` → wraps each route's content VNode). So dev = edit = production. It holds
+  invariants #1 (still one renderer) and #2 (shell is site-owned; output stays view-source-able
+  static HTML). The runtime-data chrome from D6 (LanguageSwitcher/LatestPosts as island content)
+  is unchanged and composes inside the shell.
+
+- **Real content in dev.** A Vite `enforce:"pre"` plugin resolves `content/*.mdx?raw` to the
+  file's raw text (the `@mdx-js/rollup` plugin strips the query and would otherwise compile it),
+  so the dev editor edits the same source the reader renders. Published pages already inline the
+  route MDX (`prerender.ts`), so this is dev-only. Retires the D2 dev shim for the home route.

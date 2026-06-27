@@ -3,8 +3,12 @@
 import { type ComponentRegistry, defineSavedComponent } from "@nocms/components";
 import { type ComponentType, h } from "preact";
 import * as v from "valibot";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { mountEditor } from "./shell.js";
+
+// The editor mounts in place: the `target` (the page's content host) *is* the canvas, and the
+// chrome (top bar, rail, modals, popovers) lives in a fixed overlay layer on `document.body`.
+// So canvas/overlay/toolbar queries scope to `target`; chrome queries scope to `document`.
 
 const Button: ComponentType<Record<string, unknown>> = (props) =>
   h("a", { class: "btn" }, props.label as string);
@@ -25,21 +29,27 @@ const components: ComponentRegistry = {
   Stack: { component: asComponent(Stack), slots: ["children"] },
 };
 
+// Each test disposes its handle, but a failing assertion can leave chrome on the body; clear it
+// so the next test's document-scoped chrome queries stay unambiguous.
+afterEach(() => {
+  document.body.replaceChildren();
+  document.documentElement.classList.remove("nocms-editing");
+  document.documentElement.style.removeProperty("--nocms-content-width");
+});
+
 function labels(target: Element): string[] {
-  return [...target.querySelectorAll(".nocms-editor-canvas .btn")].map(
-    (el) => el.textContent ?? "",
-  );
+  return [...target.querySelectorAll(".btn")].map((el) => el.textContent ?? "");
 }
 
 function selectFirst(target: Element, selector: string): Element {
-  const el = target.querySelector(`.nocms-editor-canvas ${selector}`);
+  const el = target.querySelector(selector);
   if (!el) throw new Error(`no ${selector} on canvas`);
   el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   return el;
 }
 
-function panelField(target: Element, name: string): HTMLInputElement {
-  const el = target.querySelector(`.nocms-editor-panel [name="${name}"]`);
+function panelField(name: string): HTMLInputElement {
+  const el = document.querySelector(`.nocms-editor-panel [name="${name}"]`);
   if (!el) throw new Error(`no panel field ${name}`);
   return el as HTMLInputElement;
 }
@@ -57,27 +67,23 @@ describe("mountEditor", () => {
       onChange,
     });
 
-    const canvas = target.querySelector(".nocms-editor-canvas");
-    if (!canvas) throw new Error("no canvas region");
-    const button = canvas.querySelector(".btn");
+    const button = target.querySelector(".btn");
     if (!button) throw new Error("button did not render");
     expect(button.textContent).toBe("Go");
 
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     // The panel renders the Button's controls and shows an overlay for the selection.
-    expect(target.querySelector(".nocms-props-title")?.textContent).toBe("Button");
+    expect(document.querySelector(".nocms-props-title")?.textContent).toBe("Button");
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
 
-    const label = panelField(target, "label");
+    const label = panelField("label");
     expect(label.value).toBe("Go");
     label.value = "Stop";
     label.dispatchEvent(new Event("input", { bubbles: true }));
 
     await vi.waitFor(() => {
-      expect(target.querySelector(".nocms-editor-canvas .btn")?.textContent).toBe(
-        "Stop",
-      );
+      expect(target.querySelector(".btn")?.textContent).toBe("Stop");
     });
     expect(onChange).toHaveBeenCalled();
     expect(onChange.mock.calls.at(-1)?.[0]).toContain('label="Stop"');
@@ -85,7 +91,7 @@ describe("mountEditor", () => {
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
 
     handle.dispose();
-    expect(target.querySelector(".nocms-editor")).toBeNull();
+    expect(document.querySelector(".nocms-editor")).toBeNull();
   });
 
   test("clicking empty space clears the panel and overlay", async () => {
@@ -98,14 +104,13 @@ describe("mountEditor", () => {
       components,
     });
 
-    const button = target.querySelector(".nocms-editor-canvas .btn");
+    const button = target.querySelector(".btn");
     button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(target.querySelector(".nocms-props-title")).not.toBeNull();
+    expect(document.querySelector(".nocms-props-title")).not.toBeNull();
 
     // A click resolving to no annotated element deselects.
-    const canvas = target.querySelector(".nocms-editor-canvas");
-    canvas?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(target.querySelector(".nocms-props-title")).toBeNull();
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.querySelector(".nocms-props-title")).toBeNull();
     expect(target.querySelector(".nocms-overlay")).toBeNull();
 
     handle.dispose();
@@ -124,19 +129,19 @@ describe("mountEditor", () => {
       onTokensChange,
     });
 
-    const styles = [...target.querySelectorAll("style")].map(
+    const styles = [...document.head.querySelectorAll("style")].map(
       (s) => s.textContent ?? "",
     );
     expect(styles.some((c) => c.includes("--color-brand-500: #3b82f6;"))).toBe(true);
 
     // The brand color is picked from the Design & brand swatch palette; expand it first.
-    (target.querySelector(".nc-brand-entry") as HTMLElement).click();
-    const slate = target.querySelector(
+    (document.querySelector(".nc-brand-entry") as HTMLElement).click();
+    const slate = document.querySelector(
       '.nc-swatch[name="color.brand.500"][value="#3D5A98"]',
     ) as HTMLElement;
     slate.click();
 
-    const themed = [...target.querySelectorAll("style")].map(
+    const themed = [...document.head.querySelectorAll("style")].map(
       (s) => s.textContent ?? "",
     );
     expect(themed.some((c) => c.includes("--color-brand-500: #3D5A98;"))).toBe(true);
@@ -159,14 +164,12 @@ describe("mountEditor", () => {
       onChange,
     });
 
-    const canvas = target.querySelector(".nocms-editor-canvas");
-    if (!canvas) throw new Error("no canvas");
-    const para = canvas.querySelector("p");
+    const para = target.querySelector("p");
     if (!para) throw new Error("paragraph did not render");
 
     para.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     // A prose editor mounts in place; the props overlay steps aside.
-    expect(canvas.querySelector(".ProseMirror")).not.toBeNull();
+    expect(target.querySelector(".ProseMirror")).not.toBeNull();
     expect(handle.proseView()).toBeDefined();
     expect(target.querySelector(".nocms-overlay")).toBeNull();
 
@@ -179,14 +182,12 @@ describe("mountEditor", () => {
     expect(onChange.mock.calls.at(-1)?.[0]).toContain("Edit me here. Edited!");
 
     // Escape commits: the view tears down, the canvas re-renders, the block re-selects.
-    canvas.dispatchEvent(
+    target.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     await vi.waitFor(() => {
       expect(target.querySelector(".ProseMirror")).toBeNull();
-      expect(target.querySelector(".nocms-editor-canvas p")?.textContent).toBe(
-        "Edit me here. Edited!",
-      );
+      expect(target.querySelector("p")?.textContent).toBe("Edit me here. Edited!");
     });
     expect(handle.proseView()).toBeUndefined();
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
@@ -204,13 +205,12 @@ describe("mountEditor", () => {
       components,
     });
 
-    const canvas = target.querySelector(".nocms-editor-canvas");
-    const para = canvas?.querySelector("p");
+    const para = target.querySelector("p");
     para?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    expect(canvas?.querySelector(".ProseMirror")).not.toBeNull();
+    expect(target.querySelector(".ProseMirror")).not.toBeNull();
 
     // Clicking the heading (outside the active block) commits, then selects it.
-    const heading = canvas?.querySelector("h1");
+    const heading = target.querySelector("h1");
     heading?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await vi.waitFor(() => {
       expect(target.querySelector(".ProseMirror")).toBeNull();
@@ -230,10 +230,10 @@ describe("mountEditor", () => {
       components,
     });
 
-    const heading = target.querySelector(".nocms-editor-canvas h1");
+    const heading = target.querySelector("h1");
     heading?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     // A heading is selectable but has no component schema → empty state, with overlay.
-    expect(target.querySelector(".nocms-empty")).not.toBeNull();
+    expect(document.querySelector(".nocms-empty")).not.toBeNull();
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
 
     handle.dispose();
@@ -250,7 +250,7 @@ describe("structural editing (D15 tree-transforms)", () => {
     const handle = await mountEditor({ target, mdx: TWO, components, onChange });
 
     selectFirst(target, ".btn"); // select Button "A"
-    expect(target.querySelector(".nocms-props-title")?.textContent).toBe("Button");
+    expect(document.querySelector(".nocms-props-title")?.textContent).toBe("Button");
 
     target
       .querySelector(".nocms-tool-down")
@@ -270,15 +270,13 @@ describe("structural editing (D15 tree-transforms)", () => {
 
     // Select the second button ("B").
     target
-      .querySelectorAll(".nocms-editor-canvas .btn")[1]
+      .querySelectorAll(".btn")[1]
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(handle.selection()).toEqual([1]);
 
-    target
-      .querySelector(".nocms-editor-canvas")
-      ?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowUp", altKey: true, bubbles: true }),
-      );
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", altKey: true, bubbles: true }),
+    );
 
     await vi.waitFor(() => expect(labels(target)).toEqual(["B", "A"]));
     handle.dispose();
@@ -296,9 +294,9 @@ describe("structural editing (D15 tree-transforms)", () => {
     await vi.waitFor(() => expect(labels(target)).toEqual(["B"]));
 
     selectFirst(target, ".btn"); // "B"
-    target
-      .querySelector(".nocms-editor-canvas")
-      ?.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Delete", bubbles: true }),
+    );
     await vi.waitFor(() => expect(labels(target)).toEqual([]));
     handle.dispose();
   });
@@ -316,20 +314,18 @@ describe("structural editing (D15 tree-transforms)", () => {
 
     // "Add a section" opens the catalog modal, which lists every registry block.
     const addSection = [
-      ...target.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
+      ...document.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
     ].find((b) => b.textContent?.includes("Add a section"));
     if (!addSection) throw new Error("no Add a section button");
     (addSection as HTMLElement).click();
 
-    const image = [...target.querySelectorAll(".nocms-catalog-card")].find((b) =>
+    const image = [...document.querySelectorAll(".nocms-catalog-card")].find((b) =>
       b.textContent?.includes("Image"),
     );
     if (!image) throw new Error("no Image catalog card");
     (image as HTMLElement).click();
 
-    await vi.waitFor(() =>
-      expect(target.querySelector(".nocms-editor-canvas .img")).not.toBeNull(),
-    );
+    await vi.waitFor(() => expect(target.querySelector(".img")).not.toBeNull());
     expect(onChange).toHaveBeenCalled();
     handle.dispose();
   });
@@ -366,11 +362,9 @@ describe("structural editing (D15 tree-transforms)", () => {
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await vi.waitFor(() => expect(labels(target)).toEqual(["B"]));
 
-    target
-      .querySelector(".nocms-editor-canvas")
-      ?.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
-      );
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true }),
+    );
     await vi.waitFor(() => expect(labels(target)).toEqual(["A", "B"]));
     expect(onChange.mock.calls.at(-1)?.[0]).toContain('label="A"');
     handle.dispose();
@@ -422,13 +416,13 @@ function openSaveDialog(target: Element): void {
   (save as HTMLElement).click();
 }
 
-async function nameAndConfirm(target: Element, name: string): Promise<void> {
-  const input = target.querySelector(
+async function nameAndConfirm(name: string): Promise<void> {
+  const input = document.querySelector(
     '.nocms-save-dialog [name="component-name"]',
   ) as HTMLInputElement;
   input.value = name;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-  const confirm = target.querySelector(".nocms-save-confirm") as HTMLButtonElement;
+  const confirm = document.querySelector(".nocms-save-confirm") as HTMLButtonElement;
   // The confirm button enables once the name validates (preact state flushes async).
   await vi.waitFor(() => expect(confirm.disabled).toBe(false));
   confirm.click();
@@ -447,26 +441,26 @@ describe("save as component (D20)", () => {
     });
 
     openSaveDialog(target);
-    expect(target.querySelector(".nocms-save-dialog")).not.toBeNull();
+    expect(document.querySelector(".nocms-save-dialog")).not.toBeNull();
 
     // The dialog leads with a live preview and each setting's current value.
-    expect(target.querySelector(".nocms-save-preview .btn")?.textContent).toBe(
+    expect(document.querySelector(".nocms-save-preview .btn")?.textContent).toBe(
       "Get started",
     );
-    const variantValue = [...target.querySelectorAll(".nocms-expose-row")]
+    const variantValue = [...document.querySelectorAll(".nocms-expose-row")]
       .find((r) => r.querySelector('[data-key="variant"]'))
       ?.querySelector(".nocms-expose-value")?.textContent;
     expect(variantValue).toContain("secondary");
 
     // Opt-out demotion: every control starts editable. Lock `variant`.
-    const variant = target.querySelector(
+    const variant = document.querySelector(
       '.nocms-expose-toggle[data-key="variant"]',
     ) as HTMLElement;
     expect(variant.getAttribute("aria-pressed")).toBe("true");
     variant.click();
     await vi.waitFor(() => expect(variant.getAttribute("aria-pressed")).toBe("false"));
 
-    await nameAndConfirm(target, "PrimaryCTA");
+    await nameAndConfirm("PrimaryCTA");
 
     // The selection is now a PrimaryCTA instance; the locked variant is baked in (not inline).
     await vi.waitFor(() =>
@@ -476,12 +470,14 @@ describe("save as component (D20)", () => {
     expect(mdx).toContain('label="Get started"');
     expect(mdx).not.toContain("variant=");
     // It still renders, baking the locked variant=secondary.
-    expect(target.querySelector(".nocms-editor-canvas .btn-secondary")).not.toBeNull();
+    expect(target.querySelector(".btn-secondary")).not.toBeNull();
 
     // The props panel for the instance shows only the exposed control.
-    expect(target.querySelector(".nocms-props-title")?.textContent).toBe("PrimaryCTA");
-    expect(panelField(target, "label").value).toBe("Get started");
-    expect(target.querySelector('.nocms-editor-panel [name="variant"]')).toBeNull();
+    expect(document.querySelector(".nocms-props-title")?.textContent).toBe(
+      "PrimaryCTA",
+    );
+    expect(panelField("label").value).toBe("Get started");
+    expect(document.querySelector('.nocms-editor-panel [name="variant"]')).toBeNull();
 
     handle.dispose();
   });
@@ -498,22 +494,20 @@ describe("save as component (D20)", () => {
     });
 
     openSaveDialog(target);
-    await nameAndConfirm(target, "PrimaryCTA");
+    await nameAndConfirm("PrimaryCTA");
     await vi.waitFor(() =>
       expect(onChange.mock.calls.at(-1)?.[0]).toContain("<PrimaryCTA"),
     );
 
     // Deselect so the rail offers "Add a section", then open the catalog.
-    target
-      .querySelector(".nocms-editor-canvas")
-      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const add = [
-      ...target.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
+      ...document.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
     ].find((b) => b.textContent?.includes("Add a section"));
     (add as HTMLElement).click();
 
     // The catalog lists the saved component alongside the curated set.
-    const card = [...target.querySelectorAll(".nocms-catalog-card")].find((b) =>
+    const card = [...document.querySelectorAll(".nocms-catalog-card")].find((b) =>
       b.textContent?.includes("PrimaryCTA"),
     );
     if (!card) throw new Error("PrimaryCTA not in the catalog");
@@ -524,9 +518,7 @@ describe("save as component (D20)", () => {
 
     // Inserting it renders a second instance via the one renderer.
     await vi.waitFor(() =>
-      expect(
-        target.querySelectorAll(".nocms-editor-canvas .btn").length,
-      ).toBeGreaterThan(1),
+      expect(target.querySelectorAll(".btn").length).toBeGreaterThan(1),
     );
 
     handle.dispose();
@@ -552,7 +544,7 @@ describe("save as component (D20)", () => {
 
     // The page references a saved component; loading its definition lets it render,
     // baking the locked variant=secondary.
-    const el = target.querySelector(".nocms-editor-canvas .btn-secondary");
+    const el = target.querySelector(".btn-secondary");
     expect(el?.textContent).toBe("Hello");
 
     handle.dispose();
@@ -570,12 +562,12 @@ describe("save as component (D20)", () => {
     });
 
     openSaveDialog(target);
-    const variant = target.querySelector(
+    const variant = document.querySelector(
       '.nocms-expose-toggle[data-key="variant"]',
     ) as HTMLElement;
     variant.click();
     await vi.waitFor(() => expect(variant.getAttribute("aria-pressed")).toBe("false"));
-    await nameAndConfirm(target, "PrimaryCTA");
+    await nameAndConfirm("PrimaryCTA");
 
     await vi.waitFor(() => expect(onSaveComponent).toHaveBeenCalled());
     const def = onSaveComponent.mock.calls.at(-1)?.[0];
@@ -615,11 +607,11 @@ describe("save as component (D20)", () => {
 
     openSaveDialog(target);
     // A leaf has no contents to keep — no slot toggle.
-    expect(target.querySelector(".nocms-slot-toggle")).toBeNull();
+    expect(document.querySelector(".nocms-slot-toggle")).toBeNull();
 
     // Confirm is disabled until the name validates (empty, then invalid, then valid).
-    const confirm = target.querySelector(".nocms-save-confirm") as HTMLButtonElement;
-    const input = target.querySelector(
+    const confirm = document.querySelector(".nocms-save-confirm") as HTMLButtonElement;
+    const input = document.querySelector(
       '.nocms-save-dialog [name="component-name"]',
     ) as HTMLInputElement;
     expect(confirm.disabled).toBe(true);
@@ -649,11 +641,11 @@ describe("save as component (D20)", () => {
     (target.querySelector(".nocms-tool-save-component") as HTMLElement).click();
 
     // A container offers keeping its contents as an editable slot (default on).
-    const slotToggle = target.querySelector(".nocms-slot-toggle") as HTMLElement;
+    const slotToggle = document.querySelector(".nocms-slot-toggle") as HTMLElement;
     expect(slotToggle).not.toBeNull();
     expect(slotToggle.getAttribute("aria-pressed")).toBe("true");
 
-    await nameAndConfirm(target, "MutedBox");
+    await nameAndConfirm("MutedBox");
 
     await vi.waitFor(() =>
       expect(onChange.mock.calls.at(-1)?.[0]).toContain("<MutedBox"),
@@ -662,10 +654,8 @@ describe("save as component (D20)", () => {
     // The contents stay inline as the instance's children (the editable slot).
     expect(mdx).toContain('<Button label="Inside"');
     // It renders: the Box wrapper around the kept child, through the registry.
-    expect(target.querySelector(".nocms-editor-canvas .box-muted")).not.toBeNull();
-    expect(
-      target.querySelector(".nocms-editor-canvas .box-muted .btn")?.textContent,
-    ).toBe("Inside");
+    expect(target.querySelector(".box-muted")).not.toBeNull();
+    expect(target.querySelector(".box-muted .btn")?.textContent).toBe("Inside");
 
     handle.dispose();
   });

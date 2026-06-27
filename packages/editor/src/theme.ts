@@ -31,20 +31,29 @@ export const EDITOR_CSS = `
   --nc-font-ui: Inter, system-ui, -apple-system, sans-serif;
   --nc-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--nc-shell);
+  /* A transparent, click-through layer over the live page; only the chrome inside it is
+     interactive and visible. The page underneath stays the editing surface. */
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
   color: var(--nc-text);
   font-family: var(--nc-font-ui);
   font-size: 13px;
   line-height: 1.4;
-  position: relative;
   -webkit-font-smoothing: antialiased;
 }
+.nocms-editor > * { pointer-events: auto; }
 .nocms-editor *, .nocms-editor *::before, .nocms-editor *::after { box-sizing: border-box; }
+
+/* ---------- in-place chrome offsets (page-level, active only while editing) ---------- */
+:root { --nocms-chrome-top: 0px; --nocms-chrome-right: 0px; }
+html.nocms-editing { --nocms-chrome-top: 56px; --nocms-chrome-right: 330px; }
+html.nocms-editing body {
+  padding-top: var(--nocms-chrome-top);
+  padding-right: var(--nocms-chrome-right);
+  transition: padding .25s ease;
+}
 
 /* ---------- shared atoms ---------- */
 .nc-mono {
@@ -131,9 +140,12 @@ export const EDITOR_CSS = `
 
 /* ---------- top bar ---------- */
 .nocms-topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1001;
   height: 56px; min-height: 56px; background: var(--nc-surface); border-bottom: 1px solid var(--nc-border);
-  display: flex; align-items: center; padding: 0 16px; gap: 14px; position: relative; z-index: 20;
+  display: flex; align-items: center; padding: 0 16px; gap: 14px;
+  transform: translateY(-100%); transition: transform .25s ease;
 }
+html.nocms-editing .nocms-topbar { transform: translateY(0); }
 .nc-identity { display: flex; align-items: center; gap: 10px; }
 .nc-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--nc-olive); }
 .nc-host { font-family: var(--nc-font-mono); font-size: 12.5px; color: var(--nc-text-2); }
@@ -176,34 +188,26 @@ export const EDITOR_CSS = `
   color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; cursor: pointer; border: 0;
 }
 
-/* ---------- body / canvas ---------- */
-.nocms-body { flex: 1; display: flex; min-height: 0; position: relative; }
-.nocms-canvas-region {
-  flex: 1; min-width: 0; background: var(--nc-shell); overflow: auto; position: relative;
-  display: flex; justify-content: center; padding: 30px 30px 60px;
-}
-/* the white surface that hosts the live site, sized to the active breakpoint */
-.nocms-editor-canvas {
-  width: 1040px; max-width: 100%; background: #fff; border: 1px solid var(--nc-border);
-  border-radius: 6px; overflow: visible; align-self: flex-start; position: relative;
-  box-shadow: 0 10px 34px rgba(26,25,22,0.07); transition: width .2s ease;
-}
-.nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; }
+/* ---------- canvas (the live page is the surface) ---------- */
+.nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; z-index: 5; }
 .nocms-hover {
-  outline: 1.5px solid rgba(61,90,152,0.4); outline-offset: -1px; pointer-events: none; position: absolute;
+  outline: 1.5px solid rgba(61,90,152,0.4); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }
 .nc-hover-label {
   position: absolute; background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
   font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
-  border-radius: 6px; pointer-events: none; white-space: nowrap;
+  border-radius: 6px; pointer-events: none; white-space: nowrap; z-index: 6;
 }
-.nocms-editor-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
+.nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
 
-/* ---------- right rail ---------- */
+/* ---------- right rail (fixed, docks in from the right) ---------- */
 .nocms-editor-panel {
+  position: fixed; top: var(--nocms-chrome-top); right: 0; bottom: 0; z-index: 1000;
   width: 330px; min-width: 330px; background: var(--nc-surface); border-left: 1px solid var(--nc-border);
-  height: 100%; overflow-y: auto; display: flex; flex-direction: column; font-size: 13px; color: var(--nc-text);
+  overflow-y: auto; display: flex; flex-direction: column; font-size: 13px; color: var(--nc-text);
+  transform: translateX(100%); transition: transform .25s ease;
 }
+html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nc-rail-pad { padding: 20px; }
 .nc-rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
 .nc-rail-title { font-size: 15px; font-weight: 600; }
@@ -291,7 +295,7 @@ export const EDITOR_CSS = `
 .nc-tool-drag { cursor: grab; }
 
 /* ---------- overlays / modal ---------- */
-.nc-scrim { position: absolute; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 40; overflow-y: auto; }
+.nc-scrim { position: fixed; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 1002; overflow-y: auto; }
 .nc-sheet {
   width: 900px; max-width: 94vw; background: #fff; border-radius: 16px; box-shadow: 0 30px 80px rgba(26,25,22,0.32);
   overflow: hidden; display: flex; flex-direction: column; max-height: 86vh;
@@ -337,10 +341,10 @@ export const EDITOR_CSS = `
 .nc-catalog-empty-actions { display: flex; gap: 10px; justify-content: center; margin-top: 22px; }
 
 /* ---------- publish popover ---------- */
-.nc-pop-anchor { position: absolute; z-index: 50; }
+.nc-pop-anchor { position: fixed; z-index: 1002; }
 .nc-popover {
-  position: absolute; top: 52px; right: 16px; width: 320px; background: #fff; border: 1px solid var(--nc-border);
-  border-radius: 14px; box-shadow: 0 24px 60px rgba(26,25,22,0.24); padding: 18px; z-index: 50;
+  position: fixed; top: 60px; right: 16px; width: 320px; background: #fff; border: 1px solid var(--nc-border);
+  border-radius: 14px; box-shadow: 0 24px 60px rgba(26,25,22,0.24); padding: 18px; z-index: 1002;
 }
 .nc-pop-title { font-family: var(--nc-font-display); font-size: 17px; font-weight: 600; }
 .nc-pop-note { font-size: 12.5px; color: var(--nc-text-2); line-height: 1.5; margin: 6px 0 14px; }
@@ -379,8 +383,12 @@ export const EDITOR_CSS = `
 .nc-media-name { display: block; font-size: 11.5px; color: var(--nc-text-2); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nc-media-upload { height: 96px; border: 1px dashed #D5D1C8; border-radius: var(--nc-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--nc-text-2); font-size: 12px; cursor: pointer; }
 
-/* ---------- sign-in gate ---------- */
-.nc-signin-root { align-items: center; justify-content: center; }
+/* ---------- sign-in gate (fixed scrim over the live page) ---------- */
+.nc-signin-root {
+  position: fixed; inset: 0; z-index: 1100; pointer-events: auto;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(26,25,22,0.5); backdrop-filter: blur(3px);
+}
 .nc-signin-card {
   width: 430px; max-width: 92vw; background: #fff; border: 1px solid var(--nc-border);
   border-radius: 16px; box-shadow: 0 30px 80px rgba(26,25,22,0.18); padding: 38px 34px;
@@ -419,8 +427,8 @@ export const EDITOR_CSS = `
 .nc-lib-add:hover { border-color: var(--nc-accent); color: var(--nc-accent); }
 
 /* ---------- navigator ---------- */
-.nc-nav-scrim { position: absolute; inset: 0; z-index: 45; }
-.nc-navigator { position: absolute; top: 0; left: 0; bottom: 0; width: 316px; background: #fff; border-right: 1px solid var(--nc-border); box-shadow: 12px 0 30px rgba(26,25,22,0.1); padding: 18px 16px; overflow-y: auto; z-index: 46; }
+.nc-nav-scrim { position: fixed; inset: 0; z-index: 1002; }
+.nc-navigator { position: fixed; top: var(--nocms-chrome-top); left: 0; bottom: 0; width: 316px; background: #fff; border-right: 1px solid var(--nc-border); box-shadow: 12px 0 30px rgba(26,25,22,0.1); padding: 18px 16px; overflow-y: auto; z-index: 1003; }
 .nc-nav-section-label { font-family: var(--nc-font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nc-text-3); margin: 18px 4px 8px; display: flex; align-items: center; justify-content: space-between; }
 .nc-nav-row { display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--nc-text); }
 .nc-nav-row:hover { background: var(--nc-surface-muted); }

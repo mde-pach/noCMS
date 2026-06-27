@@ -1,10 +1,34 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import mdx from "@mdx-js/rollup";
 import preact from "@preact/preset-vite";
 import remarkFrontmatter from "remark-frontmatter";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+// `content/*.mdx?raw` must yield the file's *text* — the editor edits MDX source, not a compiled
+// component. Vite's built-in `?raw` doesn't help: the `@mdx-js/rollup` plugin strips the query
+// (`id.split('?')`) before filtering, so it compiles `index.mdx?raw` as MDX anyway. So resolve
+// the request to a virtual module with a non-`.mdx` extension — which the MDX plugin skips — and
+// load the raw bytes ourselves. This keeps the dev editor on the same content the reader renders.
+const RAW_PREFIX = "\0nocms-raw:";
+function rawMdxPlugin(): Plugin {
+  return {
+    name: "nocms-raw-mdx",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!source.endsWith(".mdx?raw") || !importer) return null;
+      const abs = path.resolve(path.dirname(importer), source.slice(0, -"?raw".length));
+      return RAW_PREFIX + abs.replace(/\.mdx$/, ".mdxraw");
+    },
+    load(id) {
+      if (!id.startsWith(RAW_PREFIX)) return null;
+      const file = id.slice(RAW_PREFIX.length).replace(/\.mdxraw$/, ".mdx");
+      this.addWatchFile(file);
+      return `export default ${JSON.stringify(readFileSync(file, "utf8"))};`;
+    },
+  };
+}
 
 // MDX is compiled to a Preact component at build time, so the reader bundle
 // never ships the MDX compiler. The remark plugin set must match the editor's
@@ -52,6 +76,7 @@ export default defineConfig(({ command }) => {
       ],
     },
     plugins: [
+      rawMdxPlugin(),
       {
         enforce: "pre",
         ...mdx({ jsxImportSource: "preact", remarkPlugins: [remarkFrontmatter] }),
