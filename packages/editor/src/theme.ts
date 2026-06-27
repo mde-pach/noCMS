@@ -262,12 +262,18 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nc-list { display: flex; flex-direction: column; gap: 8px; }
 .nc-list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
 .nc-list-count { font-family: var(--nc-font-mono); font-size: 10.5px; color: var(--nc-text-3); }
-.nc-list-row { display: flex; align-items: center; gap: 9px; border: 1px solid var(--nc-border); border-radius: var(--nc-radius); padding: 10px 11px; }
-.nc-list-row span.nc-list-label { flex: 1; font-size: 13px; }
-.nc-grip { color: #C0BBB1; flex-shrink: 0; cursor: grab; }
-.nc-list-badge { font-family: var(--nc-font-mono); font-size: 10px; padding: 2px 6px; border-radius: 5px; background: var(--nc-field); color: var(--nc-text-3); }
-.nc-list-badge.nc-primary { background: var(--nc-rust); color: #fff; }
+.nc-list-item { border: 1px solid var(--nc-border); border-radius: var(--nc-radius); overflow: hidden; background: var(--nc-surface); }
+.nc-list-row { display: flex; align-items: center; gap: 4px; padding: 7px 9px; }
+.nc-list-expand { flex: 1; min-width: 0; text-align: left; background: none; border: 0; font: inherit; font-size: 13px; color: var(--nc-text); cursor: pointer; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-grip { color: #C0BBB1; flex-shrink: 0; cursor: grab; display: flex; }
+.nc-list-row .nc-iconbtn { width: 24px; height: 24px; background: transparent; flex-shrink: 0; }
+.nc-list-row .nc-iconbtn:hover:not(:disabled) { background: var(--nc-field); color: var(--nc-text); }
+.nc-list-row .nc-iconbtn:disabled { opacity: 0.3; cursor: default; }
+.nc-list-remove:hover:not(:disabled) { color: #B23B2E; }
+.nc-list-item-body { padding: 12px 11px; border-top: 1px solid var(--nc-border-faint); background: var(--nc-surface-muted); }
+.nc-list-item-body .nc-field:last-child { margin-bottom: 0; }
 .nc-list-add { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px dashed #D5D1C8; border-radius: var(--nc-radius); padding: 9px; font-size: 12.5px; color: var(--nc-accent); font-weight: 500; cursor: pointer; background: none; width: 100%; }
+.nc-list-add:hover { border-color: var(--nc-accent); }
 
 /* group + advanced */
 .nc-group { border: 1px solid var(--nc-border-faint); border-radius: 11px; padding: 14px; margin-bottom: 18px; background: var(--nc-surface-muted); }

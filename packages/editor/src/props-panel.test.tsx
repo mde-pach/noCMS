@@ -15,7 +15,7 @@ const controls: ControlDescriptor[] = deriveControls(
     variant: v.optional(v.picklist(["primary", "secondary"])),
     count: v.optional(v.number()),
     dark: v.optional(v.boolean()),
-    // a nested group: structural, not an attribute field → excluded from the panel.
+    // a nested group: rendered as an editable group of its child fields.
     meta: v.optional(v.object({ id: v.string() })),
   }),
 );
@@ -59,10 +59,11 @@ beforeEach(() => {
 });
 
 describe("PropsPanel", () => {
-  test("renders the component name and one field per scalar control", () => {
+  test("renders the component name and a field per control, groups included", () => {
     expect(container.querySelector(".nocms-props-title")?.textContent).toBe("Button");
-    // text, select, number, boolean — the nested group is excluded.
-    expect(container.querySelectorAll(".nc-field").length).toBe(4);
+    // text, select, number, boolean + the nested group's `id` field = 5; the group is editable.
+    expect(container.querySelectorAll(".nc-field").length).toBe(5);
+    expect(container.querySelector(".nc-group")).not.toBeNull();
   });
 
   test("shows current prop values", () => {

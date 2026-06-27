@@ -9,7 +9,6 @@ import {
   Container,
   Counter,
   Divider,
-  Form,
   Grid,
   Hero,
   Image,
@@ -109,15 +108,7 @@ describe("content & media primitives", () => {
   });
 });
 
-describe("form primitives", () => {
-  it("Form posts to its action endpoint", () => {
-    const html = renderToString(
-      h(Form, { action: "https://forms.example/x", children: "f" }),
-    );
-    expect(html).toContain('action="https://forms.example/x"');
-    expect(html).toContain('method="post"');
-  });
-
+describe("field primitives", () => {
   it("Input renders a labelled field of the given type", () => {
     const html = renderToString(
       h(Input, { name: "email", label: "Email", type: "email" }),
@@ -164,7 +155,6 @@ describe("registry", () => {
       "Divider",
       "Features",
       "Footer",
-      "Form",
       "Grid",
       "Hero",
       "HeroSection",

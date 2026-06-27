@@ -18,7 +18,6 @@ import { Card, CardSchema } from "./primitives/Card";
 import { Container, ContainerSchema } from "./primitives/Container";
 import { Counter, CounterSchema } from "./primitives/Counter";
 import { Divider, DividerSchema } from "./primitives/Divider";
-import { Form, FormSchema } from "./primitives/Form";
 import { Grid, GridSchema } from "./primitives/Grid";
 import { Hero, HeroSchema } from "./primitives/Hero";
 import { Image, ImageSchema } from "./primitives/Image";
@@ -50,6 +49,7 @@ export const core: ComponentPack = definePack({
   blocks: {
     Hero: entry(Hero, {
       schema: HeroSchema,
+      slots: ["children"],
       category: "Content",
       description: "Large page-opening banner with a title and slot for actions.",
     }),
@@ -61,11 +61,13 @@ export const core: ComponentPack = definePack({
     }),
     Container: entry(Container, {
       schema: ContainerSchema,
+      slots: ["children"],
       category: "Layout",
       description: "Centers and width-constrains its contents.",
     }),
     Grid: entry(Grid, {
       schema: GridSchema,
+      slots: ["children"],
       category: "Layout",
       description: "Arranges children in responsive columns.",
     }),
@@ -77,11 +79,13 @@ export const core: ComponentPack = definePack({
     }),
     Card: entry(Card, {
       schema: CardSchema,
+      slots: ["children"],
       category: "Content",
       description: "A bordered surface for a self-contained piece of content.",
     }),
     Callout: entry(Callout, {
       schema: CalloutSchema,
+      slots: ["children"],
       category: "Content",
       description: "Highlights a note, tip, or warning.",
     }),
@@ -105,24 +109,19 @@ export const core: ComponentPack = definePack({
       category: "Content",
       description: "A call-to-action link styled as a button.",
     }),
-    Form: entry(Form, {
-      schema: FormSchema,
-      category: "Forms",
-      description: "A form wrapper for inputs.",
-    }),
     Input: entry(Input, {
       schema: InputSchema,
-      category: "Forms",
+      category: "Fields",
       description: "A single-line text field.",
     }),
     Textarea: entry(Textarea, {
       schema: TextareaSchema,
-      category: "Forms",
+      category: "Fields",
       description: "A multi-line text field.",
     }),
     Select: entry(Select, {
       schema: SelectSchema,
-      category: "Forms",
+      category: "Fields",
       description: "A dropdown of predefined options.",
     }),
     Counter: entry(Counter, {
@@ -215,7 +214,6 @@ export {
 } from "./primitives/Container";
 export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
 export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
-export { Form, type FormProps, FormSchema } from "./primitives/Form";
 export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
 export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";

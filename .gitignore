@@ -25,3 +25,7 @@ coverage/
 
 # playwright test artifacts
 .playwright-mcp/
+
+# local visual-check artifacts
+/*.png
+/.playwright-mcp/

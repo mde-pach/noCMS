@@ -11,7 +11,6 @@ export { Card, type CardProps, CardSchema } from "./primitives/Card";
 export { Container, type ContainerProps, ContainerSchema, } from "./primitives/Container";
 export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
 export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
-export { Form, type FormProps, FormSchema } from "./primitives/Form";
 export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
 export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";

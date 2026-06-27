@@ -81,6 +81,39 @@ export function removeProp(el: JsxElement, name: string): void {
 }
 
 /**
+ * A structured (array/object) prop value, read from the attribute's expression. The editor
+ * writes these as JSON — which is a valid JS expression, so `name={[{"a":1}]}` round-trips
+ * losslessly through parse↔serialize. Returns undefined when the prop is absent or its
+ * expression isn't JSON the list/group controls can edit (e.g. a hand-authored JS expression);
+ * the caller falls back to the schema default in that case.
+ */
+export function getStructuredProp(el: JsxElement, name: string): unknown | undefined {
+  const attr = el.attributes.find((a) => isNamed(a, name));
+  if (!attr || attr.type !== "mdxJsxAttribute") return undefined;
+  const { value } = attr;
+  if (value === null || value === undefined || typeof value === "string") {
+    return undefined;
+  }
+  try {
+    return JSON.parse(value.value);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Write a structured prop as a JSON expression attribute, replacing in place. */
+export function setStructuredProp(el: JsxElement, name: string, value: unknown): void {
+  const encoded: NamedAttribute = {
+    type: "mdxJsxAttribute",
+    name,
+    value: { type: "mdxJsxAttributeValueExpression", value: JSON.stringify(value) },
+  };
+  const index = el.attributes.findIndex((a) => isNamed(a, name));
+  if (index === -1) el.attributes.push(encoded);
+  else el.attributes[index] = encoded;
+}
+
+/**
  * Build a fresh JSX flow element from a name and plain prop values — the node an insert
  * stamps into the document. `withChildren` opens an (empty) child region for a container
  * so the serializer writes `<Name></Name>` rather than a self-closing leaf.

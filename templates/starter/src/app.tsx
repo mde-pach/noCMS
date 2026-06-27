@@ -9,8 +9,9 @@ import type { ComponentChildren } from "preact";
 // The content slot (`#nocms-content`) is rendered empty here and filled by a *separate* Preact
 // root (the reader's content, or the editor's live canvas). Keeping content out of the shell's
 // own tree is what lets the editor take the slot over in place without the shell re-rendering.
-// Its width follows `--nocms-content-width` so the editor can simulate breakpoints by narrowing
-// the column, never by reframing the page.
+// The slot is full-bleed; sections own their own width via their Container, so the editor can
+// simulate a breakpoint by narrowing the whole page (`#app`) and the header reflows with it,
+// exactly as a real viewport would — never by reframing only the content column.
 export const CONTENT_SLOT_ID = "nocms-content";
 
 export function SiteShell({
@@ -23,17 +24,7 @@ export function SiteShell({
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <SiteHeader base={base} />
-      <main
-        id={CONTENT_SLOT_ID}
-        style={{
-          flex: 1,
-          width: "100%",
-          maxWidth: "var(--nocms-content-width, 60rem)",
-          margin: "0 auto",
-          padding: "0 var(--space-md)",
-          transition: "max-width .2s ease",
-        }}
-      >
+      <main id={CONTENT_SLOT_ID} style={{ flex: 1, width: "100%" }}>
         {children}
       </main>
       <SiteFooter />

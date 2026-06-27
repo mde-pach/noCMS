@@ -3,25 +3,39 @@
 // place and calls onChange so the shell re-serializes and re-renders the canvas — the owner
 // never sees JSX or attribute syntax. Each control kind renders to the handoff's spec: mono
 // micro-labels, segmented selects, sliders with readouts, toggles, and an Advanced fold.
+//
+// Controls are rendered by one recursive, value-bound view: a scalar binds to a single JSX
+// attribute; a `group` (object) and a `list` (array) bind to a structured attribute the editor
+// round-trips as JSON (`items={[{…}]}`), so array/object content — feature cards, pricing tiers,
+// footer columns — is editable in the panel, not hidden. Nesting is uniform: a list of objects,
+// or an object holding a list, falls out of the same recursion.
 
 import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
 import { useState } from "preact/hooks";
-import { ChevronDown, ChevronRight, GripIcon, PlusIcon, SectionIcon } from "./icons.js";
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  GripIcon,
+  PlusIcon,
+  SectionIcon,
+  TrashIcon,
+} from "./icons.js";
 import {
   getProp,
+  getStructuredProp,
   type JsxElement,
   type PropValue,
   removeProp,
   setProp,
+  setStructuredProp,
 } from "./jsx-attributes.js";
 
-interface FieldProps {
-  control: ControlDescriptor;
-  element: JsxElement;
-  onChange: () => void;
-  onPickImage?: (key: string) => void;
-}
+/** A plain JS value a control edits, and the callback that writes it back up the tree.
+ *  `undefined` clears the value (the attribute, or the object key). */
+type CommitValue = (next: unknown) => void;
 
 function MonoLabel({ children }: { children: string }): VNode {
   return <span class="nc-mono nc-label">{children}</span>;
@@ -33,16 +47,73 @@ function fileName(url: string): string {
   return last && last.length > 0 ? last : url;
 }
 
-function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
-  const id = `nocms-field-${control.key}`;
-  const value = getProp(element, control.key);
-  const commit = (next: PropValue | undefined) => {
-    if (next === undefined) removeProp(element, control.key);
-    else setProp(element, control.key, next);
-    onChange();
-  };
+const asString = (value: unknown): string => (typeof value === "string" ? value : "");
+const asNumber = (value: unknown): number | undefined =>
+  typeof value === "number" ? value : undefined;
 
-  if (control.kind === "boolean") {
+/** The starter value for a freshly added item, built from its control so a new row is valid
+ *  (required text becomes an empty string to fill in; optionals stay absent). */
+function defaultFor(control: ControlDescriptor): unknown {
+  if (control.kind === "group") {
+    const object: Record<string, unknown> = {};
+    for (const child of control.children ?? []) {
+      const value = defaultFor(child);
+      if (value !== undefined) object[child.key] = value;
+    }
+    return object;
+  }
+  if (control.kind === "list") return (control.default as unknown[]) ?? [];
+  if (control.default !== undefined) return control.default;
+  if (control.kind === "boolean") return false;
+  if (control.kind === "number" || control.kind === "range") return 0;
+  return control.required ? "" : undefined;
+}
+
+const LABEL_KEYS = ["title", "name", "label", "heading"];
+
+/** A short, human summary of a list item — its title-like field, else its first text field,
+ *  else a numbered label. */
+function itemSummary(
+  item: unknown,
+  itemControl: ControlDescriptor,
+  index: number,
+): string {
+  if (typeof item === "string" && item.length > 0) return item;
+  if (!item || typeof item !== "object") return `Item ${index + 1}`;
+  const record = item as Record<string, unknown>;
+  const textFields = (itemControl.children ?? []).filter(
+    (f) => f.kind === "text" || f.kind === "richtext" || f.kind === "textarea",
+  );
+  const ordered = [
+    ...textFields.filter((f) => LABEL_KEYS.includes(f.key.toLowerCase())),
+    ...textFields.filter((f) => !LABEL_KEYS.includes(f.key.toLowerCase())),
+  ];
+  for (const field of ordered) {
+    const value = record[field.key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return `Item ${index + 1}`;
+}
+
+interface ControlViewProps {
+  control: ControlDescriptor;
+  value: unknown;
+  commit: CommitValue;
+  /** present only for a top-level image attribute the host can open its media picker for. */
+  onPickImage?: () => void;
+}
+
+/** Render one control from a plain value. Recurses for `group`/`list`. */
+function ControlView({ control, value, commit, onPickImage }: ControlViewProps): VNode {
+  const id = `nocms-field-${control.key}`;
+  const { kind } = control;
+
+  if (kind === "group")
+    return <GroupView control={control} value={value} commit={commit} />;
+  if (kind === "list")
+    return <ListView control={control} value={value} commit={commit} />;
+
+  if (kind === "boolean") {
     const on = value === true;
     return (
       <div class="nc-field nc-row">
@@ -61,11 +132,11 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "range") {
+  if (kind === "range") {
     const config = control.config ?? {};
     const min = typeof config.min === "number" ? config.min : 0;
     const max = typeof config.max === "number" ? config.max : 100;
-    const current = typeof value === "number" ? value : Number(control.default ?? min);
+    const current = asNumber(value) ?? Number(control.default ?? min);
     const unit = typeof config.unit === "string" ? config.unit : "";
     return (
       <div class="nc-field">
@@ -90,7 +161,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "number") {
+  if (kind === "number") {
     return (
       <div class="nc-field">
         <MonoLabel>{control.label}</MonoLabel>
@@ -99,7 +170,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
           name={control.key}
           class="nc-input"
           type="number"
-          value={typeof value === "number" ? String(value) : ""}
+          value={asNumber(value) !== undefined ? String(value) : ""}
           onInput={(e) => {
             const raw = e.currentTarget.value;
             commit(raw === "" ? undefined : Number(raw));
@@ -109,10 +180,9 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "select") {
+  if (kind === "select") {
     const options = (control.config?.options as string[] | undefined) ?? [];
-    const current =
-      typeof value === "string" ? value : ((control.default as string) ?? "");
+    const current = asString(value) || (control.default as string) || "";
     if (options.length > 0 && options.length <= 3) {
       return (
         <div class="nc-field">
@@ -155,7 +225,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "textarea" || control.kind === "richtext") {
+  if (kind === "textarea" || kind === "richtext") {
     return (
       <div class="nc-field">
         <MonoLabel>{control.label}</MonoLabel>
@@ -163,7 +233,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
           id={id}
           name={control.key}
           class="nc-textarea"
-          value={typeof value === "string" ? value : ""}
+          value={asString(value)}
           onInput={(e) => {
             const raw = e.currentTarget.value;
             commit(raw === "" ? undefined : raw);
@@ -173,8 +243,8 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "color") {
-    const current = typeof value === "string" ? value : "";
+  if (kind === "color") {
+    const current = asString(value);
     return (
       <div class="nc-field">
         <MonoLabel>{control.label}</MonoLabel>
@@ -202,8 +272,10 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "image") {
-    const current = typeof value === "string" ? value : "";
+  // An image attribute the host can browse for uses the media picker; a nested image (inside a
+  // list/group, which the picker can't address) falls through to a plain URL field below.
+  if (kind === "image" && onPickImage) {
+    const current = asString(value);
     return (
       <div class="nc-field">
         <MonoLabel>{control.label}</MonoLabel>
@@ -221,7 +293,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
             name={control.key}
             class="nc-link"
             style="font-weight:600"
-            onClick={() => onPickImage?.(control.key)}
+            onClick={onPickImage}
           >
             Replace
           </button>
@@ -230,51 +302,8 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
     );
   }
 
-  if (control.kind === "group") {
-    return (
-      <div class="nc-group">
-        <div class="nc-group-title">{control.label}</div>
-        {(control.children ?? []).map((child) => (
-          <Field
-            key={child.key}
-            control={child}
-            element={element}
-            onChange={onChange}
-            onPickImage={onPickImage}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  if (control.kind === "list") {
-    const item = control.children?.[0];
-    return (
-      <div class="nc-field">
-        <div class="nc-list-head">
-          <MonoLabel>{control.label}</MonoLabel>
-          <span class="nc-list-count">LIST</span>
-        </div>
-        <div class="nc-list">
-          <div class="nc-list-row">
-            <span class="nc-grip" aria-hidden="true">
-              <GripIcon />
-            </span>
-            <span class="nc-list-label">{item?.label ?? "Item"}</span>
-            <span class="nc-list-badge">EDIT ON CANVAS</span>
-            <ChevronRight size={12} />
-          </div>
-          <button type="button" class="nc-list-add">
-            <PlusIcon size={12} /> Add item
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // url/date/reference and any unknown plugin kind fall back to a typed text input.
-  const inputType =
-    control.kind === "url" ? "url" : control.kind === "date" ? "date" : "text";
+  // url/image-without-picker/date/text and any unknown plugin kind: a typed text input.
+  const inputType = kind === "url" ? "url" : kind === "date" ? "date" : "text";
   return (
     <div class="nc-field">
       <MonoLabel>{control.label}</MonoLabel>
@@ -283,7 +312,7 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
         name={control.key}
         class="nc-input"
         type={inputType}
-        value={typeof value === "string" ? value : ""}
+        value={asString(value)}
         onInput={(e) => {
           const raw = e.currentTarget.value;
           commit(raw === "" ? undefined : raw);
@@ -293,13 +322,204 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
   );
 }
 
-// Nested object/array props aren't attribute-shaped, so they can't round-trip through the
-// scalar attribute model; children of a group are edited on the canvas (slots, D15) and
-// nested group/list editing lands later. They stay out of the panel's fields.
-const STRUCTURAL_KINDS: ReadonlySet<string> = new Set(["group", "list"]);
+function GroupView({
+  control,
+  value,
+  commit,
+}: {
+  control: ControlDescriptor;
+  value: unknown;
+  commit: CommitValue;
+}): VNode {
+  const object =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return (
+    <div class="nc-group">
+      <div class="nc-group-title">{control.label}</div>
+      {(control.children ?? []).map((child) => (
+        <ControlView
+          key={child.key}
+          control={child}
+          value={object[child.key]}
+          commit={(next) => commit({ ...object, [child.key]: next })}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ListView({
+  control,
+  value,
+  commit,
+}: {
+  control: ControlDescriptor;
+  value: unknown;
+  commit: CommitValue;
+}): VNode {
+  const [open, setOpen] = useState<number | null>(null);
+  const items = Array.isArray(value) ? (value as unknown[]) : [];
+  const itemControl = control.children?.[0];
+  const fields = itemControl?.children ?? [];
+
+  const writeItem = (index: number, next: unknown): void =>
+    commit(items.map((item, i) => (i === index ? next : item)));
+  const removeItem = (index: number): void => {
+    commit(items.filter((_, i) => i !== index));
+    setOpen(null);
+  };
+  const moveItem = (index: number, dir: -1 | 1): void => {
+    const to = index + dir;
+    if (to < 0 || to >= items.length) return;
+    const next = items.slice();
+    const [moved] = next.splice(index, 1);
+    next.splice(to, 0, moved);
+    commit(next);
+    setOpen(to);
+  };
+  const addItem = (): void => {
+    commit([...items, itemControl ? defaultFor(itemControl) : ""]);
+    setOpen(items.length);
+  };
+
+  return (
+    <div class="nc-field">
+      <div class="nc-list-head">
+        <MonoLabel>{control.label}</MonoLabel>
+        <span class="nc-list-count">{items.length} ITEMS</span>
+      </div>
+      <div class="nc-list">
+        {items.map((item, index) => {
+          const expanded = open === index;
+          return (
+            <div key={index} class="nc-list-item">
+              <div class="nc-list-row">
+                <span class="nc-grip" aria-hidden="true">
+                  <GripIcon />
+                </span>
+                <button
+                  type="button"
+                  class="nc-list-label nc-list-expand"
+                  onClick={() => setOpen(expanded ? null : index)}
+                >
+                  {itemSummary(item, itemControl ?? control, index)}
+                </button>
+                <button
+                  type="button"
+                  class="nc-iconbtn nc-list-move"
+                  aria-label="Move up"
+                  disabled={index === 0}
+                  onClick={() => moveItem(index, -1)}
+                >
+                  <ArrowUp size={13} />
+                </button>
+                <button
+                  type="button"
+                  class="nc-iconbtn nc-list-move"
+                  aria-label="Move down"
+                  disabled={index === items.length - 1}
+                  onClick={() => moveItem(index, 1)}
+                >
+                  <ArrowDown size={13} />
+                </button>
+                <button
+                  type="button"
+                  class="nc-iconbtn nc-list-remove"
+                  aria-label="Remove item"
+                  onClick={() => removeItem(index)}
+                >
+                  <TrashIcon size={13} />
+                </button>
+                <button
+                  type="button"
+                  class="nc-iconbtn nc-list-toggle"
+                  aria-expanded={expanded}
+                  aria-label="Edit item"
+                  onClick={() => setOpen(expanded ? null : index)}
+                >
+                  {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+              </div>
+              {expanded ? (
+                <div class="nc-list-item-body">
+                  {fields.length > 0 && itemControl ? (
+                    fields.map((field) => (
+                      <ControlView
+                        key={field.key}
+                        control={field}
+                        value={(item as Record<string, unknown>)?.[field.key]}
+                        commit={(next) =>
+                          writeItem(index, {
+                            ...(item as Record<string, unknown>),
+                            [field.key]: next,
+                          })
+                        }
+                      />
+                    ))
+                  ) : itemControl ? (
+                    <ControlView
+                      control={{ ...itemControl, label: "Value" }}
+                      value={item}
+                      commit={(next) => writeItem(index, next)}
+                    />
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        <button type="button" class="nc-list-add" onClick={addItem}>
+          <PlusIcon size={12} /> Add item
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Bind one top-level control to the selected element's attributes. Scalars write a single
+ *  attribute; group/list write a JSON-valued attribute. */
+function TopField({
+  control,
+  element,
+  onChange,
+  onPickImage,
+}: {
+  control: ControlDescriptor;
+  element: JsxElement;
+  onChange: () => void;
+  onPickImage?: (key: string) => void;
+}): VNode {
+  if (control.kind === "group" || control.kind === "list") {
+    const stored = getStructuredProp(element, control.key);
+    const value = stored ?? control.default ?? (control.kind === "list" ? [] : {});
+    return (
+      <ControlView
+        control={control}
+        value={value}
+        commit={(next) => {
+          setStructuredProp(element, control.key, next);
+          onChange();
+        }}
+      />
+    );
+  }
+  return (
+    <ControlView
+      control={control}
+      value={getProp(element, control.key)}
+      commit={(next) => {
+        if (next === undefined) removeProp(element, control.key);
+        else setProp(element, control.key, next as PropValue);
+        onChange();
+      }}
+      onPickImage={onPickImage ? () => onPickImage(control.key) : undefined}
+    />
+  );
+}
 
 function isVisible(control: ControlDescriptor, element: JsxElement): boolean {
-  if (STRUCTURAL_KINDS.has(control.kind)) return false;
   if (control.showIf) {
     return getProp(element, control.showIf.key) === control.showIf.equals;
   }
@@ -356,7 +576,7 @@ export function PropsPanel({
       </div>
       <div class="nc-rail-pad">
         {primary.map((control) => (
-          <Field
+          <TopField
             key={control.key}
             control={control}
             element={element}
@@ -377,7 +597,7 @@ export function PropsPanel({
             </button>
             {showAdvanced
               ? advanced.map((control) => (
-                  <Field
+                  <TopField
                     key={control.key}
                     control={control}
                     element={element}
