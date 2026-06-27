@@ -18,7 +18,11 @@ export const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";
 
 export const EDITOR_CSS = `
-.nocms-editor {
+/* The chrome palette lives on :root, not on .nocms-editor, because the on-canvas affordances
+   (selection box, hover outline, the block name tag, the drop line, the floating toolbar) render
+   into the live content surface — which is OUTSIDE .nocms-editor. Scoping the vars to .nocms-editor
+   left those elements with undefined vars, i.e. no outline colour and transparent backgrounds. */
+:root {
   --nc-shell: #EAE8E3;
   --nc-surface: #FFFFFF;
   --nc-surface-muted: #FBFAF7;
@@ -38,7 +42,8 @@ export const EDITOR_CSS = `
   --nc-font-display: Lora, Georgia, serif;
   --nc-font-ui: Inter, system-ui, -apple-system, sans-serif;
   --nc-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
-
+}
+.nocms-editor {
   /* A transparent, click-through layer over the live page; only the chrome inside it is
      interactive and visible. The page underneath stays the editing surface. */
   position: fixed;
