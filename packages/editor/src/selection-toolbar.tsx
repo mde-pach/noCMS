@@ -11,6 +11,7 @@ import {
   ArrowUp,
   DuplicateIcon,
   GripIcon,
+  SectionIcon,
   SettingsIcon,
   TrashIcon,
 } from "./icons.js";
@@ -24,6 +25,9 @@ export interface SelectionToolbarProps {
   onDuplicate: () => void;
   onDelete: () => void;
   onSettings: () => void;
+  /** promote the selected block into a reusable saved component; absent when the block
+   *  can't be saved (e.g. plain prose with no controls). */
+  onSaveAsComponent?: () => void;
   /** native HTML5 drag-reorder; the shell resolves the drop to a `moveNode`. */
   onDragStart: (event: DragEvent) => void;
   onDragEnd: (event: DragEvent) => void;
@@ -43,6 +47,7 @@ export function SelectionToolbar({
   onDuplicate,
   onDelete,
   onSettings,
+  onSaveAsComponent,
   onDragStart,
   onDragEnd,
 }: SelectionToolbarProps): VNode {
@@ -100,6 +105,17 @@ export function SelectionToolbar({
         <TrashIcon size={13} />
       </button>
       <span class="nc-tool-sep" />
+      {onSaveAsComponent ? (
+        <button
+          type="button"
+          class="nocms-tool-save-component"
+          title="Save as component"
+          aria-label="Save as component"
+          onClick={act(onSaveAsComponent)}
+        >
+          <SectionIcon size={13} />
+        </button>
+      ) : null}
       <button
         type="button"
         class="nocms-tool-settings"

@@ -60,6 +60,10 @@ export { PropsPanel, type PropsPanelProps } from "./props-panel.js";
 export { PublishPopover, type PublishPopoverProps } from "./publish.js";
 export { PageRail, type PageRailProps } from "./rail.js";
 export {
+  SaveComponentDialog,
+  type SaveComponentDialogProps,
+} from "./save-component.js";
+export {
   BLOCK_TYPES,
   JSX_TYPES,
   SELECTABLE_TYPES,

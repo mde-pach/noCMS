@@ -353,6 +353,12 @@ export const EDITOR_CSS = `
 /* ---------- media picker ---------- */
 .nc-media-sheet { width: 760px; }
 .nc-sheet-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 26px; border-top: 1px solid var(--nc-border-faint); }
+.nocms-expose-list { display: flex; flex-direction: column; }
+.nocms-expose-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 4px; border-bottom: 1px solid var(--nc-border-faint); }
+.nocms-expose-row:last-child { border-bottom: 0; }
+.nocms-expose-label { font-size: 13.5px; color: var(--nc-text); }
+.nocms-expose-toggle { font-family: var(--nc-font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--nc-border); background: var(--nc-field); color: var(--nc-text-2); cursor: pointer; }
+.nocms-expose-toggle[aria-pressed="true"] { background: var(--nc-accent); border-color: var(--nc-accent); color: #fff; }
 .nc-media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .nc-media-tile { position: relative; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
 .nc-media-thumb { display: block; height: 96px; border-radius: var(--nc-radius); border: 1px solid var(--nc-border); background-size: cover; background-position: center;

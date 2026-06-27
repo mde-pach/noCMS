@@ -376,3 +376,127 @@ describe("structural editing (D15 tree-transforms)", () => {
     handle.dispose();
   });
 });
+
+// A Button with more than one control, so locking vs exposing is observable.
+const CtaButton: ComponentType<Record<string, unknown>> = (props) =>
+  h(
+    "a",
+    { class: `btn btn-${(props.variant as string) ?? "primary"}` },
+    props.label as string,
+  );
+
+const savedComponents: ComponentRegistry = {
+  Button: {
+    component: asComponent(CtaButton),
+    schema: v.object({
+      label: v.string(),
+      variant: v.optional(v.picklist(["primary", "secondary"]), "primary"),
+    }),
+  },
+};
+
+function openSaveDialog(target: Element): void {
+  selectFirst(target, ".btn");
+  const save = target.querySelector(".nocms-tool-save-component");
+  if (!save) throw new Error("no Save-as-component action on the toolbar");
+  (save as HTMLElement).click();
+}
+
+async function nameAndConfirm(target: Element, name: string): Promise<void> {
+  const input = target.querySelector(
+    '.nocms-save-dialog [name="component-name"]',
+  ) as HTMLInputElement;
+  input.value = name;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  const confirm = target.querySelector(".nocms-save-confirm") as HTMLButtonElement;
+  // The confirm button enables once the name validates (preact state flushes async).
+  await vi.waitFor(() => expect(confirm.disabled).toBe(false));
+  confirm.click();
+}
+
+describe("save as component (D20)", () => {
+  test("promotes the selection to a saved component, baking the locked control", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+    const handle = await mountEditor({
+      target,
+      mdx: `<Button label="Get started" variant="secondary" />\n`,
+      components: savedComponents,
+      onChange,
+    });
+
+    openSaveDialog(target);
+    expect(target.querySelector(".nocms-save-dialog")).not.toBeNull();
+
+    // Opt-out demotion: every control starts editable. Lock `variant`.
+    const variant = target.querySelector(
+      '.nocms-expose-toggle[data-key="variant"]',
+    ) as HTMLElement;
+    expect(variant.getAttribute("aria-pressed")).toBe("true");
+    variant.click();
+    await vi.waitFor(() => expect(variant.getAttribute("aria-pressed")).toBe("false"));
+
+    await nameAndConfirm(target, "PrimaryCTA");
+
+    // The selection is now a PrimaryCTA instance; the locked variant is baked in (not inline).
+    await vi.waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toContain("<PrimaryCTA"),
+    );
+    const mdx = onChange.mock.calls.at(-1)?.[0] as string;
+    expect(mdx).toContain('label="Get started"');
+    expect(mdx).not.toContain("variant=");
+    // It still renders, baking the locked variant=secondary.
+    expect(target.querySelector(".nocms-editor-canvas .btn-secondary")).not.toBeNull();
+
+    // The props panel for the instance shows only the exposed control.
+    expect(target.querySelector(".nocms-props-title")?.textContent).toBe("PrimaryCTA");
+    expect(panelField(target, "label").value).toBe("Get started");
+    expect(target.querySelector('.nocms-editor-panel [name="variant"]')).toBeNull();
+
+    handle.dispose();
+  });
+
+  test("the saved component joins the catalog and inserts as a reusable instance", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+    const handle = await mountEditor({
+      target,
+      mdx: `<Button label="Get started" variant="secondary" />\n`,
+      components: savedComponents,
+      onChange,
+    });
+
+    openSaveDialog(target);
+    await nameAndConfirm(target, "PrimaryCTA");
+    await vi.waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toContain("<PrimaryCTA"),
+    );
+
+    // Deselect so the rail offers "Add a section", then open the catalog.
+    target
+      .querySelector(".nocms-editor-canvas")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const add = [
+      ...target.querySelectorAll(".nocms-editor-panel .nc-btn-primary"),
+    ].find((b) => b.textContent?.includes("Add a section"));
+    (add as HTMLElement).click();
+
+    // The catalog lists the saved component alongside the curated set.
+    const card = [...target.querySelectorAll(".nocms-catalog-card")].find((b) =>
+      b.textContent?.includes("PrimaryCTA"),
+    );
+    if (!card) throw new Error("PrimaryCTA not in the catalog");
+    (card as HTMLElement).click();
+
+    // Inserting it renders a second instance via the one renderer.
+    await vi.waitFor(() =>
+      expect(
+        target.querySelectorAll(".nocms-editor-canvas .btn").length,
+      ).toBeGreaterThan(1),
+    );
+
+    handle.dispose();
+  });
+});

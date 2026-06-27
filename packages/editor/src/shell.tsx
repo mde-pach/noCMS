@@ -19,7 +19,10 @@ import {
   type ComponentManifest,
   type ComponentRegistry,
   controlsOf,
+  defineSavedComponent,
+  type PropPrimitive,
   registryManifest,
+  savedBlockFromDefinition,
 } from "@nocms/components";
 import {
   mountProseEditor,
@@ -48,7 +51,13 @@ import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
 import { FormatBar } from "./format-bar.js";
 import { createHistory } from "./history.js";
 import { blockFromManifest, insertBlock } from "./insert.js";
-import { isJsxElement, type JsxElement, setProp } from "./jsx-attributes.js";
+import {
+  getProp,
+  isJsxElement,
+  type JsxElement,
+  type PropValue,
+  setProp,
+} from "./jsx-attributes.js";
 import { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 import { MediaPicker } from "./media.js";
 import { Navigator, type NavSection } from "./navigator.js";
@@ -63,6 +72,7 @@ import { PropsPanel } from "./props-panel.js";
 import { isProseEditable, type ProseBlock } from "./prose-edit.js";
 import { PublishPopover } from "./publish.js";
 import { PageRail } from "./rail.js";
+import { SaveComponentDialog } from "./save-component.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
 import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
@@ -165,6 +175,9 @@ function writeFrontmatter(doc: MdxDocument, key: string, value: string): void {
  */
 export async function mountEditor(options: EditorOptions): Promise<EditorHandle> {
   const { target, mdx, components, data, onChange, onTokensChange } = options;
+  // The canvas reads this map live on every paint, so registering a saved component is a
+  // mutation of `components` (controls/manifests) plus `componentMap` (what the canvas renders).
+  const componentMap = toComponentMap(components);
   let doc: MdxDocument = parseMdx(mdx);
   const history = createHistory(serializeMdx(doc));
   const initialMdx = mdx;
@@ -175,8 +188,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   let appearance: Appearance = "light";
   let dirty = false;
   let publishStatus: PublishStatus = "idle";
-  let overlay: "catalog" | "publish" | "navigator" | "media" | null = null;
+  let overlay: "catalog" | "publish" | "navigator" | "media" | "save-component" | null =
+    null;
   let mediaTarget: { element: JsxElement; key: string } | undefined;
+  let saveTarget: { node: JsxElement; path: IndexPath } | undefined;
   let brandExpanded = false;
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -402,6 +417,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         />,
         modalHost,
       );
+    } else if (overlay === "save-component" && saveTarget) {
+      const base = saveTarget.node.name ?? "";
+      const def = components[base];
+      render(
+        <SaveComponentDialog
+          base={base}
+          controls={def ? controlsOf(def) : []}
+          onSave={(name, exposed) => void saveAsComponent(name, exposed)}
+          onClose={closeOverlay}
+        />,
+        modalHost,
+      );
     } else {
       render(null, modalHost);
     }
@@ -499,7 +526,66 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const closeOverlay = (): void => {
     overlay = null;
     mediaTarget = undefined;
+    saveTarget = undefined;
     renderOverlays();
+  };
+
+  const openSaveComponent = (): void => {
+    const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
+    if (!node || !selectedPath || !isJsxElement(node) || !node.name) return;
+    const def = components[node.name];
+    if (!def || controlsOf(def).length === 0) return;
+    saveTarget = { node, path: selectedPath };
+    overlay = "save-component";
+    renderOverlays();
+  };
+
+  // Build a saved component from the selection: capture the base's current prop values, bake
+  // the locked ones, register the new block into the live registry and canvas map, then
+  // convert the selected node into an instance of it (only the exposed props written inline).
+  const saveAsComponent = async (name: string, exposed: string[]): Promise<void> => {
+    if (!saveTarget) return;
+    const { node, path } = saveTarget;
+    const base = node.name;
+    const baseDef = base ? components[base] : undefined;
+    if (!base || !baseDef) return;
+
+    const props: Record<string, PropPrimitive> = {};
+    for (const control of controlsOf(baseDef)) {
+      const current: PropValue | undefined = getProp(node, control.key);
+      const value = current ?? control.default;
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        props[control.key] = value;
+      }
+    }
+
+    const def = defineSavedComponent({
+      name,
+      base,
+      props,
+      expose: exposed,
+      description: `Saved from ${base}.`,
+      category: "Saved",
+    });
+    const block = savedBlockFromDefinition(def, components);
+    components[name] = block;
+    componentMap[name] = block.component;
+
+    node.name = name;
+    node.attributes = [];
+    for (const key of exposed) {
+      const value = props[key];
+      if (value !== undefined) setProp(node, key, value);
+    }
+
+    overlay = null;
+    saveTarget = undefined;
+    renderOverlays();
+    await commit(serializeMdx(doc), path);
   };
 
   function editFrontmatter(key: string, value: string): void {
@@ -632,6 +718,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const from = selectedPath[selectedPath.length - 1] ?? 0;
     const count = childCountAt(parentPath);
     const label = "name" in node && node.name ? String(node.name) : node.type;
+    const saveDef = isJsxElement(node) && node.name ? components[node.name] : undefined;
+    const saveable = saveDef !== undefined && controlsOf(saveDef).length > 0;
     const el = elementAtPath(selectedPath);
     if (el) {
       toolbarHost.style.top = `${Math.max(surfaceTop(el) - 17, 6)}px`;
@@ -649,6 +737,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         onDuplicate={() => void duplicateSelected()}
         onDelete={() => void deleteSelected()}
         onSettings={() => panelRegion.scrollTo({ top: 0 })}
+        onSaveAsComponent={saveable ? openSaveComponent : undefined}
         onDragStart={(event) => {
           dragFrom = selectedPath;
           event.dataTransfer?.setData("text/plain", "");
@@ -858,7 +947,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const canvas: CanvasHandle = await mountCanvas({
     target: surface,
     mdx,
-    components: toComponentMap(components),
+    components: componentMap,
     data,
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
