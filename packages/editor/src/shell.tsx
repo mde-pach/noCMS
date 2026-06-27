@@ -436,10 +436,25 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     } else if (overlay === "save-component" && saveTarget) {
       const base = saveTarget.node.name ?? "";
       const def = components[base];
+      const controls = def ? controlsOf(def) : [];
+      const values: Record<string, PropValue> = {};
+      for (const control of controls) {
+        const value = getProp(saveTarget.node, control.key) ?? control.default;
+        if (
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean"
+        ) {
+          values[control.key] = value;
+        }
+      }
+      const el = elementAtPath(saveTarget.path);
       render(
         <SaveComponentDialog
           base={base}
-          controls={def ? controlsOf(def) : []}
+          controls={controls}
+          values={values}
+          previewHtml={el?.outerHTML}
           container={saveTarget.container}
           onSave={(name, exposed, slot) => void saveAsComponent(name, exposed, slot)}
           onClose={closeOverlay}

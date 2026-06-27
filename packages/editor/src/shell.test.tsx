@@ -449,6 +449,15 @@ describe("save as component (D20)", () => {
     openSaveDialog(target);
     expect(target.querySelector(".nocms-save-dialog")).not.toBeNull();
 
+    // The dialog leads with a live preview and each setting's current value.
+    expect(target.querySelector(".nocms-save-preview .btn")?.textContent).toBe(
+      "Get started",
+    );
+    const variantValue = [...target.querySelectorAll(".nocms-expose-row")]
+      .find((r) => r.querySelector('[data-key="variant"]'))
+      ?.querySelector(".nocms-expose-value")?.textContent;
+    expect(variantValue).toContain("secondary");
+
     // Opt-out demotion: every control starts editable. Lock `variant`.
     const variant = target.querySelector(
       '.nocms-expose-toggle[data-key="variant"]',
