@@ -149,7 +149,9 @@
       "name": "@nocms/sandbox",
       "version": "0.0.0",
       "dependencies": {
+        "@nocms/components": "workspace:*",
         "@nocms/core": "workspace:*",
+        "preact": "^10.27.0",
       },
     },
     "packages/session": {

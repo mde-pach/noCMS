@@ -16,6 +16,8 @@
     "e2e": "bun run e2e/serve.ts"
   },
   "dependencies": {
-    "@nocms/core": "workspace:*"
+    "@nocms/components": "workspace:*",
+    "@nocms/core": "workspace:*",
+    "preact": "^10.27.0"
   }
 }
