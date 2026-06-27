@@ -335,7 +335,7 @@ components across the capability boundary. Full picture in `.claude/rules/compon
   render protocol (the iframe is static-template only in v1); live hot-add into a mounted editor
   needs a registry-update API (`subscribe()` is the hook).
 
-### D20 — No-code component authoring: visual symbols with an encapsulated implementation → **RESOLVED (model; Phases 1–1.5 built — specialize + authoring UX; repo persistence + compose deferred).**
+### D20 — No-code component authoring: visual symbols with an encapsulated implementation → **RESOLVED (model; Phases 1–2 built — specialize + compose authoring UX with slots; repo persistence + deep-control promotion deferred).**
 Non-developers **build** components, not just place them — no code, no build. Two flows,
 **specialize** (lock props on one brick) and **compose** (arrange several into a new named unit),
 are one gesture: select on the canvas → "Save as component" → prune what stays editable

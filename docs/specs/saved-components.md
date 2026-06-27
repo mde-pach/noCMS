@@ -111,8 +111,14 @@ pieces are a **runtime definition→pack loader** and the **"Save as component" 
   and converts the selection into an instance. Definitions cross the editor boundary as a
   first-class artifact: `savedComponents` (rehydrate on mount) + `onSaveComponent` (emit on save) —
   symmetric with `onChange`. Covered by happy-dom UX tests.
-- **Phase 2 — compose + slots.** Multi-brick subtree, opt-out demotion pruning, exposed child-region
-  slots (lists fall out as children-in-a-slot). Adds the structure-template substitution mechanism.
+- **Phase 2 — compose + slots. DONE (initial).** `composedBlockFromDefinition` renders a stored
+  `StructureNode` tree (component nodes with baked/exposed props + a `slot` node) through the
+  registry's components — the data-driven twin of a hand-written composite, so editor and prerender
+  stay identical (not a second renderer). In the editor, saving a **container** block offers keeping
+  its contents as an **editable slot**: the structure wraps a `{kind:"slot"}` and the instance keeps
+  its children. `savedDefToBlock`/`SavedDef` unify specialize + compose across the registry and the
+  rehydrate/emit seams. *Remaining for compose:* promoting a *deep* inner control to the surface
+  (only the container's own props are exposed today) and named/multiple slots.
 - **Phase 3 — repo persistence + auto-sync.** Wire `onChange`/`onSaveComponent` → `@nocms/session` →
   `GitHubClient.commit` (definitions become repo files the build also reads); interface-change
   migration (find instances by name, rewrite attrs, `@version` drift detection, one wide commit).
