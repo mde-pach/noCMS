@@ -2,7 +2,6 @@ import type { MdxTextExpression } from "mdast-util-mdx-expression";
 import type { MdxJsxTextElement } from "mdast-util-mdx-jsx";
 import { Schema } from "prosemirror-model";
 
-/** A readable, non-editable label for an inline JSX atom chip (`<Badge …>`). */
 function labelJsxElement(node: MdxJsxTextElement): string {
   const name = node.name ?? "";
   const attrs = node.attributes
@@ -18,7 +17,6 @@ function labelJsxElement(node: MdxJsxTextElement): string {
   return selfClosing ? `<${open}/>` : `<${open}>…</${node.name ?? ""}>`;
 }
 
-/** A readable, non-editable label for an inline expression atom chip (`{expr}`). */
 function labelExpression(node: MdxTextExpression): string {
   return `{${node.value}}`;
 }
@@ -70,9 +68,8 @@ export const proseSchema = new Schema({
         labelExpression(n.attrs.node as MdxTextExpression),
       ],
     },
-    // Catch-all for any inline mdast we don't model explicitly (e.g. inline `image`,
-    // raw `html`): carried verbatim as an opaque atom so nothing is ever dropped on
-    // a round-trip — losslessness over a closed node list.
+    // Any inline mdast not modeled explicitly (inline `image`, raw `html`) is carried
+    // verbatim as an opaque atom so nothing is ever dropped on a round-trip.
     unknownInline: {
       group: "inline",
       inline: true,

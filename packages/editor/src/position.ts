@@ -1,8 +1,3 @@
-// Maps a source offset back to the mdast node that produced it. The canvas renders
-// the real component tree (the one renderer), each editable DOM element is stamped with
-// its node's source offset, and a click resolves through here — selection is keyed on
-// remark source positions, never on stringifying values and searching the DOM.
-
 import type { Nodes, Parent } from "mdast";
 
 function children(node: Nodes): Nodes[] {
@@ -55,9 +50,9 @@ export function nearestOfType(
 }
 
 /**
- * A node's structural address from the root: the child index at each level. Unlike a
- * source offset, it survives an edit that shifts offsets — the tree shape is unchanged
- * by a prop edit — so it's how the shell re-finds a selection across a re-render.
+ * A node's structural address from the root: the child index at each level. Unlike a source
+ * offset, it survives an edit that shifts offsets, so it's how a selection is re-found across a
+ * re-render.
  */
 export type IndexPath = number[];
 

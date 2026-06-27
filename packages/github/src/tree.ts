@@ -43,8 +43,6 @@ function collectionFor(path: string, collections: CollectionDef[]): string | und
   return collections.find((c) => matchesGlob(path, c.path))?.name;
 }
 
-// List the tree, claim each blob for the first collection whose glob matches, fetch
-// its source (injected readFile reuses the client's contents-API path), and parse.
 export async function loadEntries(
   deps: HttpDeps,
   readFile: (repo: RepoRef, path: RepoPath) => Promise<string>,

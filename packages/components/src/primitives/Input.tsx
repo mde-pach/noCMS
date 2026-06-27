@@ -19,7 +19,6 @@ const FIELD = {
   gap: "var(--space-sm)",
 } as const;
 
-// A labelled single-line form field.
 export function Input({
   name,
   label,

@@ -1,9 +1,9 @@
 import * as v from "valibot";
 import type { CollectionDef, FieldDef } from "./index";
 
-// Field kinds whose runtime type is a plain string carry a `control` meta-type so
-// the one mapper (controls.ts) derives a rich control instead of a bare text box —
-// without changing what the schema validates.
+// Field kinds whose runtime type is a plain string carry a `control` meta-type so the
+// schema→control mapper derives a rich control instead of a bare text box — without
+// changing what the schema validates.
 function schemaForField(field: FieldDef): v.GenericSchema {
   switch (field.kind) {
     case "string":
@@ -32,7 +32,6 @@ function schemaForField(field: FieldDef): v.GenericSchema {
   }
 }
 
-/** Build a valibot object schema from a collection definition. */
 export function schemaForCollection(def: CollectionDef): v.GenericSchema {
   const entries: Record<string, v.GenericSchema> = {};
   for (const [name, field] of Object.entries(def.fields)) {
@@ -42,7 +41,7 @@ export function schemaForCollection(def: CollectionDef): v.GenericSchema {
   return v.object(entries);
 }
 
-/** Validate an entry's front-matter `data` against its collection. Throws on mismatch. */
+/** Validate an entry's front-matter `data` against its collection; throws on mismatch. */
 export function validateEntryData(
   def: CollectionDef,
   data: unknown,

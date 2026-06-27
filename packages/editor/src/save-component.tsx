@@ -1,8 +1,3 @@
-// "Save as component": promote the selected block into a reusable saved component (D20).
-// Preview-led, not form-led — the dialog shows a live render of the block, each setting's current
-// value, and plain-language choices, so a non-developer sees what they're making and what "locked"
-// means. Opt-out demotion: every setting starts editable; the author locks the ones to bake in.
-
 import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
 import { useMemo, useState } from "preact/hooks";

@@ -1,8 +1,7 @@
-// The site's composition root: the curated `core` pack plus this fork's own components.
-// Every surface that needs the component set — the dev reader (main.tsx), the in-site
-// editor (edit.tsx / editor.client.ts), island hydration (island.client.ts), and the
-// publish prerender (scripts/build.ts) — imports this one registry, so a fork adds a
-// component in exactly one place and it works everywhere (D18). No edit to @nocms/* needed.
+// The site's composition root: the curated `core` pack plus this fork's own components. Every
+// surface that needs the component set — the dev reader, the in-site editor, island hydration,
+// the publish prerender — imports this one registry, so a fork adds a component in one place and
+// it works everywhere, with no edit to @nocms/*.
 
 import {
   block,
@@ -27,9 +26,9 @@ export const sitePack = definePack({
   },
 });
 
-// Saved components: opinionated specializations of curated bricks, authored as data (no code).
-// "Save as component" in the editor will produce definitions like these; for now one is inlined
-// to prove the spine end-to-end — it appears in the catalog and renders identically everywhere.
+// Saved components are specializations of curated bricks authored as data, not code — what
+// "Save as component" in the editor will produce. One is inlined here to prove the spine
+// end-to-end ahead of that flow.
 const saved = savedPack(
   [
     defineSavedComponent({

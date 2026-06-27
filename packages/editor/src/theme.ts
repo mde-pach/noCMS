@@ -1,11 +1,7 @@
-// The editor chrome stylesheet: one source of truth for the design tokens (colors,
-// type families, radii, shadows) and every chrome surface built from them. Scoped under
-// `.nocms-editor` so it never leaks into the rendered site on the canvas.
-//
-// Accent discipline (enforced here): the chrome accent is slate `--nc-accent` — Publish,
-// "Add a section", selection, active toggles, Insert. Terracotta `--nc-rust` is reserved
-// for live-canvas site content and the brand-token swatches a user picks from; it never
-// styles chrome. Keeping the two as distinct variables is what stops them mixing.
+// Accent discipline: the chrome accent is slate `--nc-accent` (Publish, "Add a section",
+// selection, active toggles, Insert). Terracotta `--nc-rust` is reserved for live-canvas site
+// content and the brand-token swatches a user picks; it never styles chrome. Keeping the two as
+// distinct variables is what stops them mixing.
 
 export const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";

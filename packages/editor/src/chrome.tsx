@@ -1,8 +1,3 @@
-// The app chrome: the 56px top bar that frames the editor. Pure presenter — it raises
-// intent (switch breakpoint, toggle appearance, reset, publish, open navigator) and the
-// shell turns each into an action. The chrome accent is slate throughout: Publish is a
-// chrome control, not site content, so it never wears the brand color (T0.1).
-
 import type { VNode } from "preact";
 import { CheckIcon, ChevronDown, MenuIcon, PublishIcon } from "./icons.js";
 

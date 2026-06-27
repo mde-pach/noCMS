@@ -1,9 +1,6 @@
-// Regenerates the ② derived files (feed, i18n bundles, search index, sitemap, manifest) into
-// `public/` from the starter's content + `nocms.config.json`, so the published site and the dev
-// reader serve them as plain files. In a real fork the GitHub Action runs `deriveAll` on each
-// publish; in the monorepo this is the manual `bun run derive` that produces the committed demo
-// artifacts. Not a build hook — the committed files are authoritative for forks (which have no
-// monorepo `@nocms/derive` to regenerate from).
+// Not a build hook: the committed `public/` files are authoritative for forks, which have no
+// monorepo `@nocms/derive` to regenerate from. A fork's publish Action runs `deriveAll`; in the
+// monorepo `bun run derive` produces the committed demo artifacts.
 
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -15,9 +12,8 @@ const starterDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const contentDir = join(starterDir, "content");
 const publicDir = join(starterDir, "public");
 
-// A file anywhere under a `posts/` directory (default- or other-locale) is a post; the rest are
-// pages. The real loader claims files by a collection's glob (D7); the starter's shape is simple
-// enough to assign by path.
+// The real loader claims files by a collection's glob; the starter's shape is simple enough to
+// assign by path — anything under a `posts/` directory is a post, the rest are pages.
 function collectionOf(repoRelative: string): string {
   return /(^|\/)posts\//.test(repoRelative) ? "posts" : "pages";
 }

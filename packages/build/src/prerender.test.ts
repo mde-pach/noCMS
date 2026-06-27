@@ -98,17 +98,14 @@ describe("editor prerendering", () => {
     expect(data.mdx).toBe("# Hi");
     expect(data.tokens).toBe("color.brand: #f00\n");
     expect(data.schemas).toEqual({ Box: { component: "Box", controls: [] } });
-    // the editor bundle is imported only when ?edit is present, never eagerly
     expect(page?.html).toContain('import("/_nocms/editor.js")');
     expect(page?.html).toContain('has("edit")');
   });
 
   it("escapes `<` in the inlined data so MDX can't break out of the script", async () => {
-    // a code span carrying the dangerous sequence in the MDX source
     const mdx = "Inline `</script>` snippet";
     const [page] = await prerenderRoutes([{ path: "/", mdx, data: {} }], { editor });
     expect(page?.html).toContain("\\u003c");
-    // the data script's content has no raw early-closing `</script>`
     const raw = page?.html.match(/id="nocms-editor-data">(.*?)<\/script>/)?.[1] ?? "{}";
     expect(JSON.parse(raw).mdx).toBe(mdx);
   });

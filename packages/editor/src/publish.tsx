@@ -1,9 +1,3 @@
-// The publish popover: anchored under the Publish button, it states what publishing does
-// (async, discrete — edits are already saved; publishing pushes them live in a background
-// job) and summarizes the changes since the last publish before the one-click Publish now.
-// Pure presenter; the shell owns the async job and the button's idle→publishing→published
-// states (chrome.tsx).
-
 import type { VNode } from "preact";
 
 export interface Change {

@@ -1,9 +1,3 @@
-// The library manager: a distinct screen (not the insert palette) for managing which
-// component libraries are installed in the site. Managing installs ≠ inserting blocks: the
-// catalog inserts from installed libraries; this adds/removes the libraries themselves.
-// Core is built in and cannot be removed; packs carry a version, a verified mark, a block
-// count, and a Remove action. Pure presenter — install/remove wire to the host.
-
 import type { VNode } from "preact";
 import { CheckIcon, PlusIcon } from "./icons.js";
 

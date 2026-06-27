@@ -4,7 +4,6 @@ import type { DerivedArtifact, DeriveInput } from "./index";
 export interface ManifestEntry {
   collection: string;
   path: string;
-  /** The canonical route this entry is served at — the runtime's nav/link key. */
   route: RoutePath;
   data: Record<string, unknown>;
 }
@@ -26,7 +25,6 @@ export function buildManifest(entries: CollectionEntry[]): Manifest {
   };
 }
 
-/** Emit a single manifest.json the site can fetch at runtime. */
 export function runManifest(input: DeriveInput): DerivedArtifact[] {
   const manifest = buildManifest(input.entries);
   return [

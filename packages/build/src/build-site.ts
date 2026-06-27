@@ -17,30 +17,19 @@ import type { ComponentChildren, ComponentType } from "preact";
 import { type PrerenderedPage, prerenderRoutes, type Route } from "./prerender";
 
 export interface BuildOptions {
-  /** site source root (the forked starter) */
   root: string;
-  /** output dir deployed to Pages */
   outDir: string;
   /**
-   * Base path, e.g. `/<repo>/` for project Pages; `/` for a custom domain. Overrides
-   * the config `base` (CI injects the repo name via this); defaults to it when omitted.
+   * Overrides the config `base` (CI injects the repo name through this), defaulting to it when
+   * omitted: `/<repo>/` for project Pages, `/` for a custom domain.
    */
   base?: string;
-  /**
-   * The component registry MDX tags prerender against. A fork passes its own composed
-   * registry (`createRegistry(core, sitePack)`) so site-local components publish; defaults
-   * to the curated core set.
-   */
+  /** A fork passes its own composed registry so its site-local components publish. */
   registry?: ComponentRegistry;
-  /**
-   * Optional site shell (header/footer/page frame) wrapping every route's content. A fork passes
-   * its own `SiteShell` so the published page carries the same shell the in-site editor and dev
-   * reader render — dev = edit = production (D21).
-   */
+  /** Wraps every route in the same shell the editor and reader render, so the published page can't diverge from them. */
   shell?: ComponentType<{ children?: ComponentChildren; base?: string }>;
 }
 
-/** A route path → its output file. `/` → `index.html`, `/x` → `x/index.html`. */
 export function routeToFilePath(routePath: string): string {
   const trimmed = routePath.replace(/^\/+/, "").replace(/\/+$/, "");
   return trimmed ? `${trimmed}/index.html` : "index.html";
@@ -74,12 +63,7 @@ async function loadRoutes(contentDir: string): Promise<Route[]> {
   );
 }
 
-/**
- * Prerender a site to a static `outDir`: load content into routes, render each via
- * the one renderer (so preview and publish cannot diverge), inject runtime token CSS,
- * and copy `public/` assets. Curated components prerender to static HTML; island
- * hydration is a separate tier (D6) and is not wired here.
- */
+/** Renders every route through the one renderer so the published HTML cannot diverge from the editor preview. */
 export async function buildSite(options: BuildOptions): Promise<void> {
   const { root, outDir } = options;
   const registry = options.registry ?? coreRegistry;
@@ -123,9 +107,8 @@ export async function buildSite(options: BuildOptions): Promise<void> {
   if (existsSync(publicDir)) await cp(publicDir, outDir, { recursive: true });
 }
 
-// The committed, prebuilt island client bundle a fork serves verbatim (D1), copied into the
-// output only when a page actually hydrates an island. Resolved from the vendored package so a
-// fork — which has no monorepo to rebuild it from — ships the same artifact it was forked with.
+// Copied into the output only when a page hydrates an island. Resolved from the vendored bundle:
+// a fork has no monorepo to rebuild it from, so it ships the prebuilt artifact verbatim.
 const ISLAND_CLIENT_FILE = "_nocms/islands.js";
 
 async function writeIslandClient(root: string, outDir: string): Promise<void> {
@@ -144,9 +127,8 @@ function islandClientBundlePath(root: string): string | undefined {
   return candidates.find((p) => existsSync(p));
 }
 
-// The in-site editor, opt-in: only when the site provides `editor.json` (the per-component
-// schemas) AND the prebuilt editor bundle is present. The bundle is heavy (MDX compiler + prose
-// editor) but lazy-loaded on `?edit`, so readers never download it.
+// Emitted only when the site provides `editor.json` and the prebuilt bundle is present. The bundle
+// is heavy (MDX compiler + prose editor) but lazy-loaded on `?edit`, so readers never download it.
 const EDITOR_CLIENT_FILE = "_nocms/editor.js";
 
 async function collectEditor(
@@ -184,9 +166,7 @@ function editorClientBundlePath(root: string): string | undefined {
   return candidates.find((p) => existsSync(p));
 }
 
-// Runtime token CSS, then the optional site theme stylesheet — so the published <head> styles
-// match what the dev reader loads (`styles.css`). Token vars first so the theme can reference
-// them; both are plain CSS the prerender inlines into one <style>.
+// Token vars first so the site theme stylesheet can reference them.
 async function collectCss(root: string): Promise<string | undefined> {
   const parts: string[] = [];
   const tokensFile = join(root, "theme.tokens");
@@ -198,9 +178,6 @@ async function collectCss(root: string): Promise<string | undefined> {
   return parts.length ? parts.join("\n") : undefined;
 }
 
-// The favicon link, the site's optional extra <head> markup (`head.html`, e.g. web-font
-// links), and the runtime config the ① consumers read — so publish matches the dev
-// `index.html` head and pages can locate the ② derived files.
 async function collectHead(
   root: string,
   faviconHref: string,
@@ -212,10 +189,8 @@ async function collectHead(
   return `${faviconHref}${extra}${runtimeConfigMarkup(config, base)}`;
 }
 
-// The feed discovery `<link>` (absolute, for syndication) plus a `<script id="nocms-site">`
-// carrying the base-relative URLs of the derived files the runtime consumers fetch. Each is
-// emitted only when its artifact is actually produced (feed needs siteUrl + feed config; the
-// switcher needs ≥2 locales), so a plain site ships neither. Pure — no fs, no DOM.
+// Each part is emitted only when its artifact exists: the feed link needs siteUrl + feed config,
+// the locale switcher needs ≥2 locales, so a plain site ships neither.
 export function runtimeConfigMarkup(config: SiteConfig, base: string): string {
   const runtime = siteRuntime(config, base);
   const parts: string[] = [];

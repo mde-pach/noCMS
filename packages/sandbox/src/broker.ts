@@ -1,10 +1,3 @@
-// The capability broker — the security decision point. It dispatches a guest's
-// invoke to the host API only when (a) the method is one of a fixed whitelist
-// and (b) the owner granted that method's capability. Deny-by-default: an
-// ungranted or unknown method never reaches the host. Pure given an injected
-// host and grant set — no DOM, no port — so the protocol logic is testable on
-// its own.
-
 import type { Capability } from "@nocms/core";
 import {
   type ErrorCode,
@@ -24,7 +17,7 @@ export interface HostApi {
 
 export type HostMethod = keyof HostApi;
 
-/** Each host method requires exactly one capability. `network` gates the frame, not a method. */
+// `network` gates the frame, not a method, so it is intentionally absent here.
 export const METHOD_CAPABILITY = {
   registerComponent: "components:register",
   readContentModel: "content:read",
@@ -33,7 +26,6 @@ export const METHOD_CAPABILITY = {
 } as const satisfies Record<HostMethod, Capability>;
 
 export interface Broker {
-  /** Resolve a raw guest message to a response, or null if it is not ours. */
   handle(raw: unknown): Promise<ResultMessage | ErrorMessage | null>;
 }
 

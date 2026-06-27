@@ -1,6 +1,5 @@
-// The seam between the pure broker and a real channel. Any MessagePort-like
-// object works (a transferred MessagePort in production, a MessageChannel port
-// under test), so the wiring is exercisable without an iframe.
+// Any MessagePort-like object works (a transferred MessagePort in production, a
+// MessageChannel port under test), so the wiring is exercisable without an iframe.
 
 import type { Broker } from "./broker.js";
 
@@ -15,7 +14,6 @@ export interface PortLike {
   close?(): void;
 }
 
-/** Attach a broker to a port; returns a detach function. */
 export function serveBroker(port: PortLike, broker: Broker): () => void {
   const listener = (event: { data: unknown }) => {
     void broker.handle(event.data).then((response) => {

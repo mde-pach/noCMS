@@ -1,11 +1,6 @@
-// The geometry half of drag-reorder, kept pure so it is testable without a layout
-// engine. The shell measures the dragged node's siblings into boxes and asks which
-// gap a pointer at `y` falls into; the move itself is a `moveNode` tree-transform
-// (drag carries no model of its own — one tree, one undo). No block type is consulted:
-// any sibling reorders the same way.
+// The geometry half of drag-reorder, kept pure so it is testable without a layout engine.
 
 export interface BlockBox {
-  /** the child's index among its siblings */
   index: number;
   top: number;
   bottom: number;

@@ -1,22 +1,9 @@
-// Plugin components, host side. A sandboxed plugin contributes a component by calling the
-// `registerComponent` host method (gated by the `components:register` capability). What it
-// sends is a serializable registration — the same shape as a ComponentManifest plus an HTML
-// `template` — because a valibot schema and a Preact component never survive postMessage; a
-// ControlDescriptor[] and a string do.
-//
-// The host turns each registration into a normal BlockDef so plugin components are insertable,
-// configurable, and renderable exactly like curated ones. Rendering happens in an INERT
-// sandboxed iframe (`sandbox=""` → no scripts, opaque origin): the plugin's markup never
-// touches the host DOM and never executes in the host context (invariant #8). Interpolated
-// prop values are HTML-escaped. Interactive plugin components (a host→guest render protocol)
-// are a later phase; v1 plugin components are static templates.
-
 import type { BlockDef, ComponentManifest, ComponentPack } from "@nocms/components";
 import { manifestOf } from "@nocms/components";
 import type { ControlDescriptor } from "@nocms/core";
 import { type ComponentType, h } from "preact";
 
-/** What a plugin sends over the wire to register a component. Fully serializable. */
+/** Crosses postMessage, so every field must be serializable — no schema, no component. */
 export interface PluginComponentRegistration {
   /** JSX tag name; must be a valid component name (starts uppercase). */
   name: string;
@@ -137,7 +124,6 @@ function proxyComponent(template: string): ComponentType<Record<string, unknown>
     });
 }
 
-/** Turn a validated registration into a BlockDef the renderer and editor consume. */
 export function blockFromRegistration(reg: PluginComponentRegistration): BlockDef {
   const def: BlockDef = {
     component: proxyComponent(reg.template),
@@ -153,23 +139,17 @@ export function blockFromRegistration(reg: PluginComponentRegistration): BlockDe
 }
 
 export interface ComponentRegistrar {
-  /** The `HostApi.registerComponent` implementation: pass to `loadPlugin`'s host. Validates
-   *  untrusted input and throws on a bad name/template (surfaced to the guest as host-error). */
+  /** Validates untrusted input; throws on a bad name/template, surfaced to the guest as host-error. */
   registerComponent(raw: unknown): void;
-  /** A composable pack of everything registered so far. Merge with `createRegistry`. */
   pack(): ComponentPack;
-  /** Serializable manifests for the registered components (palette/catalog input). */
   manifests(): ComponentManifest[];
-  /** Notify on every successful registration; returns an unsubscribe. */
   subscribe(listener: () => void): () => void;
 }
 
 export interface ComponentRegistrarOptions {
-  /** pack id for the contributed components; defaults to "plugins". */
   id?: string;
 }
 
-/** A live host-side registry fed by sandboxed plugins through `registerComponent`. */
 export function createComponentRegistrar(
   options: ComponentRegistrarOptions = {},
 ): ComponentRegistrar {

@@ -1,11 +1,9 @@
-// Builds the `@nocms/*` packages a fork depends on into self-contained, installable
-// `file:` packages under `vendor/`. The starter ships these *built* — a fork is not
-// in the monorepo and cannot resolve `workspace:*`, so the bundles are committed and
-// are the source of truth for forks (D1). preact stays external: the site provides it.
+// A fork is not in the monorepo and cannot resolve `workspace:*`, so the `@nocms/*` packages it
+// depends on are committed as self-contained `file:` packages under `vendor/` and are the source
+// of truth for forks. preact stays external: the site provides it.
 //
-// In a fork the monorepo sources are absent, so this is a no-op and the committed
-// bundles are used as-is. In the monorepo it regenerates them, so `predev`/`prebuild`
-// always run it and a contributor's package edits flow into the starter on next run.
+// In a fork the monorepo sources are absent, so this is a no-op; in the monorepo it regenerates
+// the bundles, so `predev`/`prebuild` run it and a contributor's package edits reach the starter.
 
 import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -15,10 +13,8 @@ import { fileURLToPath } from "node:url";
 interface VendoredPackage {
   name: string;
   dir: string;
-  /**
-   * `browser` (default) for packages the reader bundle runs; `node` for the build
-   * tooling, which runs only in CI and pulls the MDX compiler + remark stack.
-   */
+  // `node` for the build tooling (CI-only, pulls the MDX compiler + remark stack); `browser`
+  // (default) for packages the reader bundle runs.
   target?: "browser" | "node";
 }
 
@@ -30,9 +26,9 @@ const PACKAGES: VendoredPackage[] = [
 ];
 
 // The client JS a published page ships, bundled from the *site's* own entries (not the
-// packages') so they compose the site registry — `createRegistry(core, sitePack)` — and a
-// fork's own components hydrate and edit on the deployed site. preact is inlined (a static
-// page has no module resolver); buildSite copies these into `dist/_nocms/`.
+// packages') so they compose the site registry and a fork's own components hydrate and edit on
+// the deployed site. preact is inlined (a static page has no module resolver); buildSite copies
+// these into `dist/_nocms/`.
 const STARTER_CLIENTS: { entry: string; outFile: string }[] = [
   { entry: "island.client.ts", outFile: "islands.client.js" },
   { entry: "editor.client.ts", outFile: "editor.client.js" },
@@ -111,11 +107,7 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
   console.log(`vendor: ${pkg.name} → vendor/${pkg.dir}`);
 }
 
-// A client bundle runs in the browser on a static page, so preact is inlined (no resolver at
-// runtime). Unused heavy imports tree-shake away — the island client keeps only the registry +
-// `hydrateIslands`; the editor client necessarily carries the MDX compiler + prose editor, so
-// it's the heavy one (lazy-loaded on `?edit`). Bundled from `src/` so they compose the site
-// registry; emitted into `vendor/build/` where buildSite finds and copies them into `dist`.
+// Emitted into `vendor/build/` where buildSite finds and copies them into `dist`.
 async function vendorStarterClient(bundle: {
   entry: string;
   outFile: string;
@@ -128,9 +120,8 @@ async function vendorStarterClient(bundle: {
     format: "esm",
     minify: true,
     // Resolve `@nocms/*` to workspace source, not the vendored bundles: the vendored
-    // renderer/build are node-targeted (they carry node:url etc.), but bundling from source
-    // for the browser tree-shakes those node-only paths out — the same reason dev aliases
-    // these (vite.config). A fork never runs this; it serves the committed result.
+    // renderer/build are node-targeted (they carry node:url etc.), but bundling from source for
+    // the browser tree-shakes those node-only paths out. A fork never runs this.
     plugins: [
       {
         name: "nocms-src-alias",

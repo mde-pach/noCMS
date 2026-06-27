@@ -1,6 +1,6 @@
-// The one place that reads valibot's internal schema shape. Control derivation
-// (controls.ts) sees only these helpers, so a valibot version bump is contained
-// here instead of rippling through the editor. Verified against valibot ^1.4.
+// The one place that reads valibot's internal schema shape, so a valibot version
+// bump is contained here instead of rippling through control derivation. Verified
+// against valibot ^1.4.
 
 import { type GenericSchema, getDefault } from "valibot";
 

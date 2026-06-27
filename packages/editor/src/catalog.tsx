@@ -1,9 +1,5 @@
-// The component catalog: the flagship insert sheet. A centered modal over the dimmed
-// canvas, search-first, with blocks grouped by intent into large cards — each a rendered
-// mini-preview plus a quiet glyph, name, one-line description, and a library badge. It
-// renders from serializable manifests alone (never live BlockDefs), so a builtin and a
-// sandboxed plugin component are indistinguishable here (invariant #8). Single click
-// inserts; hover reveals the Insert pill.
+// Renders from serializable manifests alone, never live BlockDefs, so a built-in and a sandboxed
+// plugin component are indistinguishable here.
 
 import type { ComponentManifest } from "@nocms/components";
 import type { VNode } from "preact";

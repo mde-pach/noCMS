@@ -8,8 +8,6 @@ import {
   StackSchema,
 } from "./index";
 
-// The block schemas feed the props panel through the same core mapper used for
-// collection fields. These assert each tracer block derives the controls we expect.
 const controlsByKey = (schema: Parameters<typeof deriveControls>[0]) =>
   Object.fromEntries(deriveControls(schema).map((c) => [c.key, c]));
 

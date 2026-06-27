@@ -48,8 +48,6 @@ export const PricingSchema = v.object({
 
 export type PricingProps = v.InferInput<typeof PricingSchema>;
 
-// Side-by-side plan cards, one optionally highlighted. Each tier lists its price,
-// a feature checklist, and a CTA. Static — the CTA is a plain link.
 export function Pricing({
   title = "Free, because there's nothing to bill for",
   subtitle = "You host on your own GitHub. We don't run your infra.",

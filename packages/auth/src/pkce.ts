@@ -1,6 +1,5 @@
-// PKCE (S256) using only Web Crypto, so it runs identically in the browser and
-// in tests. The verifier is a high-entropy secret kept client-side; only its
-// SHA-256 challenge travels in the authorize URL.
+// The verifier is a high-entropy secret kept client-side; only its SHA-256
+// challenge travels in the authorize URL.
 
 function base64url(bytes: Uint8Array): string {
   let binary = "";

@@ -47,8 +47,6 @@ export const FooterSchema = v.object({
 
 export type FooterProps = v.InferInput<typeof FooterSchema>;
 
-// The site footer: a brand blurb beside columns of links, with a copyright rule.
-// Static.
 export function Footer({
   siteName = "noCMS",
   tagline = "Your website, in your repo.",

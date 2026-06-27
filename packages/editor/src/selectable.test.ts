@@ -3,7 +3,7 @@ import { parseMdx } from "./mdx-document.js";
 import { nodeAtOffset } from "./position.js";
 import { selectableNode } from "./selectable.js";
 
-// `A <Badge>x</Badge> b.` after a heading (offsets per position.test.ts).
+// `A <Badge>x</Badge> b.` after a heading.
 const doc = parseMdx(`# Hi\n\nA <Badge>x</Badge> b.\n`);
 
 describe("selectableNode", () => {

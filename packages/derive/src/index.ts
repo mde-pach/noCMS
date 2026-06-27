@@ -1,7 +1,3 @@
-// The batch tier: precompute features from the whole corpus in Actions —
-// search, i18n, manifests, feeds. Output is just files the site reads at
-// runtime. Artifacts are committed off session branches to avoid merge noise.
-
 import type { CollectionEntry, FeedConfig, SiteConfig } from "@nocms/core";
 import { runFeed } from "./feed";
 import { runI18n } from "./i18n";
@@ -11,26 +7,19 @@ import { runSitemap } from "./sitemap";
 
 export interface DeriveInput {
   entries: CollectionEntry[];
-  /** locales in scope for i18n bundles */
   locales?: string[];
   /**
-   * The deployed site origin (with any project-Pages base), e.g.
-   * `https://owner.github.io/repo/`. Required for the sitemap job, which emits
-   * the absolute URLs the protocol mandates; absent, the sitemap is skipped.
+   * The deployed site origin including any project-Pages base, e.g.
+   * `https://owner.github.io/repo/`. Sitemap and feed need it for absolute URLs;
+   * absent, those jobs are skipped.
    */
   siteUrl?: string;
-  /**
-   * Feed configuration. The feed job is a no-op unless this and `siteUrl` are
-   * both set (the feed needs absolute item URLs).
-   */
+  /** Feed config; the feed job is a no-op unless this and `siteUrl` are both set. */
   feed?: FeedConfig;
 }
 
-// The feed config shape lives in core (the site-config seam owns it); re-exported here
-// so existing `@nocms/derive` consumers keep importing it from the ② package.
 export type { FeedConfig } from "@nocms/core";
 
-/** A produced file: path plus serialized contents. */
 export interface DerivedArtifact {
   path: string;
   contents: string;
@@ -45,19 +34,14 @@ export const manifestJob: DeriveJob = { name: "manifest", run: runManifest };
 
 export const searchJob: DeriveJob = { name: "search", run: runSearch };
 
-// Emits sitemap.xml only when `siteUrl` is set (the protocol needs absolute
-// URLs), so it is safe to keep in the default jobs list — a no-op otherwise.
 export const sitemapJob: DeriveJob = { name: "sitemap", run: runSitemap };
 
-// Emits per-locale bundles + a translations manifest only when `locales` declares
-// a default plus at least one translation locale, so it is safe in the jobs list.
 export const i18nJob: DeriveJob = { name: "i18n", run: runI18n };
 
-// Emits feed.json only when both `siteUrl` and a `feed` config are set (the feed
-// needs absolute item URLs), so it is safe in the jobs list — a no-op otherwise.
 export const feedJob: DeriveJob = { name: "feed", run: runFeed };
 
-/** The jobs that run today. */
+// sitemap/i18n/feed are no-ops when their config (siteUrl, locales, feed) is absent,
+// so they stay in the default list unconditionally.
 export const jobs: DeriveJob[] = [manifestJob, searchJob, sitemapJob, i18nJob, feedJob];
 
 export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> {
@@ -66,11 +50,6 @@ export async function deriveAll(input: DeriveInput): Promise<DerivedArtifact[]> 
   return out;
 }
 
-/**
- * Build the ② derive input from the shared site config plus the loaded entries, so
- * `locales`/`siteUrl`/`feed` come from the one site-config seam rather than being
- * assembled loosely per caller.
- */
 export function deriveInputFromConfig(
   config: SiteConfig,
   entries: CollectionEntry[],

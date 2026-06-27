@@ -1,7 +1,5 @@
-// The editor's line-glyph icon set: quiet 1.4–1.6 stroke SVGs in one place so chrome,
-// rail, toolbar, and catalog all draw from the same visual vocabulary. Each takes a
-// `size` (px) and inherits `currentColor` for the stroke, so callers theme via CSS. Icons
-// are decorative (`aria-hidden`); the accessible name lives on the parent button/link.
+// Each icon inherits `currentColor` for the stroke, so callers theme via CSS. Icons are
+// decorative (`aria-hidden`); the accessible name lives on the parent button/link.
 
 import type { JSX, VNode } from "preact";
 

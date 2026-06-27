@@ -1,6 +1,3 @@
-// The canonical content-path ↔ route mapping. Build (③), derive (②), and the
-// client router (①) all need it, so it lives here in the shared vocabulary.
-
 import type { RepoPath } from "./index";
 
 const CONTENT_PREFIX = "content/";
@@ -16,10 +13,8 @@ export function normalizeRoutePath(path: string): RoutePath {
 }
 
 /**
- * Map a content file to its route. Accepts a full repo path (`content/posts/a.mdx`)
- * or a path already relative to `content/`. Strips the extension, collapses a
- * trailing `index` segment, and roots the result:
- * `content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
+ * Map a content file to its route. Accepts a full repo path or a path already
+ * relative to `content/`: `content/index.mdx → /`, `content/posts/a.mdx → /posts/a`,
  * `content/posts/index.mdx → /posts`.
  */
 export function contentPathToRoute(repoPath: RepoPath | string): RoutePath {
@@ -76,7 +71,6 @@ export interface LocaleLink {
   route: RoutePath;
   /** Ready-to-use href, with the deployment base applied. */
   href: string;
-  /** Whether this is the page currently being viewed. */
   current: boolean;
 }
 
@@ -94,11 +88,10 @@ export interface LocaleManifest {
 
 /**
  * Resolve a language switcher for the page at `currentRoute` from the translations
- * manifest: find the group that lists the current route, then return one link per
- * locale in the group, ordered by `manifest.locales`. The locale is a structural
- * leading path segment (the i18n content convention), so each translation is an
- * ordinary route resolved with `href` — no `:lang` matcher or per-locale base needed.
- * Returns `[]` when the route is not part of any translation group.
+ * manifest. The locale is a structural leading path segment (the i18n content
+ * convention), so each translation is an ordinary route resolved with `href` — no
+ * `:lang` matcher or per-locale base needed. Returns `[]` when the route is not part
+ * of any translation group.
  */
 export function localeLinks(
   manifest: LocaleManifest,

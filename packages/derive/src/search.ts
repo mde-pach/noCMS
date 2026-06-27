@@ -2,21 +2,15 @@ import type { CollectionEntry } from "@nocms/core";
 import MiniSearch, { type Options } from "minisearch";
 import type { DerivedArtifact, DeriveInput } from "./index";
 
-// Search is a content-based index precomputed in the ② tier and queried from the
-// ① tier: MiniSearch builds the index from the entries themselves (not crawled
-// from built HTML), serializes to a plain JSON file the runtime fetches, and is
-// loaded back with `MiniSearch.loadJSONAsync(json, SEARCH_OPTIONS)`. MiniSearch
-// owns tokenization, ranking, and fuzzy/prefix matching; the only noCMS-specific
-// step is reducing an MDX body to searchable plain text.
+// The index is built from the entries themselves (not crawled from built HTML),
+// serialized to a JSON file the runtime fetches and reloads with MiniSearch.
 
 export interface SearchDocument {
   id: number;
   collection: string;
   path: string;
   title: string;
-  /** Plain-text body — the main searchable field. */
   text: string;
-  /** A short excerpt stored for result display. */
   excerpt: string;
 }
 
@@ -29,9 +23,8 @@ export const SEARCH_OPTIONS: Options<SearchDocument> = {
 
 const EXCERPT_LENGTH = 200;
 
-// Reduce an MDX body to searchable plain text. Deliberately lightweight (regex,
-// not a full MDX parse): search tolerates lossy text, and pulling the MDX compiler
-// into the batch tier for this would be disproportionate.
+// Deliberately lightweight (regex, not a full MDX parse): search tolerates lossy
+// text, and pulling the MDX compiler in for this would be disproportionate.
 export function plainText(mdxBody: string): string {
   return mdxBody
     .replace(/```[\s\S]*?```/g, " ") // fenced code blocks
@@ -78,7 +71,6 @@ export function buildSearchIndex(
   return index;
 }
 
-/** Emit a single search.json — the serialized MiniSearch index the site queries. */
 export function runSearch(input: DeriveInput): DerivedArtifact[] {
   const index = buildSearchIndex(input.entries);
   return [{ path: "search.json", contents: `${JSON.stringify(index)}\n` }];

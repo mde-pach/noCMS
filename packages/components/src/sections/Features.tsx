@@ -41,8 +41,6 @@ export const FeaturesSchema = v.object({
 
 export type FeaturesProps = v.InferInput<typeof FeaturesSchema>;
 
-// A grid of feature cards. The card count and column span are both editable; each
-// card carries an optional glyph, a heading, and a line of copy. Static.
 export function Features({
   title = "Everything you need, nothing you don't",
   subtitle,

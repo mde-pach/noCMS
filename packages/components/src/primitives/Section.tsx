@@ -16,7 +16,6 @@ const TONE_BG = {
   accent: "var(--color-brand-500)",
 } as const;
 
-// A full-bleed vertical band — the unit pages are assembled from.
 export function Section({ tone = "default", padding = "lg", children }: SectionProps) {
   return (
     <section

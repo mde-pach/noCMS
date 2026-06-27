@@ -1,8 +1,6 @@
-// A site-local component — the example a fork extends. It lives in the site, not in
-// @nocms/components, yet it is insertable, configurable, previewable, and publishable
-// exactly like a curated block: it is registered in `src/registry.ts` via the composed
-// registry. Its valibot schema is the single source for both prop types and editor
-// controls (D9), same as the curated library.
+// The example site-local component a fork extends: registered in `src/registry.ts`, it is
+// insertable and editable exactly like a curated block, with its valibot schema as the single
+// source for both prop types and editor controls.
 
 import * as v from "valibot";
 

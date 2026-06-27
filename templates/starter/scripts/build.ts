@@ -1,8 +1,5 @@
-// Prerenders the site to static HTML in `dist/` — what GitHub Pages serves. The same
-// renderer powers the in-site editor's preview, so what you preview is what you publish.
-// `base`/`siteUrl`/`locales`/`feed` come from `nocms.config.json` (read by buildSite). Project
-// Pages serve under /<repo>/, so CI overrides the base via BASE_PATH; left unset, the config
-// `base` applies.
+// Project Pages serve under /<repo>/, so CI overrides the base via BASE_PATH; left unset, the
+// config `base` applies.
 import { buildSite } from "@nocms/build";
 import { SiteShell } from "../src/app";
 import { registry } from "../src/registry";

@@ -1,33 +1,28 @@
 import { type CollectionEntry, contentPathToRoute, type RoutePath } from "@nocms/core";
 import type { DerivedArtifact, DeriveInput } from "./index";
 
-// Per-locale content bundles + a translations manifest, precomputed in the ② tier.
-// Content declares a translation by where the file lives: the default locale (the
-// first entry in `locales`) is authored at the content root; every other locale
-// lives under its own directory (`content/fr/about.mdx`). Two files translate each
-// other when their locale-stripped path matches. The locale is thus a structural
-// path segment, so routes fall out of core's shared `contentPathToRoute` unchanged
-// and the runtime can render a language switcher from a page's other-locale URLs.
+// Content declares its locale by where the file lives: the default locale (first in
+// `locales`) is authored at the content root; every other locale lives under its own
+// directory (`content/fr/about.mdx`). Two files translate each other when their
+// locale-stripped path matches. The locale being a structural path segment is what
+// lets routes fall out of the shared content-path↔route mapping unchanged.
 
 const CONTENT_PREFIX = "content/";
 
-/** One entry of a locale's content index. */
 export interface I18nBundleEntry {
-  /** Canonical, locale-independent key: the default-locale route of this page. */
+  /** Locale-independent key: the default-locale route of this page. */
   key: RoutePath;
-  /** The route this localized entry is actually served at (locale-prefixed). */
+  /** The locale-prefixed route this entry is served at. */
   route: RoutePath;
   path: string;
   data: Record<string, unknown>;
 }
 
-/** One locale's content, the runtime reads to list/render that locale. */
 export interface I18nBundle {
   locale: string;
   entries: I18nBundleEntry[];
 }
 
-/** A page and the routes of its translations, keyed by locale. */
 export interface TranslationGroup {
   key: RoutePath;
   translations: Record<string, RoutePath>;
@@ -44,10 +39,9 @@ interface Classified {
   entry: I18nBundleEntry;
 }
 
-// Split a content path into (locale, locale-stripped path). The first segment is a
-// locale only when it is one of the non-default locales; otherwise the file belongs
-// to the default locale and keeps its full path (so a non-locale directory like
-// `posts/` is left untouched).
+// The first segment is a locale only when it is one of the non-default locales;
+// otherwise the file belongs to the default locale and keeps its full path (so a
+// non-locale directory like `posts/` is left untouched).
 function classify(entry: CollectionEntry, locales: string[]): Classified {
   const defaultLocale = locales[0] as string;
   const nonDefault = locales.slice(1);
@@ -108,10 +102,6 @@ export function buildTranslations(
   };
 }
 
-/**
- * Emit per-locale bundles and a translations manifest, but only when `locales`
- * declares a default plus at least one translation locale; otherwise nothing.
- */
 export function runI18n(input: DeriveInput): DerivedArtifact[] {
   const locales = input.locales;
   if (!locales || locales.length < 2) return [];

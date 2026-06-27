@@ -1,12 +1,9 @@
-// Editor-only rendering. Produces the same component tree as the publish path, but
-// annotated so a click in the canvas resolves to the MDX source that produced it: each
-// element carries `data-mdx-pos` = the source offset of its mdast node. The publish path
-// (renderToVNode/renderToHtml) never runs this, so published HTML stays clean.
+// Editor-only: annotates each element with `data-mdx-pos` (its mdast source offset) so a canvas
+// click resolves back to the MDX source. The publish path never runs this, so published HTML stays clean.
 //
-// MDX development mode hands the JSX runtime each element's original source line/column,
-// for intrinsic elements and components alike. Intrinsics take the attribute directly;
-// components don't forward unknown props, so each is wrapped in a `display:contents`
-// carrier that holds the position without affecting layout.
+// MDX dev mode hands the JSX runtime each element's source line/column. Intrinsics take the
+// attribute directly; components don't forward unknown props, so each is wrapped in a
+// `display:contents` carrier that holds the position without affecting layout.
 
 import { type EvaluateOptions, evaluate } from "@mdx-js/mdx";
 import { type ComponentType, h, type VNode } from "preact";
@@ -76,10 +73,7 @@ function editableOptions(mdx: string): EvaluateOptions {
   } as unknown as EvaluateOptions;
 }
 
-/**
- * Compile MDX to a Preact tree whose DOM carries `data-mdx-pos` source offsets, for the
- * editor canvas. Same renderer, same component tree as publish — only annotated.
- */
+/** Same renderer and component tree as publish, only annotated with `data-mdx-pos` source offsets for the editor canvas. */
 export async function renderEditableToVNode(input: RenderInput): Promise<VNode> {
   const { default: Content } = (await evaluate(
     input.mdx,

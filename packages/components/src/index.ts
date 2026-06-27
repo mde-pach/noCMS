@@ -1,9 +1,3 @@
-// The curated component library, declared as the `core` component pack and composed into
-// a registry by the editor and renderer. Every component declares a valibot props schema
-// (D9) so `deriveControls` produces its panel — one source, no drift. A site adds more with
-// `createRegistry(core, myPack)` — plugin packs contribute via the sandbox without editing
-// this package (D18).
-
 import {
   block,
   type ComponentPack,
@@ -42,7 +36,6 @@ import { Testimonials, TestimonialsSchema } from "./sections/Testimonials";
 
 const entry = block;
 
-/** The curated component library: the always-present `core` pack a site composes with. */
 export const core: ComponentPack = definePack({
   id: "core",
   name: "noCMS core",
@@ -144,8 +137,6 @@ export const core: ComponentPack = definePack({
       description: "Lists the most recent collection entries.",
     }),
 
-    // Page-role sections: finished compositions of primitives, seeded with real
-    // content, styled only through tokens, static unless interactive.
     HeroSection: entry(HeroSection, {
       schema: HeroSectionSchema,
       displayName: "Hero Section",
@@ -188,7 +179,6 @@ export const core: ComponentPack = definePack({
   },
 });
 
-/** The default registry: the core pack alone. Compose more with `createRegistry`. */
 export const registry: ComponentRegistry = createRegistry(core);
 
 export {

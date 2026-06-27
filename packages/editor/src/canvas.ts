@@ -1,8 +1,5 @@
-// The editor canvas: the live site, rendered by the one renderer, is the editing
-// surface. Each element carries a `data-mdx-pos` source offset (renderer editor mode);
-// a click walks to the nearest annotated element and resolves that offset back to its
-// mdast node, so selection is keyed on source positions — never on matching rendered
-// values against the DOM.
+// Selection is keyed on the `data-mdx-pos` source offset each element carries, never on
+// matching rendered values against the DOM: a click resolves that offset back to its mdast node.
 
 import type { ComponentMap } from "@nocms/renderer";
 import { renderEditableToVNode } from "@nocms/renderer";
@@ -13,9 +10,8 @@ import { nodeAtIndexPath, nodeAtOffset } from "./position.js";
 
 const POS_ATTR = "data-mdx-pos";
 
-// Collect the laid-out boxes under `el`. The editor wraps each *component* in a
-// `display:contents` carrier that holds its source offset but generates no box of its
-// own (so layout is untouched); descend through such carriers to the real elements.
+// A component is wrapped in a `display:contents` carrier that holds its source offset but
+// generates no box of its own, so descend through such carriers to the real elements.
 function layoutRects(el: Element, out: DOMRect[]): void {
   const rect = el.getBoundingClientRect();
   if (rect.width > 0 || rect.height > 0) {
@@ -77,7 +73,6 @@ export function selectionAtElement(
 }
 
 export interface CanvasOptions {
-  /** DOM node the canvas renders into */
   target: Element;
   mdx: string;
   /** components MDX tags resolve to */
@@ -102,10 +97,7 @@ export interface CanvasHandle {
   dispose(): void;
 }
 
-/**
- * Render the annotated site into `target` and report the selected mdast node on click.
- * The same renderer drives this and publish, so what the canvas shows is what publishes.
- */
+/** Render the annotated site into `target` and report the selected mdast node on click. */
 export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle> {
   const host = options.target as HTMLElement;
   if (getComputedStyle(host).position === "static") host.style.position = "relative";

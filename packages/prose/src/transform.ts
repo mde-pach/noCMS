@@ -6,29 +6,21 @@ import type {
   Schema,
 } from "prosemirror-model";
 
-/** Resolve a mark type the prose schema is required to declare (narrows away `undefined`). */
 export function requireMark(schema: Schema, name: string): MarkType {
   const mark = schema.marks[name];
   if (!mark) throw new Error(`Prose schema is missing the "${name}" mark`);
   return mark;
 }
 
-// The bidirectional bridge between a prose span's mdast inline content and a ProseMirror
-// document. mdast stays the source of truth: we build a transient PM doc from inline nodes
-// and serialize it back, so an edit mutates mdast rather than re-deriving it. The whole
-// correctness property is that this round-trip is lossless — text, marks, and the inline MDX
-// atoms must survive untouched.
+// mdast stays the source of truth: an edit builds a transient PM doc and serializes it back,
+// mutating mdast rather than re-deriving it. This round-trip must be lossless — text, marks,
+// and the inline MDX atoms survive untouched.
 
 /** Detach an mdast node so the PM atom never shares a mutable reference with the host's tree. */
 function cloneNode<T>(node: T): T {
   return structuredClone(node);
 }
 
-/**
- * Build a ProseMirror doc from a prose span's mdast inline nodes. Marks (`strong`,
- * `emphasis`, `link`, and `inlineCode` as a `code` mark) accumulate as we descend; the inline
- * MDX atoms become atom nodes carrying their source mdast node verbatim.
- */
 export function mdastInlineToDoc(
   nodes: PhrasingContent[],
   schema: Schema,
@@ -109,12 +101,9 @@ interface InlineItem {
   leaf: PhrasingContent;
 }
 
-/**
- * Serialize a ProseMirror doc back to mdast inline nodes. PM stores a node's marks as an
- * unordered set; we re-nest them deterministically in schema order (link ⊃ emphasis ⊃ strong),
- * which matches remark's own inline nesting. The `code` mark turns a text leaf into an
- * `inlineCode` node rather than wrapping it (mdast models inline code as a leaf, not a mark).
- */
+// PM stores a node's marks as an unordered set; re-nest them deterministically in schema order
+// (link ⊃ emphasis ⊃ strong) to match remark's own inline nesting. The `code` mark turns a text
+// leaf into an `inlineCode` node rather than wrapping it (mdast models inline code as a leaf).
 export function docToMdastInline(doc: ProseMirrorNode): PhrasingContent[] {
   const codeMark = requireMark(doc.type.schema, "code");
   const items: InlineItem[] = [];
@@ -143,7 +132,6 @@ function leafFor(node: ProseMirrorNode, hasCode: boolean): PhrasingContent {
   }
 }
 
-/** Group consecutive items sharing the mark at `depth` and recurse, building nested mdast. */
 function nest(items: InlineItem[], depth: number): PhrasingContent[] {
   const out: PhrasingContent[] = [];
   let i = 0;

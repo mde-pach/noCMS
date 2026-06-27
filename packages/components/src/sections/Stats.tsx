@@ -22,8 +22,6 @@ export const StatsSchema = v.object({
 
 export type StatsProps = v.InferInput<typeof StatsSchema>;
 
-// A row of big-number stats. Defaults to the `brand` band so the figures pop.
-// Static.
 export function Stats({ title, stats = SEED_STATS, background = "brand" }: StatsProps) {
   return (
     <Band background={background}>

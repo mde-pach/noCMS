@@ -1,8 +1,3 @@
-// The first-run sign-in gate: the site sits blurred behind a greige scrim with a centered
-// card inviting the repo owner to sign in with GitHub. Pure presenter — `onContinue` is the
-// seam the host wires to the PKCE OAuth flow (@nocms/auth). The owner edits their own repo;
-// there is no multi-tenant or anonymous path, so the copy speaks ownership.
-
 import type { VNode } from "preact";
 import { GitHubIcon } from "./icons.js";
 

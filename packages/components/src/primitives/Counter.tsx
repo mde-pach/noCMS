@@ -2,19 +2,15 @@ import { useState } from "preact/hooks";
 import * as v from "valibot";
 
 export const CounterSchema = v.object({
-  /** text before the count, e.g. "Votes" */
   label: v.optional(v.string(), "Count"),
-  /** count to start from */
   start: v.optional(v.number(), 0),
-  /** amount each click adds */
   step: v.optional(v.number(), 1),
 });
 
 export type CounterProps = v.InferInput<typeof CounterSchema>;
 
-// The canonical interactive island: static until hydration wires up the click handler that
-// drives local state. Its props are plain and JSON-serializable, so they survive the prerender
-// marker and props-discovery derives controls for them like any other component.
+// The canonical interactive island: static until hydration wires up the click handler. Its props
+// are JSON-serializable, so they survive the prerender marker like any other component's.
 export function Counter({ label = "Count", start = 0, step = 1 }: CounterProps) {
   const [count, setCount] = useState(start);
   return (

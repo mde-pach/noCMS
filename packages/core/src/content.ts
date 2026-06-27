@@ -1,9 +1,8 @@
 import { parse as parseYaml } from "yaml";
 import type { CollectionEntry, RepoPath } from "./index";
 
-// A leading `---` block delimits YAML front-matter from the MDX body. Newlines
-// between the closing delimiter and the body are consumed so the body starts at
-// real content.
+// Newlines between the closing `---` and the body are consumed so the body starts
+// at real content, not blank lines.
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n*/;
 
 export interface ParsedDocument {
@@ -11,7 +10,6 @@ export interface ParsedDocument {
   body: string;
 }
 
-/** Split a document into its front-matter `data` and the MDX `body`. */
 export function parseFrontmatter(source: string): ParsedDocument {
   const match = FRONTMATTER.exec(source);
   if (!match) return { data: {}, body: source };
@@ -26,7 +24,6 @@ export function parseFrontmatter(source: string): ParsedDocument {
   };
 }
 
-/** Parse a source file into a collection entry. */
 export function parseEntry(
   collection: string,
   path: RepoPath,

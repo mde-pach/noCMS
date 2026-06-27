@@ -16,7 +16,6 @@ const FIELD = {
   gap: "var(--space-sm)",
 } as const;
 
-// A labelled multi-line form field.
 export function Textarea({
   name,
   label,

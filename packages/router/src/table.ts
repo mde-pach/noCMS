@@ -1,6 +1,3 @@
-// The pure route model: a table of route patterns and a matcher resolving a URL
-// pathname to a route + captured params. No DOM, no History — plain functions.
-
 import {
   type CollectionEntry,
   contentPathToRoute,
@@ -15,7 +12,6 @@ interface Segment {
   name: string;
 }
 
-/** A route the host registers: a path pattern plus an arbitrary payload. */
 export interface RouteDef<T = unknown> {
   /** Route pattern, e.g. `/about` or `/posts/:slug`. */
   path: RoutePath | string;
@@ -30,12 +26,10 @@ interface CompiledRoute<T> {
   data: T;
 }
 
-/** A compiled, ordered set of routes ready to match against. */
 export interface RouteTable<T = unknown> {
   routes: CompiledRoute<T>[];
 }
 
-/** A successful match: the route, the captured params, and the matched path. */
 export interface RouteMatch<T = unknown> {
   route: RouteDef<T>;
   params: Record<string, string>;
@@ -53,7 +47,6 @@ function compileSegments(path: RoutePath): Segment[] {
     );
 }
 
-/** Build a table from explicit route definitions (the general form). */
 export function createRouteTable<T>(defs: RouteDef<T>[]): RouteTable<T> {
   const routes = defs.map((def) => {
     const path = normalizeRoutePath(def.path);
@@ -71,7 +64,6 @@ export function createRouteTable<T>(defs: RouteDef<T>[]): RouteTable<T> {
   return { routes };
 }
 
-/** Build a table from content entries; each entry's route maps to the entry. */
 export function routeTableFromEntries(
   entries: CollectionEntry[],
 ): RouteTable<CollectionEntry> {
@@ -80,7 +72,6 @@ export function routeTableFromEntries(
   );
 }
 
-/** Build a table from raw route paths; each route's payload is its own path. */
 export function routeTableFromPaths(
   paths: (RoutePath | string)[],
 ): RouteTable<RoutePath> {
@@ -92,7 +83,6 @@ export function routeTableFromPaths(
   );
 }
 
-/** Drop a deployment base prefix (`/repo/`) from a pathname, if present. */
 function stripBase(pathname: string, base: string): string {
   const prefix = (base.endsWith("/") ? base : `${base}/`).replace(/\/$/, "");
   if (!prefix || !pathname.startsWith(prefix)) return pathname;
@@ -115,11 +105,6 @@ function matchSegments(
   return params;
 }
 
-/**
- * Resolve a URL pathname to a route. Strips `base` first (so a project-Pages
- * deployment matches), normalizes trailing slashes, and returns the most
- * specific match (static segments beat `:param`), or `null` for not-found.
- */
 export function matchRoute<T>(
   table: RouteTable<T>,
   pathname: string,

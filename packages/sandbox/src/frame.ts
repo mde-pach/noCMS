@@ -1,8 +1,3 @@
-// The structural half of the boundary. `frameSandboxPolicy` is pure — it derives
-// the iframe sandbox attribute and CSP from the granted capabilities, with
-// network denied by default. `createSandboxFrame` is the one DOM edge that
-// stamps that policy onto a real element.
-
 import type { Capability } from "@nocms/core";
 
 export interface SandboxPolicy {

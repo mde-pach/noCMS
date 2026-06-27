@@ -1,8 +1,3 @@
-// The page-properties rail: the default state of the right dock when nothing is selected.
-// Title + description edit the page frontmatter; the Design & brand row expands into the
-// token panel (rendered by the shell and passed in); "Add a section" opens the catalog.
-// Selecting a block swaps this for the schema-driven block panel (props-panel.tsx).
-
 import type { VNode } from "preact";
 import { ChevronDown, ChevronRight, PageIcon, PlusIcon } from "./icons.js";
 

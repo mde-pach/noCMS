@@ -1,6 +1,5 @@
-// Minimal POSIX-path glob matcher for collection paths (e.g. content/posts/**/*.mdx).
 // `**` spans path segments (including none), `*` and `?` stay within one segment.
-// Kept in-package and dependency-free so the browser client needs no glob library.
+// Kept dependency-free so the browser client needs no glob library.
 
 const SPECIAL = /[.+^${}()|[\]\\]/g;
 

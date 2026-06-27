@@ -13,7 +13,6 @@ export type GridProps = v.InferInput<typeof GridSchema> & {
   children?: ComponentChildren;
 };
 
-// Lays children into equal-width columns that collapse on narrow viewports.
 export function Grid({ columns = 2, gap = "md", children }: GridProps) {
   return (
     <div

@@ -1,20 +1,3 @@
-// Saved components: the owner-authored, in-process twin of a sandboxed plugin component (D20).
-// A saved component is a `BlockDef` built from *data* — pre-derived controls + a base to render —
-// rather than a schema, so a non-developer authors it visually with no code and no build. It rides
-// the same pack/manifest seam as the curated set, so the catalog, insert palette, props panel, and
-// prerender treat it identically.
-//
-// Phase 1 covers *specialize*: take one existing block, bake some props (locked, hidden from the
-// panel) and keep the rest editable (exposed, their saved value becoming the new default). The
-// synthesized component is just the base partially applied.
-//
-// Phase 2 adds *compose*: a saved component whose implementation is a whole subtree of known
-// components, with some inner props exposed and a child region left open as a slot. Its component
-// builds a Preact tree from the stored structure using the same registry components — the
-// data-driven twin of a hand-written composite (like the curated HeroSection). Same components,
-// same Preact, so it renders identically in editor preview and publish prerender (invariant #1);
-// it is not a second renderer, just one component whose tree comes from data instead of source.
-
 import type { ControlDescriptor } from "@nocms/core";
 import { type ComponentChild, h, type VNode } from "preact";
 import {
@@ -27,21 +10,18 @@ import {
   type PropPrimitive,
 } from "./packs";
 
-/** A saved component declared by specializing one existing block. Fully serializable data — the
- *  currency a future runtime loader reads from the repo (Phase 1 inlines it as a literal). */
+/** A saved component declared by specializing one existing block. Fully serializable data. */
 export interface SavedComponentDef {
-  /** registry key for the new component, e.g. "PrimaryCTA". */
   name: string;
-  /** the existing block this specializes, e.g. "Button". */
   base: string;
-  /** props baked into every instance and hidden from the props panel. */
+  /** Props baked into every instance and hidden from the props panel. */
   locked: Record<string, PropPrimitive>;
-  /** props that stay editable; each value is the seed default for the new control. */
+  /** Props that stay editable; each value becomes the new control's default. */
   exposed: Record<string, PropPrimitive>;
   displayName?: string;
   description?: string;
   category?: string;
-  /** interface version, bumped when the exposed set changes — drives instance migration later. */
+  /** Bumped when the exposed set changes — drives instance migration later. */
   version?: number;
 }
 
@@ -68,8 +48,7 @@ export function savedBlockFromDefinition(
   }
 
   const exposed = def.exposed;
-  // Exposed controls keep the base's kind/label/config; only the default is reseeded to the
-  // saved value — one source for the control shape, no drift (D9).
+  // Reuse the base control's kind/label/config; only the default is reseeded to the saved value.
   const controls: ControlDescriptor[] = controlsOf(baseDef)
     .filter((control) => control.key in exposed)
     .map((control) => ({ ...control, default: exposed[control.key] }));
@@ -88,9 +67,8 @@ export function savedBlockFromDefinition(
   };
 }
 
-/** Compose a set of saved-component definitions into a pack, resolved against `base`. The pack
- *  merges last in `createRegistry(core, sitePack, savedPack(...))`, so saved components can shadow
- *  earlier blocks by name — the same override seam packs already use. */
+/** Compose saved-component definitions into a pack, resolved against `base`. Merge it last in
+ *  `createRegistry(...)` so saved components can shadow earlier blocks by name. */
 export function savedPack(
   defs: SavedComponentDef[],
   base: ComponentRegistry,
@@ -103,9 +81,9 @@ export function savedPack(
   return definePack({ id, name: "Saved components", trust: "builtin", blocks });
 }
 
-/** The pure data behind "Save as component": split a configured instance's props into the ones to
- *  bake (everything not exposed) and the ones to keep editable. The editor binds this to a selected
- *  block's attributes; here it is a plain transform so it stays testable away from the DOM. */
+/** The data behind "Save as component": split an instance's props into the ones to bake
+ *  (everything not exposed) and the ones to keep editable. A plain transform so it stays
+ *  testable away from the DOM. */
 export function defineSavedComponent(input: {
   name: string;
   base: string;
@@ -137,9 +115,9 @@ export function defineSavedComponent(input: {
  *  component's exposed controls (filled per instance). */
 export type PropSlot = { fixed: PropPrimitive } | { exposed: string };
 
-/** One node of a composed component's stored implementation — a purpose-built, serializable tree
- *  of known components. A `slot` node is where the instance's own children render (the open child
- *  region); a `text` node is literal text. */
+/** One node of a composed component's stored implementation, a serializable tree of known
+ *  components. A `slot` node is where the instance's own children render; a `text` node is
+ *  literal text. */
 export type StructureNode =
   | {
       kind: "component";
@@ -150,13 +128,13 @@ export type StructureNode =
   | { kind: "slot" }
   | { kind: "text"; text: string };
 
-/** A composed saved component: a structure plus the controls it exposes (and whether it leaves a
- *  child region open). Its instances reference it by name and fill the exposed controls + slot. */
+/** A composed saved component: a structure plus the controls it exposes. Its instances reference
+ *  it by name and fill the exposed controls and slot. */
 export interface ComposedComponentDef {
   name: string;
   structure: StructureNode;
   controls: ControlDescriptor[];
-  /** true when the structure has a `slot` node — the component accepts children. */
+  /** True when the structure has a `slot` node — the component accepts children. */
   slot?: boolean;
   displayName?: string;
   description?: string;
@@ -191,8 +169,8 @@ function buildStructure(
   return h(target as AnyComponent, props, ...children);
 }
 
-/** Build a `BlockDef` from a composed definition: the component renders the stored structure with
- *  exposed controls and the instance's children substituted in, through the registry's components. */
+/** Build a `BlockDef` from a composed definition: it renders the stored structure through the
+ *  registry's components, substituting exposed controls and the instance's children. */
 export function composedBlockFromDefinition(
   def: ComposedComponentDef,
   registry: ComponentRegistry,
@@ -214,7 +192,6 @@ export function composedBlockFromDefinition(
   };
 }
 
-/** Either kind of saved-component definition — the currency the editor stores and replays. */
 export type SavedDef = SavedComponentDef | ComposedComponentDef;
 
 /** Build a `BlockDef` from either kind of saved definition (composed has a `structure`). */

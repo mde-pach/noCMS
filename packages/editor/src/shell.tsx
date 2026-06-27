@@ -1,20 +1,3 @@
-// The editor shell: the interaction loop that turns the pieces into a usable editor. It
-// frames the canvas with the app chrome (top bar) and a docked right rail, keeps one live
-// MdxDocument, and on every selection resolves the meaningful node, looks up its controls,
-// and renders the props panel. A panel edit mutates the node in place; the shell
-// re-serializes, re-renders the canvas from the updated source, and re-highlights the same
-// node by its index-path — never by raw offset, which shifts when the edit changes length.
-//
-// Every structural change — insert, delete, duplicate, reorder, drag — is one tree-transform
-// over the uniform block tree (D15), addressed by index-path, then re-serialized to canonical
-// MDX. Because every edit funnels through one commit that snapshots the serialized MDX,
-// undo/redo is a single uniform stack. Nothing here special-cases a block type.
-//
-// Presentational chrome state (breakpoint, appearance, dirty, publish status, the active
-// overlay, the expanded design panel) lives alongside the document state and is pushed into
-// pure presenter components via small render functions, mirroring how the canvas overlay and
-// toolbar are kept in sync.
-
 import {
   type ComponentManifest,
   type ComponentRegistry,
@@ -82,9 +65,9 @@ import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 import { TokensPanel } from "./tokens-panel.js";
 import { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
 
-// In the in-place model a breakpoint narrows the live content column (the shell's `<main>` reads
-// `--nocms-content-width`), it does not reframe the page. L3 is the reader's natural column width,
-// so the default edit width is pixel-identical to what visitors see; L4 previews full-bleed.
+// A breakpoint narrows the live content column (`--nocms-content-width`); it does not reframe the
+// page. L3 is the reader's natural column width, so the default edit width is pixel-identical to
+// what visitors see; L4 previews full-bleed.
 const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
   L0: "390px",
   L1: "600px",
@@ -94,14 +77,12 @@ const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
 };
 
 export interface EditorOptions {
-  /** DOM node the editor mounts into; the shell owns its contents. */
   target: Element;
-  /** the document to edit; MDX text is the source of truth. */
+  /** MDX text is the source of truth; edits serialize back to it. */
   mdx: string;
-  /** the component library MDX tags resolve to in the canvas; each block carries
-   *  its controls, from which the props panel renders fields. */
+  /** the component library MDX tags resolve to; each block carries the controls the props panel renders. */
   components: ComponentRegistry;
-  /** @deprecated controls are now derived from each block's schema (D9); ignored. */
+  /** @deprecated controls are now derived from each block's schema; ignored. */
   schemas?: Record<string, unknown>;
   /** values exposed to the document as props. */
   data?: Record<string, unknown>;
@@ -111,24 +92,18 @@ export interface EditorOptions {
   onChange?: (mdx: string) => void;
   /** fired with the flat token source after a theme edit — the seam to save/commit. */
   onTokensChange?: (tokens: string) => void;
-  /** saved-component definitions to load into the registry at mount, so a page that
-   *  references them renders. The host reads these from the repo (the persistence seam). */
+  /** saved-component definitions loaded into the registry at mount so a page referencing them renders. */
   savedComponents?: SavedDef[];
-  /** fired with a new saved-component definition when one is authored — the seam to
-   *  persist it to the repo so it survives a reload (symmetric with `onChange`). */
+  /** fired when a saved component is authored — the seam to persist it so it survives a reload. */
   onSaveComponent?: (def: SavedDef) => void;
-  /** the host shown in the top bar identity; defaults to a placeholder. */
   siteHost?: string;
-  /** the page label shown in the top-bar pill. */
   pageName?: string;
 }
 
 export interface EditorHandle {
   /** The live prose view when a text block is being edited in place, else undefined. */
   proseView(): ProseEditorHandle["view"] | undefined;
-  /** The index-path of the selected block, or undefined when nothing is selected. */
   selection(): IndexPath | undefined;
-  /** Step the uniform history back/forward; the seam for host undo/redo chrome. */
   undo(): void;
   redo(): void;
   dispose(): void;
@@ -144,8 +119,8 @@ function childrenOf(node: Nodes | undefined): Nodes[] {
   return node && "children" in node ? (node as Parent).children : [];
 }
 
-/** A keystroke landing in a text field or the prose view must not trigger a block-level
- *  shortcut (delete, reorder) — that is the field's own input. */
+/** A keystroke in a text field or the prose view must not trigger a block-level shortcut
+ *  (delete, reorder) — that is the field's own input. */
 function isTextEntry(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable || target.closest(".ProseMirror")) return true;
@@ -181,10 +156,7 @@ function writeFrontmatter(doc: MdxDocument, key: string, value: string): void {
       : line;
 }
 
-/**
- * Mount the in-site editor into `target`. Resolves once the canvas has rendered.
- * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
- */
+/** Mount the in-site editor into `target`; resolves once the canvas has rendered. */
 export async function mountEditor(options: EditorOptions): Promise<EditorHandle> {
   const { target, mdx, components, data, onChange, onTokensChange } = options;
   // The canvas reads this map live on every paint, so registering a saved component is a
@@ -202,7 +174,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const initialMdx = mdx;
   const initialTokensSrc = options.tokens;
 
-  // --- presentational chrome state -------------------------------------------------
   let breakpoint: BreakpointId = "L3";
   let appearance: Appearance = "light";
   let dirty = false;
@@ -215,11 +186,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // --- DOM scaffold ----------------------------------------------------------------
-  // The editor is an overlay over the live page, not a frame around it: the page's content host
-  // (`target`) *is* the editing surface, and the chrome (top bar, rail, modals, popovers) mounts
-  // into a fixed layer above it. Entering edit adds `nocms-editing` to <html>, which slides the
-  // chrome in and offsets the page — a transition over what is already on screen.
   // The host may have already injected the chrome stylesheet (e.g. for a sign-in gate shown
   // before the editor); reuse it so there is one tag, and only this mount removes what it owns.
   const existingStyle = document.getElementById(
@@ -269,7 +235,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     BREAKPOINT_WIDTH[breakpoint],
   );
 
-  // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
+  // A single <style> the design panel rewrites live, so theming never triggers a rebuild.
   const themeStyle = document.createElement("style");
   if (options.tokens !== undefined) {
     themeStyle.textContent = toCssVariables(tokens);
@@ -304,7 +270,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
   };
 
-  // --- chrome / rail / overlay renderers -------------------------------------------
   function renderChrome(): void {
     render(
       <TopBar
@@ -502,7 +467,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
   }
 
-  // --- chrome actions --------------------------------------------------------------
   function setBreakpoint(bp: BreakpointId): void {
     breakpoint = bp;
     document.documentElement.style.setProperty(
@@ -601,10 +565,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     renderOverlays();
   };
 
-  // Build a saved component from the selection: capture the base's current prop values, bake the
-  // locked ones, register the new block, then convert the selection into an instance (only exposed
-  // props inline). When `slot` is set the base is a container and we keep its contents as an
-  // editable child region — a composed component (Phase 2); otherwise a single-brick specialize.
+  // When `slot` is set the base is a container and its contents stay an editable child region (a
+  // composed component); otherwise it specializes into a single leaf.
   const saveAsComponent = async (
     name: string,
     exposed: string[],
@@ -695,7 +657,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     markDirty();
   }
 
-  // --- document edits --------------------------------------------------------------
   const handleEdit = async (): Promise<void> => {
     const next = serializeMdx(doc);
     history.push(next);
@@ -849,7 +810,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
-  // --- hover affordance ------------------------------------------------------------
   function showHover(el: Element | undefined, label: string | undefined): void {
     if (!el) {
       render(null, hoverHost);
@@ -904,7 +864,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     showHover(el ?? undefined, label);
   };
 
-  // --- prose in-place editing ------------------------------------------------------
   const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
     canvas.highlight(undefined);
     showHover(undefined, undefined);
@@ -923,8 +882,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     showFormatBar(el);
   };
 
-  // The format bar floats just above the text being edited; mark intents route through the
-  // same prose marks the keymap uses, so there is one editing model.
+  // Mark intents route through the same prose marks the keymap uses, so there is one editing model.
   function showFormatBar(el: Element): void {
     formatHost.style.top = `${Math.max(surfaceTop(el) - 42, 6)}px`;
     formatHost.style.left = `${surfaceLeft(el)}px`;
@@ -1075,8 +1033,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   renderRail();
   renderOverlays();
 
-  // Play the enter transition after the chrome has painted: the bar slides down, the rail in,
-  // and the page offsets to make room — over the live page, never a reload.
+  // Play the enter transition only after the chrome has painted.
   requestAnimationFrame(() => document.documentElement.classList.add("nocms-editing"));
 
   return {

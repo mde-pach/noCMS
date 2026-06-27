@@ -38,7 +38,6 @@ export const TestimonialsSchema = v.object({
 
 export type TestimonialsProps = v.InferInput<typeof TestimonialsSchema>;
 
-// A grid of quote cards, each with an attribution and optional avatar. Static.
 export function Testimonials({
   title = "Loved by people who hate maintenance",
   quotes = SEED_QUOTES,

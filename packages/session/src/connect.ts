@@ -11,9 +11,6 @@ export interface ConnectOptions {
   fetch?: typeof fetch;
 }
 
-// The auth↔github seam: wire the auto-refreshing token provider into the GitHub
-// client so reads and writes carry a always-fresh token. Inject fetch/clock and
-// the whole stack is exercised with no real network.
 export function connectGitHub(opts: ConnectOptions): GitHubClient {
   const token = createTokenProvider({
     session: opts.session,

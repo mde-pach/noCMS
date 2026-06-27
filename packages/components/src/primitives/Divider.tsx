@@ -6,7 +6,6 @@ export const DividerSchema = v.object({
 
 export type DividerProps = v.InferInput<typeof DividerSchema>;
 
-// A horizontal rule with token-driven vertical breathing room.
 export function Divider({ spacing = "md" }: DividerProps) {
   return (
     <hr

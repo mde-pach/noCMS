@@ -1,9 +1,3 @@
-// The block-properties panel: friendly controls for the selected block, derived live from
-// its valibot props schema (D9). Editing a control mutates the JSX node's attributes in
-// place and calls onChange so the shell re-serializes and re-renders the canvas — the owner
-// never sees JSX or attribute syntax. Each control kind renders to the handoff's spec: mono
-// micro-labels, segmented selects, sliders with readouts, toggles, and an Advanced fold.
-
 import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
 import { useState } from "preact/hooks";
@@ -293,9 +287,8 @@ function Field({ control, element, onChange, onPickImage }: FieldProps): VNode {
   );
 }
 
-// Nested object/array props aren't attribute-shaped, so they can't round-trip through the
-// scalar attribute model; children of a group are edited on the canvas (slots, D15) and
-// nested group/list editing lands later. They stay out of the panel's fields.
+// Nested object/array props aren't attribute-shaped, so they can't round-trip through the scalar
+// attribute model; their children are edited on the canvas, not in the panel's fields.
 const STRUCTURAL_KINDS: ReadonlySet<string> = new Set(["group", "list"]);
 
 function isVisible(control: ControlDescriptor, element: JsxElement): boolean {
@@ -307,13 +300,11 @@ function isVisible(control: ControlDescriptor, element: JsxElement): boolean {
 }
 
 export interface PropsPanelProps {
-  /** the selected block node in the document */
   element: JsxElement;
   /** the block's name, shown as the panel title */
   component: string;
   /** mono sub-label under the name, e.g. "SECTION · CORE" */
   meta?: string;
-  /** controls derived from the block's valibot schema via `deriveControls` */
   controls: ControlDescriptor[];
   /** fired after every edit; the shell re-serializes the doc and re-renders the canvas */
   onChange: () => void;

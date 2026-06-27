@@ -1,10 +1,3 @@
-// One mapper, two callers: editor props panels and collection entry forms both
-// derive their controls from a valibot schema here (invariant #10). The schema is
-// the single source — `v.InferOutput` gives the type, this gives the controls, so
-// they can't drift. Meta-types stamped with `v.metadata({ control })` map bare
-// values to rich controls; an unknown hint falls back to the base control, never
-// throws. `kind` is an OPEN string set so plugins can register new control kinds.
-
 import type { GenericSchema } from "valibot";
 import {
   arrayItem,

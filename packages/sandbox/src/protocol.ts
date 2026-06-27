@@ -1,7 +1,6 @@
-// The wire format between the host and a sandboxed plugin. Every message is
-// tagged with PROTOCOL so unrelated postMessage traffic on a shared channel is
-// ignored, and so a guard can reject anything malformed before it reaches the
-// broker — messages arrive from untrusted plugin code.
+// Messages arrive from untrusted plugin code: every one is tagged with PROTOCOL
+// so unrelated postMessage traffic on a shared channel is ignored, and so a
+// guard can reject anything malformed before it reaches the broker.
 
 import type { Capability } from "@nocms/core";
 
@@ -9,14 +8,12 @@ export const PROTOCOL = "nocms/sandbox@1";
 
 export type ErrorCode = "capability-denied" | "unknown-method" | "host-error";
 
-/** Host → guest, once the channel is open: the capabilities the owner granted. */
 export interface ReadyMessage {
   protocol: typeof PROTOCOL;
   kind: "ready";
   capabilities: Capability[];
 }
 
-/** Guest → host: invoke a capability-scoped host method. */
 export interface InvokeMessage {
   protocol: typeof PROTOCOL;
   kind: "invoke";
@@ -25,7 +22,6 @@ export interface InvokeMessage {
   params: unknown[];
 }
 
-/** Host → guest: an invoke succeeded. */
 export interface ResultMessage {
   protocol: typeof PROTOCOL;
   kind: "result";
@@ -33,7 +29,7 @@ export interface ResultMessage {
   value: unknown;
 }
 
-/** Host → guest: an invoke was refused or threw. Never carries host internals. */
+/** Never carries host internals — the guest sees only a code and a message. */
 export interface ErrorMessage {
   protocol: typeof PROTOCOL;
   kind: "error";

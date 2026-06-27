@@ -1,12 +1,3 @@
-// Read and write a JSX element's props directly on the mdast node, then re-serialize.
-// Props edited in the panel mutate the attribute here; the document stays MDX text, so
-// changes are line-mergeable and nothing is re-derived from rendered output.
-//
-// An attribute value is one of: a string (`label="go"`), an expression
-// (`count={3}`, value held as a raw expression string — no estree needed to serialize),
-// or null (the boolean shorthand `dark`). Editor controls speak plain JS values; the
-// encode/decode between those and the attribute shape lives here.
-
 import type { Nodes } from "mdast";
 
 export type JsxElement = Extract<

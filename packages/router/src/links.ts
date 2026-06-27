@@ -1,7 +1,3 @@
-// Pure navigation helpers for rendering menus and page chrome: breadcrumbs and
-// active-link detection. DOM-free — they operate on the route table and paths, so
-// the runtime can build nav UI without re-deriving the routing convention.
-
 import { href, normalizeRoutePath, type RoutePath } from "@nocms/core";
 import { matchRoute, type RouteDef, type RouteTable } from "./table";
 
@@ -12,7 +8,6 @@ export interface Crumb<T> {
   route: RouteDef<T>;
 }
 
-/** The route path and each of its ancestors, root-first. */
 function ancestors(routePath: RoutePath): RoutePath[] {
   const normalized = normalizeRoutePath(routePath);
   const acc: RoutePath[] = ["/" as RoutePath];
@@ -24,11 +19,8 @@ function ancestors(routePath: RoutePath): RoutePath[] {
   return acc;
 }
 
-/**
- * The breadcrumb trail for a route: the page and each ancestor that is itself a
- * real route in the table, root-first. Ancestors with no own page (e.g. `/posts`
- * when only `/posts/a` exists) are skipped, so every crumb is a live link.
- */
+// Ancestors with no own page (e.g. `/posts` when only `/posts/a` exists) are skipped, so
+// every crumb is a live link.
 export function breadcrumbs<T>(
   table: RouteTable<T>,
   routePath: RoutePath | string,
@@ -42,11 +34,8 @@ export function breadcrumbs<T>(
   return crumbs;
 }
 
-/**
- * Whether `target` should render as active given the `current` path. By default a
- * parent is active for its descendants (`/posts` is active on `/posts/a`); with
- * `exact`, only the identical path matches. The root is active only on the root.
- */
+// A parent is active for its descendants (`/posts` is active on `/posts/a`) unless `exact`;
+// the root is active only on the root, never as a prefix of everything.
 export function isActiveRoute(
   current: RoutePath | string,
   target: RoutePath | string,

@@ -30,8 +30,6 @@ export const CTASchema = v.object({
 
 export type CTAProps = v.InferInput<typeof CTASchema>;
 
-// A closing call-to-action. `banner` fills the band; `boxed` insets the message in
-// a bordered card on a plain page background. Static.
 export function CTA({
   title = SEED.title,
   body = SEED.body,

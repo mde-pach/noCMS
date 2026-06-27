@@ -11,9 +11,9 @@ import { registry } from "./registry";
 
 const BASE = "/";
 
-// Dev-only parity: the published build embeds this script in <head>; the dev server serves
-// `index.html` directly, so the reader injects the same object from `nocms.config.json` so the
-// LanguageSwitcher/LatestPosts islands can locate the derived files served from `public/`.
+// The published build embeds this script in <head>; the dev server serves `index.html` directly,
+// so the reader injects the same object here so the islands can locate the derived files in
+// `public/`.
 function injectSiteRuntime(): void {
   if (document.getElementById("nocms-site")) return;
   const runtime: { base: string; feedUrl?: string; translationsUrl?: string } = {
@@ -68,8 +68,8 @@ async function enterEdit(host: HTMLElement): Promise<void> {
   });
 }
 
-// A plain left-click on an "Edit this page" link switches into edit mode over the live page —
-// no navigation, no reload — so the chrome animates in over what's already on screen.
+// Intercept a plain left-click on an "Edit this page" link so edit mode opens over the live page
+// with no navigation or reload.
 function wireEditing(host: HTMLElement | null): void {
   if (!host) return;
   document.addEventListener("click", (event) => {
@@ -94,8 +94,5 @@ function wireEditing(host: HTMLElement | null): void {
   if (new URLSearchParams(location.search).has("edit")) void enterEdit(host);
 }
 
-// The single entry: it always renders the real page (shell + content) first, then — only on
-// `?edit` — lazily pulls in the editor and enhances that very page in place. The editor bundle
-// (with the MDX compiler) is behind `import("./edit")`, so the reader path never downloads it.
 // Invoked last so the module's bindings (`editing`, `enterEdit`) are initialized first.
 mountReader();
