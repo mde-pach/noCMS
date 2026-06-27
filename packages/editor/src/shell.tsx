@@ -18,11 +18,7 @@
 import {
   type ComponentManifest,
   type ComponentRegistry,
-  type ComposedComponentDef,
   controlsOf,
-  defineSavedComponent,
-  type PropPrimitive,
-  type PropSlot,
   registryManifest,
   type SavedDef,
   savedDefToBlock,
@@ -34,10 +30,9 @@ import {
 } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
-import type { Nodes, Parent, PhrasingContent, Yaml } from "mdast";
+import type { Nodes, Parent, PhrasingContent } from "mdast";
 import { render } from "preact";
 import {
-  boundingRect,
   type CanvasHandle,
   type CanvasSelection,
   mountCanvas,
@@ -50,8 +45,9 @@ import {
   type PublishStatus,
   TopBar,
 } from "./chrome.js";
-import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+import { createDragController } from "./drag-controller.js";
 import { FormatBar } from "./format-bar.js";
+import { readFrontmatter, writeFrontmatter } from "./frontmatter.js";
 import { createHistory } from "./history.js";
 import { blockFromManifest, insertBlock } from "./insert.js";
 import {
@@ -64,6 +60,7 @@ import {
 import { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 import { MediaPicker } from "./media.js";
 import { Navigator, type NavSection } from "./navigator.js";
+import { createOverlayLayer } from "./overlays.js";
 import {
   type IndexPath,
   indexPathOf,
@@ -76,6 +73,7 @@ import { isProseEditable, type ProseBlock } from "./prose-edit.js";
 import { PublishPopover } from "./publish.js";
 import { PageRail } from "./rail.js";
 import { SaveComponentDialog } from "./save-component.js";
+import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
 import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
@@ -155,34 +153,6 @@ function isTextEntry(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-function frontmatterNode(doc: MdxDocument): Yaml | undefined {
-  return doc.children.find((n): n is Yaml => n.type === "yaml");
-}
-
-function readFrontmatter(doc: MdxDocument): { title: string; description: string } {
-  const text = frontmatterNode(doc)?.value ?? "";
-  const get = (key: string): string => {
-    const match = text.match(new RegExp(`^${key}:\\s*(.*)$`, "m"));
-    return match?.[1] ? match[1].trim().replace(/^["']|["']$/g, "") : "";
-  };
-  return { title: get("title"), description: get("description") };
-}
-
-function writeFrontmatter(doc: MdxDocument, key: string, value: string): void {
-  let node = frontmatterNode(doc);
-  if (!node) {
-    node = { type: "yaml", value: "" };
-    doc.children.unshift(node);
-  }
-  const line = `${key}: ${value}`;
-  const re = new RegExp(`^${key}:.*$`, "m");
-  node.value = re.test(node.value)
-    ? node.value.replace(re, line)
-    : node.value
-      ? `${node.value}\n${line}`
-      : line;
-}
-
 /**
  * Mount the in-site editor into `target`. Resolves once the canvas has rendered.
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
@@ -255,11 +225,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   toolbarHost.className = "nocms-toolbar-host";
   const formatHost = document.createElement("div");
   formatHost.className = "nocms-toolbar-host";
-  const hoverHost = document.createElement("div");
-  // The selected block's name tag (sits above the selection, never over its content) and the
-  // drop-indicator line during a drag. Both live in the content surface's coordinate space.
-  const labelHost = document.createElement("div");
-  const dropHost = document.createElement("div");
+  // The positioned visual layer (hover outline, selection name tag, drop line) in the surface's
+  // coordinate space; the shell hands it elements to draw and owns the rest of the interaction.
+  const overlays = createOverlayLayer(surface);
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
   const railHost = document.createElement("div");
@@ -283,18 +251,14 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   let selectedPath: IndexPath | undefined;
-  let dragFrom: IndexPath | undefined;
 
   let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
 
   const childCountAt = (path: IndexPath): number =>
     childrenOf(nodeAtIndexPath(doc, path)).length;
 
-  // The floating toolbar and hover box are positioned in the surface's content space.
-  const surfaceTop = (el: Element): number =>
-    boundingRect(el).top - surface.getBoundingClientRect().top + surface.scrollTop;
-  const surfaceLeft = (el: Element): number =>
-    boundingRect(el).left - surface.getBoundingClientRect().left + surface.scrollLeft;
+  // The floating toolbar and format bar share the overlay layer's surface-relative geometry.
+  const { surfaceTop, surfaceLeft } = overlays;
 
   const elementAtPath = (path: IndexPath): Element | null => {
     const offset = nodeAtIndexPath(doc, path)?.position?.start.offset;
@@ -622,56 +586,14 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const baseDef = base ? components[base] : undefined;
     if (!base || !baseDef) return;
 
-    const props: Record<string, PropPrimitive> = {};
-    for (const control of controlsOf(baseDef)) {
-      const current: PropValue | undefined = getProp(node, control.key);
-      const value = current ?? control.default;
-      if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean"
-      ) {
-        props[control.key] = value;
-      }
-    }
-
-    let def: SavedDef;
-    if (slot) {
-      const structureProps: Record<string, PropSlot> = {};
-      for (const control of controlsOf(baseDef)) {
-        if (exposed.includes(control.key)) {
-          structureProps[control.key] = { exposed: control.key };
-        } else if (props[control.key] !== undefined) {
-          structureProps[control.key] = {
-            fixed: props[control.key] as PropPrimitive,
-          };
-        }
-      }
-      def = {
-        name,
-        structure: {
-          kind: "component",
-          component: base,
-          props: structureProps,
-          children: [{ kind: "slot" }],
-        },
-        controls: controlsOf(baseDef)
-          .filter((c) => exposed.includes(c.key))
-          .map((c) => ({ ...c, default: props[c.key] })),
-        slot: true,
-        description: `Saved from ${base}.`,
-        category: "Saved",
-      } satisfies ComposedComponentDef;
-    } else {
-      def = defineSavedComponent({
-        name,
-        base,
-        props,
-        expose: exposed,
-        description: `Saved from ${base}.`,
-        category: "Saved",
-      });
-    }
+    const { def, props } = buildSavedComponentDef({
+      name,
+      base,
+      baseDef,
+      node,
+      exposed,
+      slot,
+    });
     registerSaved(def);
     options.onSaveComponent?.(def);
 
@@ -776,108 +698,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     await commit(serializeMdx(next), [...parentPath, to]);
   };
 
-  const siblingBoxes = (parentPath: IndexPath): BlockBox[] => {
-    const siblings = childrenOf(nodeAtIndexPath(doc, parentPath));
-    const region = surface.getBoundingClientRect();
-    const boxes: BlockBox[] = [];
-    siblings.forEach((child, index) => {
-      if (child.type === "yaml") return;
-      const offset = child.position?.start.offset;
-      const el =
-        offset === undefined
-          ? null
-          : surface.querySelector(`[data-mdx-pos="${offset}"]`);
-      if (!el) return;
-      const rect = boundingRect(el);
-      boxes.push({
-        index,
-        top: rect.top - region.top,
-        bottom: rect.bottom - region.top,
-      });
-    });
-    return boxes;
-  };
-
-  const handleDrop = async (event: DragEvent): Promise<void> => {
-    if (!dragFrom || dragFrom.length === 0) return;
-    event.preventDefault();
-    const parentPath = dragFrom.slice(0, -1);
-    const from = dragFrom[dragFrom.length - 1] ?? 0;
-    const region = surface.getBoundingClientRect();
-    const gap = dropGapAt(siblingBoxes(parentPath), event.clientY - region.top);
-    const to = destinationIndex(from, gap);
-    endDrag();
-    if (to === undefined) return;
-    const next = moveNode(doc, [...parentPath, from], parentPath, to);
-    await commit(serializeMdx(next), [...parentPath, to]);
-  };
-
-  // --- drag-reorder visuals --------------------------------------------------------
-  // The dragged block "pops out" (lifts with a shadow) and a drop-indicator line shows where it
-  // will land. The native drag ghost is suppressed with a 1px transparent image so what the user
-  // sees lift off the page is the real block; the reorder itself is still one `moveNode`.
-  let draggedEl: HTMLElement | undefined;
-  const dragGhost =
-    typeof Image !== "undefined"
-      ? new Image(1, 1)
-      : (undefined as unknown as undefined);
-  if (dragGhost) {
-    dragGhost.src =
-      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-  }
-
-  // A component renders behind a `display:contents` carrier with no box of its own, so the lift
-  // (transform + shadow) must land on the first element that actually generates a box.
-  const firstBox = (el: Element): HTMLElement | undefined => {
-    if (el instanceof HTMLElement) {
-      const rect = el.getBoundingClientRect();
-      if (rect.width > 0 || rect.height > 0) return el;
-    }
-    for (const child of el.children) {
-      const found = firstBox(child);
-      if (found) return found;
-    }
-    return undefined;
-  };
-
-  function showDropLine(parentPath: IndexPath, clientY: number): void {
-    const boxes = siblingBoxes(parentPath);
-    const region = surface.getBoundingClientRect();
-    const gap = dropGapAt(boxes, clientY - region.top);
-    const before = boxes.find((b) => b.index === gap);
-    const after = [...boxes].reverse().find((b) => b.index === gap - 1);
-    const y = before ? before.top : after ? after.bottom : 0;
-    render(<div class="nocms-drop-line" style={`top:${y}px`} />, dropHost);
-  }
-
-  function beginDrag(event: DragEvent): void {
-    if (!selectedPath) return;
-    dragFrom = selectedPath;
-    if (event.dataTransfer) {
-      event.dataTransfer.setData("text/plain", "");
-      event.dataTransfer.effectAllowed = "move";
-      if (dragGhost) event.dataTransfer.setDragImage(dragGhost, 0, 0);
-    }
-    const el = elementAtPath(selectedPath);
-    const lift = el ? firstBox(el) : undefined;
-    if (lift) {
-      draggedEl = lift;
-      lift.classList.add("nocms-dragging");
-    }
-    canvas.highlight(undefined);
-    render(null, toolbarHost);
-    toolbarHost.style.display = "none";
-    render(null, labelHost);
-    clearHover();
-  }
-
-  function endDrag(): void {
-    dragFrom = undefined;
-    draggedEl?.classList.remove("nocms-dragging");
-    draggedEl = undefined;
-    render(null, dropHost);
-  }
-
   function renderToolbar(): void {
     const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
     if (!node || !selectedPath || selectedPath.length === 0 || prose) {
@@ -909,43 +729,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         onDelete={() => void deleteSelected()}
         onSettings={() => panelRegion.scrollTo({ top: 0 })}
         onSaveAsComponent={saveable ? openSaveComponent : undefined}
-        onDragStart={beginDrag}
-        onDragEnd={endDrag}
+        onDragStart={(event) => drag.beginDrag(event)}
+        onDragEnd={() => drag.endDrag()}
       />,
       toolbarHost,
     );
   }
 
   // --- hover affordance ------------------------------------------------------------
-  function showHover(el: Element | undefined, label: string | undefined): void {
-    if (!el) {
-      render(null, hoverHost);
-      return;
-    }
-    const top = surfaceTop(el);
-    const left = surfaceLeft(el);
-    const rect = boundingRect(el);
-    render(
-      <>
-        <div
-          class="nocms-hover"
-          style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
-        />
-        {label ? (
-          <div class="nc-hover-label" style={`top:${top + 8}px;left:${left + 8}px`}>
-            {label}
-          </div>
-        ) : null}
-      </>,
-      hoverHost,
-    );
-  }
-
-  const clearHover = (): void => showHover(undefined, undefined);
-
   const handleHover = (event: MouseEvent): void => {
-    if (prose || dragFrom) {
-      clearHover();
+    if (prose || drag.isDragging()) {
+      overlays.clearHover();
       return;
     }
     const t = event.target;
@@ -954,12 +748,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const path = offset === undefined ? [] : nodeAtOffset(doc, offset);
     const node = offset === undefined ? undefined : selectableNode(path);
     if (!node) {
-      clearHover();
+      overlays.clearHover();
       return;
     }
     const indexPath = indexPathOf(path, node);
     if (indexPath && selectedPath && indexPath.join() === selectedPath.join()) {
-      clearHover();
+      overlays.clearHover();
       return;
     }
     const blockOffset = node.position?.start.offset;
@@ -968,13 +762,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         ? null
         : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
     const label = "name" in node && node.name ? String(node.name) : node.type;
-    showHover(el ?? undefined, label);
+    overlays.showHover(el ?? undefined, label);
   };
 
   // --- prose in-place editing ------------------------------------------------------
   const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
     canvas.highlight(undefined);
-    showHover(undefined, undefined);
+    overlays.clearHover();
     renderToolbar();
     el.replaceChildren();
     const handle = mountProseEditor(el, {
@@ -1040,18 +834,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
     const el = selectedPath ? elementAtPath(selectedPath) : null;
     if (!node || !selectedPath || selectedPath.length === 0 || prose || !el) {
-      render(null, labelHost);
+      overlays.showSelectionLabel(undefined, undefined);
       return;
     }
     const label = "name" in node && node.name ? String(node.name) : node.type;
-    const top = surfaceTop(el);
-    const left = surfaceLeft(el);
-    render(
-      <div class="nc-sel-label" style={`top:${Math.max(top, 0)}px;left:${left}px`}>
-        {label}
-      </div>,
-      labelHost,
-    );
+    overlays.showSelectionLabel(el, label);
   }
 
   function select(path: IndexPath | undefined): void {
@@ -1139,19 +926,28 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
-  surface.append(hoverHost, toolbarHost, formatHost, labelHost, dropHost);
+  surface.append(toolbarHost, formatHost);
+
+  const drag = createDragController({
+    surface,
+    overlays,
+    toolbarHost,
+    canvas,
+    getDoc: () => doc,
+    selectedPath: () => selectedPath,
+    elementAtPath,
+    reorder: async (from, parent, to) => {
+      const next = moveNode(doc, from, parent, to);
+      await commit(serializeMdx(next), [...parent, to]);
+    },
+  });
 
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
   surface.addEventListener("mousemove", handleHover);
-  surface.addEventListener("mouseleave", () => showHover(undefined, undefined));
-  surface.addEventListener("dragover", (event) => {
-    if (!dragFrom) return;
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    showDropLine(dragFrom.slice(0, -1), event.clientY);
-  });
-  surface.addEventListener("drop", (event) => void handleDrop(event));
+  surface.addEventListener("mouseleave", () => overlays.clearHover());
+  surface.addEventListener("dragover", (event) => drag.onDragOver(event));
+  surface.addEventListener("drop", (event) => void drag.onDrop(event));
   // Shortcuts are global (selection lives on the page, not in a focused frame); isTextEntry
   // keeps them from firing while typing in a field or the prose view.
   document.addEventListener("keydown", handleShortcuts);
@@ -1208,25 +1004,20 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       window.removeEventListener("scroll", reposition);
       overlayObserver.disconnect();
       if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
-      endDrag();
+      drag.endDrag();
       canvas.dispose();
       render(null, chromeHost);
       render(null, railHost);
       render(null, toolbarHost);
       render(null, formatHost);
-      render(null, hoverHost);
-      render(null, labelHost);
-      render(null, dropHost);
       render(null, modalHost);
       render(null, popoverHost);
+      overlays.dispose();
       document.documentElement.classList.remove("nocms-editing");
       document.documentElement.style.removeProperty("--nocms-page-width");
       surface.classList.remove("nocms-canvas");
-      hoverHost.remove();
       toolbarHost.remove();
       formatHost.remove();
-      labelHost.remove();
-      dropHost.remove();
       chromeRoot.remove();
       if (ownsStyle) style.remove();
       themeStyle.remove();
