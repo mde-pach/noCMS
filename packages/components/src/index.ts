@@ -1,9 +1,15 @@
-// The curated component library composed in the editor and rendered by
-// @nocms/renderer. Props are plain typed Preact props so @nocms/props-discovery
-// derives controls automatically. Plugin packs contribute more via the sandbox.
+// The curated component library, declared as the `core` component pack and composed into
+// a registry by the editor and renderer. Props are plain typed Preact props so controls
+// derive automatically (D9). A site adds more with `createRegistry(core, myPack)` — plugin
+// packs contribute via the sandbox without editing this package (D18).
 
-import type { ComponentType } from "preact";
-import type { GenericSchema } from "valibot";
+import {
+  type BlockDef,
+  type ComponentPack,
+  type ComponentRegistry,
+  createRegistry,
+  definePack,
+} from "./packs";
 import { Badge } from "./primitives/Badge";
 import { Button, ButtonSchema } from "./primitives/Button";
 import { Callout } from "./primitives/Callout";
@@ -23,50 +29,112 @@ import { Select } from "./primitives/Select";
 import { Stack, StackSchema } from "./primitives/Stack";
 import { Textarea } from "./primitives/Textarea";
 
-type AnyComponent = ComponentType<Record<string, unknown>>;
-
-/** A block in the editor's uniform tree (D15): a component plus, optionally, the
- *  valibot props schema its controls derive from (D9) and the named child slots
- *  it accepts (absent = a leaf block). Consumed by the renderer's ComponentMap
- *  and the editor's palette/props panel. */
-export interface BlockDef {
-  component: AnyComponent;
-  /** valibot props schema → editor controls via `deriveControls`. */
-  schema?: GenericSchema;
-  /** named child regions this container accepts; absent = leaf. */
-  slots?: string[];
-  /** needs client-side hydration as an island? */
-  island?: boolean;
-}
-
-export type ComponentRegistry = Record<string, BlockDef>;
-
 const entry = (
   component: unknown,
   extra: Omit<BlockDef, "component"> = {},
-): BlockDef => ({ component: component as AnyComponent, ...extra });
-const island = (component: unknown): BlockDef => entry(component, { island: true });
+): BlockDef => ({ component: component as BlockDef["component"], ...extra });
 
-export const registry: ComponentRegistry = {
-  Hero: entry(Hero),
-  Section: entry(Section, { schema: SectionSchema, slots: ["children"] }),
-  Container: entry(Container),
-  Grid: entry(Grid),
-  Stack: entry(Stack, { schema: StackSchema, slots: ["children"] }),
-  Card: entry(Card),
-  Callout: entry(Callout),
-  Image: entry(Image, { schema: ImageSchema }),
-  Divider: entry(Divider),
-  Badge: entry(Badge),
-  Button: entry(Button, { schema: ButtonSchema }),
-  Form: entry(Form),
-  Input: entry(Input),
-  Textarea: entry(Textarea),
-  Select: entry(Select),
-  Counter: island(Counter),
-  LanguageSwitcher: island(LanguageSwitcher),
-  LatestPosts: island(LatestPosts),
-};
+/** The curated component library: the always-present `core` pack a site composes with. */
+export const core: ComponentPack = definePack({
+  id: "core",
+  name: "noCMS core",
+  trust: "builtin",
+  blocks: {
+    Hero: entry(Hero, {
+      category: "Content",
+      description: "Large page-opening banner with a title and slot for actions.",
+    }),
+    Section: entry(Section, {
+      schema: SectionSchema,
+      slots: ["children"],
+      category: "Layout",
+      description: "A full-width band that groups content vertically.",
+    }),
+    Container: entry(Container, {
+      category: "Layout",
+      description: "Centers and width-constrains its contents.",
+    }),
+    Grid: entry(Grid, {
+      category: "Layout",
+      description: "Arranges children in responsive columns.",
+    }),
+    Stack: entry(Stack, {
+      schema: StackSchema,
+      slots: ["children"],
+      category: "Layout",
+      description: "Stacks children with consistent spacing.",
+    }),
+    Card: entry(Card, {
+      category: "Content",
+      description: "A bordered surface for a self-contained piece of content.",
+    }),
+    Callout: entry(Callout, {
+      category: "Content",
+      description: "Highlights a note, tip, or warning.",
+    }),
+    Image: entry(Image, {
+      schema: ImageSchema,
+      category: "Media",
+      description: "A responsive image with alt text.",
+    }),
+    Divider: entry(Divider, {
+      category: "Layout",
+      description: "A horizontal rule between sections.",
+    }),
+    Badge: entry(Badge, {
+      category: "Content",
+      description: "A small inline label or status pill.",
+    }),
+    Button: entry(Button, {
+      schema: ButtonSchema,
+      category: "Content",
+      description: "A call-to-action link styled as a button.",
+    }),
+    Form: entry(Form, { category: "Forms", description: "A form wrapper for inputs." }),
+    Input: entry(Input, {
+      category: "Forms",
+      description: "A single-line text field.",
+    }),
+    Textarea: entry(Textarea, {
+      category: "Forms",
+      description: "A multi-line text field.",
+    }),
+    Select: entry(Select, {
+      category: "Forms",
+      description: "A dropdown of predefined options.",
+    }),
+    Counter: entry(Counter, {
+      island: true,
+      category: "Interactive",
+      description: "A demo interactive counter (hydrated island).",
+    }),
+    LanguageSwitcher: entry(LanguageSwitcher, {
+      island: true,
+      category: "Interactive",
+      description: "Switches the active site language.",
+    }),
+    LatestPosts: entry(LatestPosts, {
+      island: true,
+      category: "Interactive",
+      description: "Lists the most recent collection entries.",
+    }),
+  },
+});
+
+/** The default registry: the core pack alone. Compose more with `createRegistry`. */
+export const registry: ComponentRegistry = createRegistry(core);
+
+export {
+  type BlockDef,
+  type ComponentManifest,
+  type ComponentPack,
+  type ComponentRegistry,
+  createRegistry,
+  definePack,
+  manifestOf,
+  type PropPrimitive,
+  registryManifest,
+} from "./packs";
 
 export { Badge, type BadgeProps } from "./primitives/Badge";
 export { Button, type ButtonProps, ButtonSchema } from "./primitives/Button";
