@@ -25,6 +25,7 @@ import { parseTokens, toCssVariables } from "@nocms/tokens";
 import type { Nodes, Parent, PhrasingContent } from "mdast";
 import { render } from "preact";
 import {
+  boundingRect,
   type CanvasHandle,
   type CanvasSelection,
   mountCanvas,
@@ -163,6 +164,43 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   const childCountAt = (path: IndexPath): number =>
     childrenOf(nodeAtIndexPath(doc, path)).length;
+
+  // The chrome (toolbar, "+" handles) is positioned in the canvas's *content* space —
+  // coordinates that scroll with the page — so it tracks each block. `getBoundingClientRect`
+  // is viewport-relative, so the canvas origin and its scroll offset convert it.
+  const contentTop = (el: Element): { top: number; bottom: number } => {
+    const region = canvasRegion.getBoundingClientRect();
+    // A component renders inside a boxless `display:contents` carrier; use the union of
+    // its real descendant boxes, as the selection overlay does.
+    const rect = boundingRect(el);
+    const base = region.top - canvasRegion.scrollTop;
+    return { top: rect.top - base, bottom: rect.bottom - base };
+  };
+
+  const elementAtPath = (path: IndexPath): Element | null => {
+    const offset = nodeAtIndexPath(doc, path)?.position?.start.offset;
+    return offset === undefined
+      ? null
+      : canvasRegion.querySelector(`[data-mdx-pos="${offset}"]`);
+  };
+
+  // The content-space Y of each sibling gap of the root: above the first block, below the
+  // last, and the midpoint between neighbours otherwise.
+  const gapTops = (): number[] => {
+    const count = childCountAt([]);
+    const bounds = Array.from({ length: count }, (_unused, i) => {
+      const el = elementAtPath([i]);
+      return el ? contentTop(el) : undefined;
+    });
+    return Array.from({ length: count + 1 }, (_unused, gap) => {
+      const before = bounds[gap - 1];
+      const after = bounds[gap];
+      if (before && after) return (before.bottom + after.top) / 2;
+      if (after) return after.top - 6;
+      if (before) return before.bottom + 6;
+      return 8;
+    });
+  };
 
   // A prop edit mutates the selected node in place, so the doc is re-serialized but not
   // re-parsed (that would invalidate the panel's node reference and steal input focus).
@@ -305,10 +343,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       render(null, insertsHost);
       return;
     }
-    const gaps = childCountAt([]) + 1;
+    const tops = gapTops();
     render(
       <div class="nocms-inserts">
-        {Array.from({ length: gaps }, (_unused, gap) => (
+        {tops.map((top, gap) => (
           <button
             // biome-ignore lint/suspicious/noArrayIndexKey: gap index is the stable identity here.
             key={gap}
@@ -316,6 +354,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
             class="nocms-insert-handle"
             data-insert-index={gap}
             title="Insert block"
+            style={{ top: `${top}px` }}
             onClick={(event) => {
               // The canvas click handler would treat this as a deselect.
               event.stopPropagation();
@@ -334,12 +373,20 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
     if (!node || !selectedPath || selectedPath.length === 0 || prose) {
       render(null, toolbarHost);
+      toolbarHost.style.display = "none";
       return;
     }
     const parentPath = selectedPath.slice(0, -1);
     const from = selectedPath[selectedPath.length - 1] ?? 0;
     const count = childCountAt(parentPath);
     const label = "name" in node && node.name ? String(node.name) : node.type;
+    const el = elementAtPath(selectedPath);
+    if (el) {
+      const { top } = contentTop(el);
+      // Float just above the block, clamped so it never hides above the scroll origin.
+      toolbarHost.style.top = `${Math.max(top - 34, 4)}px`;
+      toolbarHost.style.display = "block";
+    }
     render(
       <SelectionToolbar
         label={label}
@@ -526,6 +573,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   });
   canvasRegion.addEventListener("drop", (event) => void handleDrop(event));
   layout.addEventListener("keydown", handleShortcuts);
+  // Block geometry shifts on resize; re-place the chrome that tracks it.
+  const reposition = (): void => {
+    renderInserts();
+    renderToolbar();
+  };
+  window.addEventListener("resize", reposition);
 
   showPanel(undefined);
   renderInserts();
@@ -541,6 +594,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       canvasRegion.removeEventListener("dblclick", handleActivate);
       canvasRegion.removeEventListener("keydown", handleKeydown);
       layout.removeEventListener("keydown", handleShortcuts);
+      window.removeEventListener("resize", reposition);
       canvas.dispose();
       render(null, propsHost);
       render(null, tokensHost);
@@ -586,13 +640,14 @@ const EDITOR_CSS = `
 .nocms-toolbar button:not(:disabled):hover { background: #374151; }
 .nocms-tool-drag { cursor: grab; }
 .nocms-tool-tag { color: #9ca3af; padding: 0 4px; }
-.nocms-inserts { position: absolute; inset: 0; pointer-events: none; }
+.nocms-toolbar-host { position: absolute; left: 8px; z-index: 9; display: none; }
+.nocms-inserts { position: absolute; top: 0; left: 0; width: 100%; height: 0; pointer-events: none; }
 .nocms-insert-handle {
-  pointer-events: auto; display: block; margin: 2px auto; border: 0;
+  position: absolute; left: 8px; pointer-events: auto; border: 0;
   width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff;
-  cursor: pointer; opacity: 0; transition: opacity 0.1s;
+  cursor: pointer; opacity: 0; transition: opacity 0.1s; line-height: 1;
 }
-.nocms-editor-canvas:hover .nocms-insert-handle { opacity: 0.5; }
+.nocms-editor-canvas:hover .nocms-insert-handle { opacity: 0.4; }
 .nocms-insert-handle:hover { opacity: 1; }
 .nocms-palette {
   position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 10;
