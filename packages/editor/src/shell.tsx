@@ -21,7 +21,11 @@ import {
   controlsOf,
   registryManifest,
 } from "@nocms/components";
-import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
+import {
+  mountProseEditor,
+  type ProseEditorHandle,
+  toggleProseMark,
+} from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { Nodes, Parent, PhrasingContent, Yaml } from "mdast";
@@ -41,6 +45,7 @@ import {
   TopBar,
 } from "./chrome.js";
 import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+import { FormatBar } from "./format-bar.js";
 import { createHistory } from "./history.js";
 import { blockFromManifest, insertBlock } from "./insert.js";
 import { isJsxElement, type JsxElement, setProp } from "./jsx-attributes.js";
@@ -196,6 +201,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   surface.style.width = BREAKPOINT_WIDTH[breakpoint];
   const toolbarHost = document.createElement("div");
   toolbarHost.className = "nocms-toolbar-host";
+  const formatHost = document.createElement("div");
+  formatHost.className = "nocms-toolbar-host";
   const hoverHost = document.createElement("div");
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
@@ -725,13 +732,47 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     });
     handle.view.focus();
     prose = { handle, el, path };
+    showFormatBar(el);
   };
+
+  // The format bar floats just above the text being edited; mark intents route through the
+  // same prose marks the keymap uses, so there is one editing model.
+  function showFormatBar(el: Element): void {
+    formatHost.style.top = `${Math.max(surfaceTop(el) - 42, 6)}px`;
+    formatHost.style.left = `${surfaceLeft(el)}px`;
+    formatHost.style.display = "block";
+    const view = () => prose?.handle.view;
+    render(
+      <FormatBar
+        onBold={() => {
+          const v = view();
+          if (v) toggleProseMark(v, "strong");
+        }}
+        onItalic={() => {
+          const v = view();
+          if (v) toggleProseMark(v, "em");
+        }}
+        onLink={() => {
+          const v = view();
+          const href = v ? window.prompt("Link URL") : null;
+          if (v && href) toggleProseMark(v, "link", { href });
+        }}
+      />,
+      formatHost,
+    );
+  }
+
+  function hideFormatBar(): void {
+    render(null, formatHost);
+    formatHost.style.display = "none";
+  }
 
   const commitProse = async (): Promise<IndexPath | undefined> => {
     if (!prose) return undefined;
     const { handle, path } = prose;
     prose = undefined;
     handle.destroy();
+    hideFormatBar();
     const next = serializeMdx(doc);
     history.push(next);
     await apply(next, path);
@@ -822,7 +863,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
-  surface.append(hoverHost, toolbarHost);
+  surface.append(hoverHost, toolbarHost, formatHost);
 
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
@@ -861,6 +902,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       render(null, chromeHost);
       render(null, railHost);
       render(null, toolbarHost);
+      render(null, formatHost);
       render(null, hoverHost);
       render(null, modalHost);
       render(null, popoverHost);

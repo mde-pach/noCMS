@@ -1,4 +1,9 @@
 export {
+  isMarkActive,
+  type ProseMarkName,
+  toggleProseMark,
+} from "./commands.js";
+export {
   mountProseEditor,
   type ProseEditorHandle,
   type ProseEditorOptions,
