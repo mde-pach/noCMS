@@ -1,12 +1,14 @@
 import type { Token } from "./types";
 
 // W3C DTCG `$type`, inferred from the token's top-level group. Unknown groups
-// get no `$type` — better to omit than to guess wrong.
+// get no `$type` — better to omit than to guess wrong. `shadow` stays untyped:
+// our values are CSS shadow strings, not the DTCG composite shadow object.
 function inferType(name: string): string | undefined {
   switch (name.split(".")[0]) {
     case "color":
       return "color";
     case "space":
+    case "text":
     case "radius":
     case "size":
     case "border":
@@ -18,7 +20,12 @@ function inferType(name: string): string | undefined {
   }
 }
 
-/** Nested W3C DTCG generated from the flat tokens, for tooling interop only. */
+/**
+ * Nested W3C DTCG generated from the flat tokens, for tooling interop only —
+ * one-way by contract (invariant #5): flat source is canonical, this is derived.
+ * `@mode` variants (D12) ride along under `$extensions` so the export stays
+ * non-lossy without inventing a non-standard top-level shape.
+ */
 export function toDtcg(tokens: Token[]): Record<string, unknown> {
   const root: Record<string, unknown> = {};
 
@@ -35,6 +42,9 @@ export function toDtcg(tokens: Token[]): Record<string, unknown> {
     const entry: Record<string, unknown> = { $value: token.value };
     const type = inferType(token.name);
     if (type) entry.$type = type;
+    if (token.modes && Object.keys(token.modes).length > 0) {
+      entry.$extensions = { "com.nocms.modes": { ...token.modes } };
+    }
     node[leaf] = entry;
   }
 

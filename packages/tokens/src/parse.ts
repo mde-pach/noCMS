@@ -1,3 +1,4 @@
+import { isMode } from "./roles";
 import type { Token } from "./types";
 
 export class TokenParseError extends Error {
@@ -10,8 +11,9 @@ export class TokenParseError extends Error {
   }
 }
 
-// `name: value` per line. Blank lines and `#` comments are skipped. A `@bp`
-// suffix on the name records a per-breakpoint override, e.g. `space.md@sm: 0.5rem`.
+// `name: value` per line. Blank lines and `#` comments are skipped. A `@<q>`
+// suffix on the name records an override: a per-mode one when `<q>` is a mode
+// (`color.primary@dark`), otherwise a per-breakpoint one (`space.3@md`).
 const LINE = /^([^:@]+?)(?:@([^:]+))?\s*:\s*(.+)$/;
 
 export function parseTokens(source: string): Token[] {
@@ -28,7 +30,7 @@ export function parseTokens(source: string): Token[] {
     }
 
     const name = match[1].trim();
-    const breakpoint = match[2]?.trim();
+    const qualifier = match[2]?.trim();
     const value = match[3].trim();
     if (!name) throw new TokenParseError("empty token name", i + 1);
 
@@ -39,9 +41,12 @@ export function parseTokens(source: string): Token[] {
       order.push(name);
     }
 
-    if (breakpoint) {
+    if (qualifier && isMode(qualifier)) {
+      if (!token.modes) token.modes = {};
+      token.modes[qualifier] = value;
+    } else if (qualifier) {
       if (!token.breakpoints) token.breakpoints = {};
-      token.breakpoints[breakpoint] = value;
+      token.breakpoints[qualifier] = value;
     } else {
       token.value = value;
     }
