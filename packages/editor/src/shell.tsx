@@ -277,6 +277,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const region = canvasRegion.getBoundingClientRect();
     const boxes: BlockBox[] = [];
     siblings.forEach((child, index) => {
+      // Frontmatter is pinned at the top and isn't a reorderable block; it also shares
+      // source offset 0 with the document-root carrier, so measuring it would yield a
+      // box spanning the whole canvas and poison every gap.
+      if (child.type === "yaml") return;
       const offset = child.position?.start.offset;
       const el =
         offset === undefined

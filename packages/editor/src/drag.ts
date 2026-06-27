@@ -12,12 +12,17 @@ export interface BlockBox {
 }
 
 /**
- * The sibling gap `[0..n]` a drop at vertical position `y` lands in: 0 above the first
- * block, `n` below the last, and gap `i` between blocks `i-1` and `i`, split at each
- * block's vertical midpoint. `boxes` are assumed in document (index) order.
+ * The child index a drop at vertical position `y` resolves to, in the parent's own
+ * index space: the first box's index when `y` is above every block, one past the last
+ * box's index when below them all, and `box.index + 1` once `y` clears a block's
+ * midpoint. Boxes carry their real `index`, so a leading non-block sibling that isn't
+ * measured (e.g. frontmatter) is never a drop target — the first reorder slot is the
+ * first measured block. `boxes` are assumed in document (index) order.
  */
 export function dropGapAt(boxes: readonly BlockBox[], y: number): number {
-  let gap = 0;
+  const first = boxes[0];
+  if (!first) return 0;
+  let gap = first.index;
   for (const box of boxes) {
     if (y > (box.top + box.bottom) / 2) gap = box.index + 1;
     else break;
