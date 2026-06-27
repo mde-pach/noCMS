@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+</helmet>
+
+<!-- ============ ROW 1 — CORE EDITOR STATES ============ -->
+
+<!-- F1 default -->
+<div style="position:absolute;left:80px;top:80px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">01 · Editor — default page view</div>
+  <div data-screen-label="Editor — default" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" hover-id="features" hint-size="1440px,920px"></dc-import>
+  </div>
+</div>
+
+<!-- F2 section selected -->
+<div style="position:absolute;left:1660px;top:80px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">02 · Editor — section selected (block properties)</div>
+  <div data-screen-label="Editor — section selected" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="block" selected-id="hero" hint-size="1440px,920px"></dc-import>
+  </div>
+</div>
+
+<!-- F3 inline text editing -->
+<div style="position:absolute;left:3240px;top:80px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">03 · Editor — inline text editing</div>
+  <div data-screen-label="Editor — inline editing" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="block" selected-id="hero" editing="{{ true }}" hint-size="1440px,920px"></dc-import>
+  </div>
+</div>
+
+<!-- F4 design & brand expanded, mid-restyle -->
+<div style="position:absolute;left:4820px;top:80px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">04 · Design &amp; brand — expanded, mid-restyle</div>
+  <div data-screen-label="Design & brand expanded" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" brand-expanded="{{ true }}" brand-color="#3D5A98" radius="18" hint-size="1440px,920px"></dc-import>
+  </div>
+</div>
+
+<!-- ============ ROW 2 — CATALOG & INLINE INSERT ============ -->
+
+<!-- F5 catalog sheet (browse) over dimmed canvas -->
+<div style="position:absolute;left:80px;top:1200px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">05 · Component catalog — insert sheet (browse)</div>
+  <div data-screen-label="Catalog sheet — browse" style="position:relative;width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" dim="{{ true }}" hint-size="1440px,920px"></dc-import>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">
+      <dc-import name="CatalogSheet" mode="browse" hint-size="900px,680px"></dc-import>
+    </div>
+  </div>
+</div>
+
+<!-- F8 inline + insert popover -->
+<div style="position:absolute;left:1660px;top:1200px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">07 · Inline + insert popover (between sections)</div>
+  <div data-screen-label="Inline insert popover" style="position:relative;width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" hint-size="1440px,920px"></dc-import>
+    <!-- insert line -->
+    <div style="position:absolute;left:115px;right:445px;top:560px;height:0;border-top:2px solid #3D5A98;"></div>
+    <div style="position:absolute;left:50%;margin-left:-378px;top:548px;width:26px;height:26px;border-radius:50%;background:#3D5A98;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(61,90,152,0.4);"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#fff" stroke-width="1.8"><path d="M6.5 2.5v8M2.5 6.5h8"/></svg></div>
+    <!-- popover -->
+    <div style="position:absolute;left:50%;margin-left:-180px;top:586px;width:344px;background:#fff;border-radius:12px;box-shadow:0 22px 60px rgba(26,25,22,0.28);overflow:hidden;border:1px solid #EFEDE7;">
+      <div style="padding:12px;border-bottom:1px solid #EFEDE7;">
+        <div style="display:flex;align-items:center;gap:9px;border:1px solid #E0DDD6;border-radius:9px;padding:8px 11px;background:#FBFAF7;">
+          <svg width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="#A39E94" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M9.5 9.5l3 3"/></svg>
+          <span style="font-size:13px;color:#A39E94;">Insert a section…</span>
+        </div>
+      </div>
+      <div style="padding:7px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;color:#A39E94;padding:7px 8px 5px;">SUGGESTED</div>
+        <div style="display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:8px;background:#F5F3EE;">
+          <div style="width:26px;height:26px;border-radius:7px;background:#fff;border:1px solid #EFEDE7;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#3D5A98" stroke-width="1.4"><rect x="2" y="3" width="9" height="7" rx="1"/></svg></div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Testimonial</div><div style="font-size:11px;color:#6B6760;">A customer quote with attribution.</div></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#3D5A98;background:#EEF1F7;padding:2px 6px;border-radius:5px;">STUDIO</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:8px;">
+          <div style="width:26px;height:26px;border-radius:7px;background:#fff;border:1px solid #EFEDE7;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><path d="M2 4h9M2 6.5h9M2 9h6"/></svg></div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Feature grid</div><div style="font-size:11px;color:#6B6760;">A responsive grid with icons.</div></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8579;background:#F1EFE9;padding:2px 6px;border-radius:5px;">CORE</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:11px;padding:9px 8px;border-radius:8px;">
+          <div style="width:26px;height:26px;border-radius:7px;background:#fff;border:1px solid #EFEDE7;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><circle cx="3.5" cy="6.5" r="1.3"/><circle cx="6.5" cy="6.5" r="1.3"/><circle cx="9.5" cy="6.5" r="1.3"/></svg></div>
+          <div style="flex:1;"><div style="font-size:13px;font-weight:600;">Logo cloud</div><div style="font-size:11px;color:#6B6760;">A row of partner logos.</div></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8A8579;background:#F1EFE9;padding:2px 6px;border-radius:5px;">CORE</span>
+        </div>
+      </div>
+      <div style="border-top:1px solid #EFEDE7;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:#3D5A98;font-weight:600;">Browse all sections</span>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#3D5A98" stroke-width="1.5"><path d="M4 3l3.5 3L4 9"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- F6 catalog search results -->
+<div style="position:absolute;left:3240px;top:1200px;width:940px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">06a · Catalog — searching “pricing”</div>
+  <div data-screen-label="Catalog — search results" style="background:#EAE8E3;border-radius:12px;padding:30px;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;justify-content:center;">
+    <dc-import name="CatalogSheet" mode="search" query="pricing" hint-size="900px,560px"></dc-import>
+  </div>
+</div>
+
+<!-- F7 catalog no results -->
+<div style="position:absolute;left:4300px;top:1200px;width:940px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">06b · Catalog — no results</div>
+  <div data-screen-label="Catalog — no results" style="background:#EAE8E3;border-radius:12px;padding:30px;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;justify-content:center;">
+    <dc-import name="CatalogSheet" mode="empty" query="membership dashboard" hint-size="900px,420px"></dc-import>
+  </div>
+</div>
+
+<!-- ============ ROW 3 — NAVIGATOR · PUBLISH · MEDIA ============ -->
+
+<!-- F9 pages & structure navigator -->
+<div style="position:absolute;left:80px;top:2360px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">08 · Pages &amp; structure navigator</div>
+  <div data-screen-label="Pages navigator" style="position:relative;width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" hint-size="1440px,920px"></dc-import>
+    <div style="position:absolute;left:0;top:56px;bottom:0;width:316px;background:#FFFFFF;border-right:1px solid #E0DDD6;box-shadow:18px 0 40px rgba(26,25,22,0.10);display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #EFEDE7;">
+        <span style="font-size:14px;font-weight:600;">Pages &amp; structure</span>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.6"><path d="M3 3l7 7M10 3l-7 7"/></svg>
+      </div>
+      <div style="padding:16px 14px;overflow-y:auto;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;margin-bottom:10px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;">PAGES</span>
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#3D5A98" stroke-width="1.6"><path d="M6.5 2.5v8M2.5 6.5h8"/></svg>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:1px;margin-bottom:18px;">
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;background:#EEF1F7;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#3D5A98" stroke-width="1.4"><path d="M2.5 6.5L7 3l4.5 3.5V11a.8.8 0 0 1-.8.8H3.3A.8.8 0 0 1 2.5 11z"/></svg>
+            <span style="flex:1;font-size:13px;font-weight:600;color:#1A1916;">Home</span>
+            <span style="width:6px;height:6px;border-radius:50%;background:#3D5A98;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A39E94" stroke-width="1.4"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5"/></svg><span style="flex:1;font-size:13px;color:#4A463F;">About</span></div>
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A39E94" stroke-width="1.4"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5"/></svg><span style="flex:1;font-size:13px;color:#4A463F;">Work</span></div>
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A39E94" stroke-width="1.4"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5"/></svg><span style="flex:1;font-size:13px;color:#4A463F;">Journal</span></div>
+          <div style="display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A39E94" stroke-width="1.4"><rect x="2.5" y="2.5" width="9" height="9" rx="1.5"/></svg><span style="flex:1;font-size:13px;color:#4A463F;">Contact</span></div>
+        </div>
+        <div style="height:1px;background:#EFEDE7;margin:0 4px 14px;"></div>
+        <div style="padding:0 4px;margin-bottom:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;">SECTIONS · HOME</span></div>
+        <div style="display:flex;flex-direction:column;gap:1px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;background:#F5F3EE;border:1px solid #E7E3DB;">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M3 3h5M3 5.5h5M3 8h5"/></svg>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#3D5A98" stroke-width="1.4"><rect x="2" y="3" width="9" height="7" rx="1"/></svg>
+            <span style="flex:1;font-size:12.5px;font-weight:600;">Hero</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M3 3h5M3 5.5h5M3 8h5"/></svg><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><circle cx="3.5" cy="6.5" r="1.2"/><circle cx="6.5" cy="6.5" r="1.2"/><circle cx="9.5" cy="6.5" r="1.2"/></svg><span style="flex:1;font-size:12.5px;color:#4A463F;">Logo cloud</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M3 3h5M3 5.5h5M3 8h5"/></svg><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><path d="M2 4h9M2 6.5h9M2 9h6"/></svg><span style="flex:1;font-size:12.5px;color:#4A463F;">Feature grid</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M3 3h5M3 5.5h5M3 8h5"/></svg><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><path d="M3 4q0-1.5 3.5-1.5T10 4v3.5H5L3 9.5z"/></svg><span style="flex:1;font-size:12.5px;color:#4A463F;">Testimonial</span></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 9px;border-radius:8px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M3 3h5M3 5.5h5M3 8h5"/></svg><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.4"><rect x="2" y="4" width="9" height="5" rx="1"/></svg><span style="flex:1;font-size:12.5px;color:#4A463F;">Footer</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- F10 publish flow -->
+<div style="position:absolute;left:1660px;top:2360px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">09 · Publish — popover &amp; button states</div>
+  <div data-screen-label="Publish flow" style="position:relative;width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="page" hint-size="1440px,920px"></dc-import>
+    <div style="position:absolute;top:64px;right:120px;width:330px;background:#fff;border-radius:13px;box-shadow:0 24px 60px rgba(26,25,22,0.26);border:1px solid #EFEDE7;overflow:hidden;">
+      <div style="padding:16px 17px 14px;border-bottom:1px solid #EFEDE7;">
+        <div style="font-family:Lora,serif;font-size:17px;font-weight:600;">Publish to GitHub Pages</div>
+        <div style="font-size:12px;color:#6B6760;margin-top:3px;line-height:1.45;">Edits are saved instantly. Publishing pushes them live in a background job.</div>
+      </div>
+      <div style="padding:14px 17px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;margin-bottom:11px;">CHANGES SINCE LAST PUBLISH</div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;"><span style="width:6px;height:6px;border-radius:50%;background:#C8862F;"></span><span style="font-size:13px;">3 sections edited</span></div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;"><span style="width:6px;height:6px;border-radius:50%;background:#C8862F;"></span><span style="font-size:13px;">Brand color changed</span></div>
+        <div style="display:flex;align-items:center;gap:9px;"><span style="width:6px;height:6px;border-radius:50%;background:#5B6B4A;"></span><span style="font-size:13px;">1 section added · Testimonial</span></div>
+      </div>
+      <div style="padding:0 17px 16px;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:#3D5A98;color:#fff;padding:11px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:0 1px 2px rgba(61,90,152,0.3);">Publish now</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
+          <span style="font-size:12px;color:#6B6760;">Last deploy · 2d ago</span>
+          <span style="font-size:12px;color:#3D5A98;font-weight:600;">View live ↗</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- button state strip -->
+  <div style="margin-top:14px;background:#fff;border:1px solid #E0DDD6;border-radius:12px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;margin-bottom:14px;">PUBLISH BUTTON · STATES</div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;background:#3D5A98;color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;">Publish</div>
+      <div style="display:flex;align-items:center;gap:9px;background:#FFFFFF;color:#3D5A98;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;border:1px solid #C7D2E6;"><span style="width:11px;height:11px;border-radius:50%;border:2px solid #C7D2E6;border-top-color:#3D5A98;display:inline-block;"></span>Publishing…</div>
+      <div style="display:flex;align-items:center;gap:8px;background:#EEF1E9;color:#4A5A3A;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#5B6B4A" stroke-width="1.8"><path d="M2.5 6.8l2.6 2.6L10.5 4"/></svg>Published · <span style="color:#3D5A98;text-decoration:underline;text-underline-offset:2px;">view live</span></div>
+      <div style="display:flex;align-items:center;gap:8px;background:#FBEDE9;color:#9A3B23;padding:9px 16px;border-radius:10px;font-size:13px;font-weight:600;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#9A3B23" stroke-width="1.7"><path d="M6.5 3v4M6.5 9.2v.1"/><circle cx="6.5" cy="6.5" r="5"/></svg>Failed — retry</div>
+    </div>
+  </div>
+</div>
+
+<!-- F11 media picker -->
+<div style="position:absolute;left:3240px;top:2360px;width:820px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">10 · Media picker</div>
+  <div data-screen-label="Media picker" style="background:#EAE8E3;border-radius:12px;padding:30px;box-shadow:0 1px 3px rgba(0,0,0,0.08);display:flex;justify-content:center;">
+    <div style="width:760px;background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(26,25,22,0.24);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 22px 16px;border-bottom:1px solid #EFEDE7;">
+        <div><div style="font-family:Lora,serif;font-size:19px;font-weight:600;">Choose an image</div><div style="font-size:12.5px;color:#6B6760;margin-top:2px;">Committed to your repo · /assets</div></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#fff;background:#3D5A98;padding:8px 14px;border-radius:10px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#fff" stroke-width="1.6"><path d="M6.5 9V3M4 5.5l2.5-2.5L9 5.5M3 10h7"/></svg>Upload</span>
+          <div style="width:30px;height:30px;border-radius:8px;background:#F4F2ED;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.6"><path d="M3 3l7 7M10 3l-7 7"/></svg></div>
+        </div>
+      </div>
+      <div style="padding:18px 22px 0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;margin-bottom:11px;">RECENTLY USED</div>
+        <div style="display:flex;gap:12px;margin-bottom:22px;">
+          <div style="width:84px;height:60px;border-radius:9px;background:repeating-linear-gradient(45deg,#E5DFD6,#E5DFD6 6px,#EFEAE2 6px,#EFEAE2 12px);border:1px solid #E0DDD6;"></div>
+          <div style="width:84px;height:60px;border-radius:9px;background:repeating-linear-gradient(45deg,#DCE0D6,#DCE0D6 6px,#E7EADF 6px,#E7EADF 12px);border:1px solid #E0DDD6;"></div>
+          <div style="width:84px;height:60px;border-radius:9px;background:repeating-linear-gradient(45deg,#D9DEE7,#D9DEE7 6px,#E5E9F0 6px,#E5E9F0 12px);border:1px solid #E0DDD6;"></div>
+          <div style="width:84px;height:60px;border-radius:9px;background:repeating-linear-gradient(45deg,#E7E0D2,#E7E0D2 6px,#F0EBDD 6px,#F0EBDD 12px);border:1px solid #E0DDD6;"></div>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.08em;color:#A39E94;margin-bottom:11px;">ALL MEDIA · 11</div>
+      </div>
+      <div style="padding:0 22px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-height:230px;overflow:hidden;">
+        <div style="position:relative;height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#E5DFD6,#E5DFD6 7px,#EFEAE2 7px,#EFEAE2 14px);border:2px solid #3D5A98;box-shadow:0 0 0 3px rgba(61,90,152,0.15);"><span style="position:absolute;top:6px;right:6px;width:18px;height:18px;border-radius:50%;background:#3D5A98;display:flex;align-items:center;justify-content:center;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#fff" stroke-width="1.8"><path d="M2 5.6l2.2 2.2L9 3"/></svg></span><span style="position:absolute;bottom:5px;left:7px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#6B6760;background:rgba(255,255,255,0.8);padding:1px 5px;border-radius:4px;">hero-cover.jpg</span></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#DCE0D6,#DCE0D6 7px,#E7EADF 7px,#E7EADF 14px);border:1px solid #E0DDD6;"></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#D9DEE7,#D9DEE7 7px,#E5E9F0 7px,#E5E9F0 14px);border:1px solid #E0DDD6;"></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#E7E0D2,#E7E0D2 7px,#F0EBDD 7px,#F0EBDD 14px);border:1px solid #E0DDD6;"></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#E6DAD5,#E6DAD5 7px,#F1E7E2 7px,#F1E7E2 14px);border:1px solid #E0DDD6;"></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#DEDCD3,#DEDCD3 7px,#EAE7DE 7px,#EAE7DE 14px);border:1px solid #E0DDD6;"></div>
+        <div style="height:96px;border-radius:9px;background:repeating-linear-gradient(45deg,#D7DDE2,#D7DDE2 7px,#E4E9ED 7px,#E4E9ED 14px);border:1px solid #E0DDD6;"></div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;height:96px;border-radius:9px;border:1.5px dashed #C9C4BA;color:#6B6760;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#6B6760" stroke-width="1.5"><path d="M8 3.5v9M3.5 8h9"/></svg><span style="font-size:11px;">Upload</span></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 22px;margin-top:6px;border-top:1px solid #EFEDE7;">
+        <span style="font-size:13px;font-weight:600;color:#1A1916;border:1px solid #E0DDD6;padding:9px 16px;border-radius:10px;">Cancel</span>
+        <span style="font-size:13px;font-weight:600;color:#fff;background:#3D5A98;padding:9px 18px;border-radius:10px;">Insert image</span>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============ ROW 4 — SIGN-IN · LIBRARIES · RESPONSIVE · SPEC ============ -->
+
+<!-- F12 sign-in gate -->
+<div style="position:absolute;left:80px;top:3520px;width:1280px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">11 · Sign-in gate (first run)</div>
+  <div data-screen-label="Sign-in gate" style="position:relative;width:1280px;height:820px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);background:#EAE8E3;">
+    <!-- faded site behind -->
+    <div style="position:absolute;inset:0;filter:blur(3px);opacity:0.5;display:flex;flex-direction:column;align-items:center;padding-top:120px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#B0542F;margin-bottom:24px;">OPEN SOURCE · MIT · GIT-BACKED</div>
+      <div style="font-family:Lora,serif;font-size:72px;font-weight:600;letter-spacing:-0.02em;text-align:center;line-height:1.04;color:#1A1916;">Build a real website.<br>Own it forever.</div>
+    </div>
+    <div style="position:absolute;inset:0;background:rgba(234,232,227,0.55);"></div>
+    <!-- card -->
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:430px;background:#fff;border-radius:16px;box-shadow:0 30px 70px rgba(26,25,22,0.22);padding:38px 36px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:9px;font-family:Lora,serif;font-size:21px;font-weight:600;margin-bottom:26px;"><span style="display:inline-block;width:11px;height:11px;background:#B0542F;border-radius:3px;transform:rotate(45deg);"></span>noCMS</div>
+      <div style="font-family:Lora,serif;font-size:25px;font-weight:600;letter-spacing:-0.01em;line-height:1.2;margin-bottom:12px;">Sign in to edit this site</div>
+      <p style="font-size:13.5px;color:#6B6760;line-height:1.55;margin:0 0 26px;">You own <span style="font-family:'IBM Plex Mono',monospace;color:#1A1916;">nocms.github.io</span>. Sign in with GitHub to make changes — editing is instant, publishing is one click.</p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;background:#1A1916;color:#fff;padding:13px;border-radius:11px;font-size:14px;font-weight:600;">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="#fff"><path d="M9 1.5a7.5 7.5 0 0 0-2.37 14.62c.37.07.51-.16.51-.36v-1.4c-2.09.45-2.53-.9-2.53-.9-.34-.87-.83-1.1-.83-1.1-.68-.47.05-.46.05-.46.76.05 1.16.78 1.16.78.67 1.15 1.76.82 2.19.63.07-.49.26-.82.48-1.01-1.67-.19-3.42-.83-3.42-3.72 0-.82.29-1.5.78-2.02-.08-.19-.34-.96.07-2.01 0 0 .63-.2 2.07.77a7.2 7.2 0 0 1 3.77 0c1.44-.97 2.07-.77 2.07-.77.41 1.05.15 1.82.07 2.01.49.52.78 1.2.78 2.02 0 2.9-1.76 3.53-3.43 3.71.27.23.51.69.51 1.39v2.06c0 .2.14.44.51.36A7.5 7.5 0 0 0 9 1.5z"/></svg>
+        Continue with GitHub
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.05em;color:#A39E94;margin-top:22px;">OPEN SOURCE · MIT · YOU OWN THE REPO FOREVER</div>
+    </div>
+  </div>
+</div>
+
+<!-- F13 library manager -->
+<div style="position:absolute;left:1500px;top:3520px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">12 · Library manager</div>
+  <div data-screen-label="Library manager" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);background:#EAE8E3;display:flex;flex-direction:column;">
+    <!-- chrome -->
+    <div style="height:56px;min-height:56px;background:#fff;border-bottom:1px solid #E0DDD6;display:flex;align-items:center;padding:0 16px;gap:14px;">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#6B6760;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#6B6760" stroke-width="1.6"><path d="M8.5 3L5 7l3.5 4"/></svg>Back to editor</div>
+      <div style="flex:1;"></div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#6B6760;">nocms.github.io</span>
+      <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#5B6B4A,#3D5A98);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;">A</div>
+    </div>
+    <!-- content -->
+    <div style="flex:1;overflow:hidden;display:flex;justify-content:center;padding:48px 30px;">
+      <div style="width:760px;">
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px;">
+          <div>
+            <div style="font-family:Lora,serif;font-size:30px;font-weight:600;letter-spacing:-0.015em;">Libraries</div>
+            <div style="font-size:14px;color:#6B6760;margin-top:6px;">Manage the section libraries installed in this site.</div>
+          </div>
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fff;background:#3D5A98;padding:10px 16px;border-radius:10px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#fff" stroke-width="1.7"><path d="M6.5 2.5v8M2.5 6.5h8"/></svg>Add a library</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <!-- Core -->
+          <div style="background:#fff;border:1px solid #E0DDD6;border-radius:12px;padding:20px 22px;display:flex;align-items:center;gap:18px;">
+            <div style="width:46px;height:46px;border-radius:11px;background:#F4F2ED;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#1A1916" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="12" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="12" width="7" height="7" rx="1.5"/><rect x="12" y="12" width="7" height="7" rx="1.5"/></svg></div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:16px;font-weight:600;">Core</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6B6760;background:#F1EFE9;padding:2px 7px;border-radius:5px;">v2.4.0</span><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#4A5A3A;background:#EEF1E9;padding:2px 8px;border-radius:5px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#5B6B4A" stroke-width="1.6"><path d="M5.5 1l3.5 1.5v3c0 2.5-1.8 3.8-3.5 4.5C3.8 9.3 2 8 2 5.5v-3z"/></svg>Verified</span></div>
+              <div style="font-size:13px;color:#6B6760;margin-top:6px;">The essential sections every site needs — heroes, features, footers.</div>
+            </div>
+            <div style="text-align:right;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A39E94;margin-bottom:8px;">24 BLOCKS</div><span style="font-size:12.5px;color:#A39E94;">Built in</span></div>
+          </div>
+          <!-- Studio Pack -->
+          <div style="background:#fff;border:1px solid #E0DDD6;border-radius:12px;padding:20px 22px;display:flex;align-items:center;gap:18px;">
+            <div style="width:46px;height:46px;border-radius:11px;background:#EEF1F7;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="#3D5A98" stroke-width="1.5"><path d="M11 2.5l2.6 5.3 5.9.86-4.25 4.14 1 5.87L11 16l-5.25 2.74 1-5.87L2.5 8.66l5.9-.86z"/></svg></div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:10px;"><span style="font-size:16px;font-weight:600;">Studio Pack</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#6B6760;background:#F1EFE9;padding:2px 7px;border-radius:5px;">v1.1.0</span><span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#4A5A3A;background:#EEF1E9;padding:2px 8px;border-radius:5px;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#5B6B4A" stroke-width="1.6"><path d="M5.5 1l3.5 1.5v3c0 2.5-1.8 3.8-3.5 4.5C3.8 9.3 2 8 2 5.5v-3z"/></svg>Verified</span></div>
+              <div style="font-size:13px;color:#6B6760;margin-top:6px;">Editorial layouts — testimonials, galleries, and rich content blocks.</div>
+            </div>
+            <div style="text-align:right;"><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#A39E94;margin-bottom:8px;">9 BLOCKS</div><span style="font-size:12.5px;color:#3D5A98;font-weight:500;">Remove</span></div>
+          </div>
+          <!-- add tile -->
+          <div style="border:1.5px dashed #C9C4BA;border-radius:12px;padding:22px;text-align:center;color:#6B6760;">
+            <div style="font-size:13.5px;font-weight:500;color:#4A463F;">Add a library from a Git URL or the registry</div>
+            <div style="font-size:12px;color:#A39E94;margin-top:4px;">Libraries are open source — you can read every block before installing.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- F14 responsive L0 -->
+<div style="position:absolute;left:3080px;top:3520px;width:1440px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">13 · Responsive — narrow breakpoint (L1)</div>
+  <div data-screen-label="Responsive L1" style="width:1440px;height:920px;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <dc-import name="Editor" rail-mode="block" selected-id="hero" breakpoint="L1" hint-size="1440px,920px"></dc-import>
+  </div>
+</div>
+
+<!-- F15 spec strip -->
+<div style="position:absolute;left:4640px;top:3520px;width:1180px;">
+  <div data-drags-parent="1" style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6760;margin-bottom:12px;">14 · Component spec — control kinds &amp; card states</div>
+  <div data-screen-label="Spec strip" style="width:1180px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.08);border:1px solid #E0DDD6;padding:34px 36px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin-bottom:20px;">CONTROL KINDS · DERIVED FROM THE BLOCK SCHEMA</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px 28px;margin-bottom:38px;">
+      <!-- text -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">TEXT</div><div style="border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;font-size:13px;">Build a real website</div></div>
+      <!-- textarea -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">TEXTAREA</div><div style="border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;font-size:13px;color:#6B6760;line-height:1.45;min-height:42px;">Own it forever, no servers.</div></div>
+      <!-- number -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">NUMBER</div><div style="display:flex;align-items:center;justify-content:space-between;border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;font-size:13px;"><span>3</span><div style="display:flex;flex-direction:column;gap:2px;"><svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="#A39E94" stroke-width="1.3"><path d="M1.5 4L4.5 1.5 7.5 4"/></svg><svg width="9" height="6" viewBox="0 0 9 6" fill="none" stroke="#A39E94" stroke-width="1.3"><path d="M1.5 2L4.5 4.5 7.5 2"/></svg></div></div></div>
+      <!-- range -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">RANGE</div><div style="position:relative;height:5px;background:#EDEAE3;border-radius:999px;margin-top:16px;"><div style="position:absolute;left:0;height:5px;width:42%;background:#3D5A98;border-radius:999px;"></div><div style="position:absolute;left:42%;top:50%;transform:translate(-50%,-50%);width:15px;height:15px;border-radius:50%;background:#fff;border:1px solid #C9C4BA;box-shadow:0 1px 3px rgba(0,0,0,0.15);"></div></div></div>
+      <!-- boolean -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">BOOLEAN</div><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:13px;color:#6B6760;">Full-bleed</span><div style="width:36px;height:21px;border-radius:999px;background:#3D5A98;position:relative;"><span style="position:absolute;top:2.5px;right:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;"></span></div></div></div>
+      <!-- select -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">SELECT</div><div style="display:flex;background:#F4F2ED;border-radius:999px;padding:3px;"><div style="flex:1;text-align:center;padding:5px;border-radius:999px;font-size:12px;color:#6B6760;">L</div><div style="flex:1;text-align:center;padding:5px;border-radius:999px;font-size:12px;font-weight:600;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,0.07);">C</div><div style="flex:1;text-align:center;padding:5px;border-radius:999px;font-size:12px;color:#6B6760;">R</div></div></div>
+      <!-- color -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">COLOR</div><div style="display:flex;gap:9px;align-items:center;"><span style="width:24px;height:24px;border-radius:50%;background:#B0542F;box-shadow:0 0 0 2px #fff,0 0 0 4px #3D5A98;"></span><span style="width:24px;height:24px;border-radius:50%;background:#5B6B4A;"></span><span style="width:24px;height:24px;border-radius:50%;background:#3D5A98;"></span><span style="width:24px;height:24px;border-radius:50%;background:#BC9A4A;"></span><span style="width:24px;height:24px;border-radius:50%;background:#1A1916;"></span></div></div>
+      <!-- image -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">IMAGE</div><div style="display:flex;align-items:center;gap:11px;border:1px solid #E0DDD6;border-radius:10px;padding:8px;"><div style="width:42px;height:32px;border-radius:6px;background:repeating-linear-gradient(45deg,#EDEAE3,#EDEAE3 5px,#F6F4EF 5px,#F6F4EF 10px);border:1px solid #E0DDD6;"></div><span style="flex:1;font-size:12px;">hero-cover.jpg</span><span style="font-size:12px;color:#3D5A98;font-weight:600;">Replace</span></div></div>
+      <!-- url -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">URL</div><div style="display:flex;align-items:center;gap:8px;border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#A39E94" stroke-width="1.4"><path d="M5 8l3-3M4.5 6.5l-1 1a1.8 1.8 0 0 0 2.5 2.5l1-1M8.5 6.5l1-1a1.8 1.8 0 0 0-2.5-2.5l-1 1"/></svg><span style="font-size:12.5px;color:#3D5A98;">/create</span></div></div>
+      <!-- date -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">DATE</div><div style="display:flex;align-items:center;gap:8px;border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#A39E94" stroke-width="1.4"><rect x="2" y="3" width="9" height="8" rx="1.2"/><path d="M2 5.5h9M4.5 2v2M8.5 2v2"/></svg><span style="font-size:12.5px;">Jun 27, 2026</span></div></div>
+      <!-- reference -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">REFERENCE</div><div style="display:flex;align-items:center;gap:8px;border:1px solid #E0DDD6;border-radius:10px;padding:9px 11px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#3D5A98;background:#EEF1F7;padding:2px 6px;border-radius:5px;">PAGE</span><span style="flex:1;font-size:12.5px;">About</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#A39E94" stroke-width="1.4"><path d="M3 4.5l3 3 3-3"/></svg></div></div>
+      <!-- list -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">LIST</div><div style="display:flex;flex-direction:column;gap:6px;"><div style="display:flex;align-items:center;gap:8px;border:1px solid #E0DDD6;border-radius:9px;padding:7px 9px;"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M2.5 3h5M2.5 5h5M2.5 7h5"/></svg><span style="flex:1;font-size:12px;">How it works</span><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#A39E94" stroke-width="1.4"><path d="M3.5 3l3 2.5-3 2.5"/></svg></div><div style="display:flex;align-items:center;gap:8px;border:1px solid #E0DDD6;border-radius:9px;padding:7px 9px;"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="#C0BBB1" stroke-width="1.3"><path d="M2.5 3h5M2.5 5h5M2.5 7h5"/></svg><span style="flex:1;font-size:12px;">Create my site</span><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="#A39E94" stroke-width="1.4"><path d="M3.5 3l3 2.5-3 2.5"/></svg></div></div></div>
+      <!-- group -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">GROUP</div><div style="border:1px solid #EFEDE7;border-radius:11px;padding:11px;background:#FBFAF7;"><div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:0.06em;color:#1A1916;margin-bottom:9px;">LAYOUT</div><div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#6B6760;"><span>Padding</span><span style="font-family:'IBM Plex Mono',monospace;">96px</span></div></div></div>
+      <!-- advanced -->
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#6B6760;margin-bottom:8px;">ADVANCED</div><div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #EFEDE7;padding:11px 2px 0;font-size:13px;color:#6B6760;"><span>Advanced</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#A39E94" stroke-width="1.5"><path d="M4.5 3l3 3-3 3"/></svg></div></div>
+    </div>
+
+    <div style="height:1px;background:#EFEDE7;margin-bottom:26px;"></div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin-bottom:20px;">CATALOG CARD · STATES</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39E94;margin-bottom:9px;">DEFAULT</div><dc-import name="CatalogCard" kind="hero" cardname="Hero" desc="A bold opening with headline and actions." badge="Core" hint-size="100%,228px"></dc-import></div>
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39E94;margin-bottom:9px;">HOVER · INSERT</div><dc-import name="CatalogCard" kind="features" cardname="Feature grid" desc="A responsive grid of features with icons." badge="Core" hover="{{ true }}" hint-size="100%,228px"></dc-import></div>
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#A39E94;margin-bottom:9px;">SELECTED</div><div style="border-radius:12px;box-shadow:0 0 0 2px #3D5A98;"><dc-import name="CatalogCard" kind="testimonial" cardname="Testimonial" desc="A customer quote with attribution." badge="Studio Pack" hint-size="100%,228px"></dc-import></div></div>
+    </div>
+  </div>
+</div></x-dc>
+</body>
+</html>
