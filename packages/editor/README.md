@@ -46,3 +46,31 @@ one live mdast document and wires four edit surfaces over it:
 After any structural edit the shell re-serializes mdast→MDX, re-renders the canvas from that
 source through the one renderer, re-highlights by index-path, and fires `onChange(mdx)` —
 the seam a host wires to save/publish (`@nocms/session`).
+
+## Editor UI
+
+`mountEditor` frames the canvas with the app chrome and a docked rail; the screens below are
+also exported as standalone presenters a host can compose.
+
+- **Chrome** (`chrome.tsx`) — the 56px top bar: breakpoint segmented (`L0`–`L4`, sizing the
+  canvas surface), appearance toggle, save status, the 4-state Publish button, avatar.
+- **Rail** — page-properties (`rail.tsx`: title/description + the Design & brand entry +
+  "Add a section") when nothing is selected; schema-derived block-properties (`props-panel.tsx`)
+  when a block is. Every control kind renders to spec (segmented selects, sliders, toggles,
+  image control, advanced fold); nested `group`/`list` stay structural (the scalar attribute
+  model can't represent them — deferred).
+- **Design & brand** (`tokens-panel.tsx`) — a curated swatch palette + corner-radius slider
+  that rewrite the runtime CSS-var `<style>` live (no rebuild).
+- **Insertion** — the catalog insert sheet (`catalog.tsx`) with rendered mini-previews,
+  intent-grouped cards, and search/empty states; it consumes manifests only, so built-in and
+  sandboxed-plugin components are interchangeable.
+- **Other screens** — `navigator.tsx` (pages + live section outline), `media.tsx` (asset
+  picker for image controls), `publish.tsx` (async publish popover), `format-bar.tsx`
+  (inline bold/italic/link over the prose view), `sign-in.tsx` (first-run gate), and
+  `library-manager.tsx` (manage installed packs).
+
+**Accent discipline:** the chrome accent is slate (`--nc-accent`) — Publish, selection,
+"Add a section", active toggles, Insert. Terracotta (`--nc-rust`) is reserved for live-canvas
+site content and the brand-token swatches a user picks from; the two are distinct CSS vars in
+`theme.ts` so they never mix. The whole stylesheet is scoped under `.nocms-editor`, so chrome
+styling never leaks into the rendered site.
