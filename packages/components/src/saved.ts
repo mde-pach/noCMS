@@ -213,3 +213,13 @@ export function composedBlockFromDefinition(
     category: def.category,
   };
 }
+
+/** Either kind of saved-component definition — the currency the editor stores and replays. */
+export type SavedDef = SavedComponentDef | ComposedComponentDef;
+
+/** Build a `BlockDef` from either kind of saved definition (composed has a `structure`). */
+export function savedDefToBlock(def: SavedDef, registry: ComponentRegistry): BlockDef {
+  return "structure" in def
+    ? composedBlockFromDefinition(def, registry)
+    : savedBlockFromDefinition(def, registry);
+}

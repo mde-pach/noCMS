@@ -18,12 +18,14 @@
 import {
   type ComponentManifest,
   type ComponentRegistry,
+  type ComposedComponentDef,
   controlsOf,
   defineSavedComponent,
   type PropPrimitive,
+  type PropSlot,
   registryManifest,
-  type SavedComponentDef,
-  savedBlockFromDefinition,
+  type SavedDef,
+  savedDefToBlock,
 } from "@nocms/components";
 import {
   mountProseEditor,
@@ -108,10 +110,10 @@ export interface EditorOptions {
   onTokensChange?: (tokens: string) => void;
   /** saved-component definitions to load into the registry at mount, so a page that
    *  references them renders. The host reads these from the repo (the persistence seam). */
-  savedComponents?: SavedComponentDef[];
+  savedComponents?: SavedDef[];
   /** fired with a new saved-component definition when one is authored — the seam to
    *  persist it to the repo so it survives a reload (symmetric with `onChange`). */
-  onSaveComponent?: (def: SavedComponentDef) => void;
+  onSaveComponent?: (def: SavedDef) => void;
   /** the host shown in the top bar identity; defaults to a placeholder. */
   siteHost?: string;
   /** the page label shown in the top-bar pill. */
@@ -185,8 +187,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // The canvas reads this map live on every paint, so registering a saved component is a
   // mutation of `components` (controls/manifests) plus `componentMap` (what the canvas renders).
   const componentMap = toComponentMap(components);
-  const registerSaved = (def: SavedComponentDef): void => {
-    const block = savedBlockFromDefinition(def, components);
+  const registerSaved = (def: SavedDef): void => {
+    const block = savedDefToBlock(def, components);
     components[def.name] = block;
     componentMap[def.name] = block.component;
   };
@@ -205,7 +207,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   let overlay: "catalog" | "publish" | "navigator" | "media" | "save-component" | null =
     null;
   let mediaTarget: { element: JsxElement; key: string } | undefined;
-  let saveTarget: { node: JsxElement; path: IndexPath } | undefined;
+  let saveTarget: { node: JsxElement; path: IndexPath; container: boolean } | undefined;
   let brandExpanded = false;
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -438,7 +440,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         <SaveComponentDialog
           base={base}
           controls={def ? controlsOf(def) : []}
-          onSave={(name, exposed) => void saveAsComponent(name, exposed)}
+          container={saveTarget.container}
+          onSave={(name, exposed, slot) => void saveAsComponent(name, exposed, slot)}
           onClose={closeOverlay}
         />,
         modalHost,
@@ -549,15 +552,24 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (!node || !selectedPath || !isJsxElement(node) || !node.name) return;
     const def = components[node.name];
     if (!def || controlsOf(def).length === 0) return;
-    saveTarget = { node, path: selectedPath };
+    saveTarget = {
+      node,
+      path: selectedPath,
+      container: childrenOf(node).length > 0,
+    };
     overlay = "save-component";
     renderOverlays();
   };
 
-  // Build a saved component from the selection: capture the base's current prop values, bake
-  // the locked ones, register the new block into the live registry and canvas map, then
-  // convert the selected node into an instance of it (only the exposed props written inline).
-  const saveAsComponent = async (name: string, exposed: string[]): Promise<void> => {
+  // Build a saved component from the selection: capture the base's current prop values, bake the
+  // locked ones, register the new block, then convert the selection into an instance (only exposed
+  // props inline). When `slot` is set the base is a container and we keep its contents as an
+  // editable child region — a composed component (Phase 2); otherwise a single-brick specialize.
+  const saveAsComponent = async (
+    name: string,
+    exposed: string[],
+    slot: boolean,
+  ): Promise<void> => {
     if (!saveTarget) return;
     const { node, path } = saveTarget;
     const base = node.name;
@@ -577,18 +589,48 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       }
     }
 
-    const def = defineSavedComponent({
-      name,
-      base,
-      props,
-      expose: exposed,
-      description: `Saved from ${base}.`,
-      category: "Saved",
-    });
+    let def: SavedDef;
+    if (slot) {
+      const structureProps: Record<string, PropSlot> = {};
+      for (const control of controlsOf(baseDef)) {
+        if (exposed.includes(control.key)) {
+          structureProps[control.key] = { exposed: control.key };
+        } else if (props[control.key] !== undefined) {
+          structureProps[control.key] = {
+            fixed: props[control.key] as PropPrimitive,
+          };
+        }
+      }
+      def = {
+        name,
+        structure: {
+          kind: "component",
+          component: base,
+          props: structureProps,
+          children: [{ kind: "slot" }],
+        },
+        controls: controlsOf(baseDef)
+          .filter((c) => exposed.includes(c.key))
+          .map((c) => ({ ...c, default: props[c.key] })),
+        slot: true,
+        description: `Saved from ${base}.`,
+        category: "Saved",
+      } satisfies ComposedComponentDef;
+    } else {
+      def = defineSavedComponent({
+        name,
+        base,
+        props,
+        expose: exposed,
+        description: `Saved from ${base}.`,
+        category: "Saved",
+      });
+    }
     registerSaved(def);
     options.onSaveComponent?.(def);
 
     node.name = name;
+    // Keep the children for a composed (slot) component; a specialized leaf has none.
     node.attributes = [];
     for (const key of exposed) {
       const value = props[key];

@@ -73,3 +73,7 @@ export interface ComposedComponentDef {
 /** Build a `BlockDef` from a composed definition: the component renders the stored structure with
  *  exposed controls and the instance's children substituted in, through the registry's components. */
 export declare function composedBlockFromDefinition(def: ComposedComponentDef, registry: ComponentRegistry): BlockDef;
+/** Either kind of saved-component definition — the currency the editor stores and replays. */
+export type SavedDef = SavedComponentDef | ComposedComponentDef;
+/** Build a `BlockDef` from either kind of saved definition (composed has a `structure`). */
+export declare function savedDefToBlock(def: SavedDef, registry: ComponentRegistry): BlockDef;

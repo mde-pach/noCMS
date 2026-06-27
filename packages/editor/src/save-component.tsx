@@ -14,8 +14,11 @@ export interface SaveComponentDialogProps {
   base: string;
   /** the base's controls; each becomes an exposed-or-locked row (default exposed). */
   controls: ControlDescriptor[];
-  /** confirm with the chosen name and the keys that stay editable on instances. */
-  onSave: (name: string, exposed: string[]) => void;
+  /** true when the block has contents — offers keeping them as an editable slot (compose). */
+  container?: boolean;
+  /** confirm with the chosen name, the keys that stay editable, and whether to keep the
+   *  block's contents as an editable slot. */
+  onSave: (name: string, exposed: string[], slot: boolean) => void;
   onClose: () => void;
 }
 
@@ -24,6 +27,7 @@ const NAME_RE = /^[A-Za-z][A-Za-z0-9]*$/;
 export function SaveComponentDialog({
   base,
   controls,
+  container = false,
   onSave,
   onClose,
 }: SaveComponentDialogProps): VNode {
@@ -31,6 +35,7 @@ export function SaveComponentDialog({
   const [exposed, setExposed] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(controls.map((c) => [c.key, true])),
   );
+  const [keepSlot, setKeepSlot] = useState(true);
 
   const exposedKeys = useMemo(
     () => controls.filter((c) => exposed[c.key]).map((c) => c.key),
@@ -43,7 +48,7 @@ export function SaveComponentDialog({
     setExposed((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const submit = (): void => {
-    if (valid) onSave(name.trim(), exposedKeys);
+    if (valid) onSave(name.trim(), exposedKeys, container && keepSlot);
   };
 
   return (
@@ -118,6 +123,19 @@ export function SaveComponentDialog({
               ))}
             </div>
           )}
+          {container ? (
+            <div class="nocms-expose-row nocms-slot-row">
+              <span class="nocms-expose-label">Contents</span>
+              <button
+                type="button"
+                class="nocms-expose-toggle nocms-slot-toggle"
+                aria-pressed={keepSlot ? "true" : "false"}
+                onClick={() => setKeepSlot((v) => !v)}
+              >
+                {keepSlot ? "Editable slot" : "Baked in"}
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div class="nc-sheet-foot">

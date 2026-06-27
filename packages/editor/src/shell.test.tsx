@@ -395,6 +395,26 @@ const savedComponents: ComponentRegistry = {
   },
 };
 
+// A container whose children render in a slot — for composing a layout wrapper.
+const Box: ComponentType<Record<string, unknown>> = (props) =>
+  h(
+    "section",
+    { class: `box box-${(props.tone as string) ?? "plain"}` },
+    props.children as never,
+  );
+
+const composeComponents: ComponentRegistry = {
+  Box: {
+    component: asComponent(Box),
+    schema: v.object({ tone: v.optional(v.picklist(["plain", "muted"]), "plain") }),
+    slots: ["children"],
+  },
+  Button: {
+    component: asComponent(CtaButton),
+    schema: v.object({ label: v.string() }),
+  },
+};
+
 function openSaveDialog(target: Element): void {
   selectFirst(target, ".btn");
   const save = target.querySelector(".nocms-tool-save-component");
@@ -551,6 +571,43 @@ describe("save as component (D20)", () => {
     expect(def.base).toBe("Button");
     expect(def.exposed).toEqual({ label: "Go" });
     expect(def.locked).toEqual({ variant: "secondary" });
+
+    handle.dispose();
+  });
+
+  test("composes a container into a component, keeping its contents as a slot", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+    const handle = await mountEditor({
+      target,
+      mdx: `<Box tone="muted">\n  <Button label="Inside" />\n</Box>\n`,
+      components: composeComponents,
+      onChange,
+    });
+
+    // Select the container Box and open the dialog.
+    selectFirst(target, ".box");
+    (target.querySelector(".nocms-tool-save-component") as HTMLElement).click();
+
+    // A container offers keeping its contents as an editable slot (default on).
+    const slotToggle = target.querySelector(".nocms-slot-toggle") as HTMLElement;
+    expect(slotToggle).not.toBeNull();
+    expect(slotToggle.getAttribute("aria-pressed")).toBe("true");
+
+    await nameAndConfirm(target, "MutedBox");
+
+    await vi.waitFor(() =>
+      expect(onChange.mock.calls.at(-1)?.[0]).toContain("<MutedBox"),
+    );
+    const mdx = onChange.mock.calls.at(-1)?.[0] as string;
+    // The contents stay inline as the instance's children (the editable slot).
+    expect(mdx).toContain('<Button label="Inside"');
+    // It renders: the Box wrapper around the kept child, through the registry.
+    expect(target.querySelector(".nocms-editor-canvas .box-muted")).not.toBeNull();
+    expect(
+      target.querySelector(".nocms-editor-canvas .box-muted .btn")?.textContent,
+    ).toBe("Inside");
 
     handle.dispose();
   });

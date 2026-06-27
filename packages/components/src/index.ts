@@ -240,8 +240,10 @@ export {
   defineSavedComponent,
   type PropSlot,
   type SavedComponentDef,
+  type SavedDef,
   type StructureNode,
   savedBlockFromDefinition,
+  savedDefToBlock,
   savedPack,
 } from "./saved";
 export { CTA, type CTAProps, CTASchema } from "./sections/CTA";
