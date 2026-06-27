@@ -178,11 +178,12 @@ export const EDITOR_CSS = `
 
 /* ---------- body / canvas ---------- */
 .nocms-body { flex: 1; display: flex; min-height: 0; position: relative; }
-.nocms-editor-canvas {
-  flex: 1; background: var(--nc-shell); overflow: auto; position: relative;
+.nocms-canvas-region {
+  flex: 1; min-width: 0; background: var(--nc-shell); overflow: auto; position: relative;
   display: flex; justify-content: center; padding: 30px 30px 60px;
 }
-.nocms-surface {
+/* the white surface that hosts the live site, sized to the active breakpoint */
+.nocms-editor-canvas {
   width: 1040px; max-width: 100%; background: #fff; border: 1px solid var(--nc-border);
   border-radius: 6px; overflow: visible; align-self: flex-start; position: relative;
   box-shadow: 0 10px 34px rgba(26,25,22,0.07); transition: width .2s ease;
@@ -348,6 +349,18 @@ export const EDITOR_CSS = `
 .nc-change-dot.nc-amber { background: var(--nc-amber); }
 .nc-change-dot.nc-olive { background: var(--nc-olive); }
 .nc-pop-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 11.5px; color: var(--nc-text-3); }
+
+/* ---------- media picker ---------- */
+.nc-media-sheet { width: 760px; }
+.nc-sheet-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 16px 26px; border-top: 1px solid var(--nc-border-faint); }
+.nc-media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.nc-media-tile { position: relative; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
+.nc-media-thumb { display: block; height: 96px; border-radius: var(--nc-radius); border: 1px solid var(--nc-border); background-size: cover; background-position: center;
+  background-color: var(--nc-surface-muted); background-image: repeating-linear-gradient(45deg, #EDEAE3, #EDEAE3 8px, #F6F4EF 8px, #F6F4EF 16px); }
+.nc-media-tile.nc-selected .nc-media-thumb { border: 2px solid var(--nc-accent); box-shadow: 0 0 0 3px rgba(61,90,152,0.12); }
+.nc-media-check { position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; border-radius: 50%; background: var(--nc-accent); color: #fff; display: flex; align-items: center; justify-content: center; }
+.nc-media-name { display: block; font-size: 11.5px; color: var(--nc-text-2); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nc-media-upload { height: 96px; border: 1px dashed #D5D1C8; border-radius: var(--nc-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--nc-text-2); font-size: 12px; cursor: pointer; }
 
 /* ---------- navigator ---------- */
 .nc-nav-scrim { position: absolute; inset: 0; z-index: 45; }

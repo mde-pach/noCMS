@@ -43,8 +43,10 @@ import {
 import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
 import { createHistory } from "./history.js";
 import { blockFromManifest, insertBlock } from "./insert.js";
-import { isJsxElement } from "./jsx-attributes.js";
+import { isJsxElement, type JsxElement, setProp } from "./jsx-attributes.js";
 import { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
+import { MediaPicker } from "./media.js";
+import { Navigator, type NavSection } from "./navigator.js";
 import {
   type IndexPath,
   indexPathOf,
@@ -168,7 +170,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   let appearance: Appearance = "light";
   let dirty = false;
   let publishStatus: PublishStatus = "idle";
-  let overlay: "catalog" | "publish" | null = null;
+  let overlay: "catalog" | "publish" | "navigator" | "media" | null = null;
+  let mediaTarget: { element: JsxElement; key: string } | undefined;
   let brandExpanded = false;
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -255,8 +258,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         onReset={() => void resetEdits()}
         publishStatus={publishStatus}
         onPublish={togglePublish}
-        onMenu={() => {}}
-        onPagePill={() => {}}
+        onMenu={openNavigator}
+        onPagePill={openNavigator}
         avatarInitial="A"
       />,
       chromeHost,
@@ -293,6 +296,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
               meta="SECTION · CORE"
               controls={controls}
               onChange={handleEdit}
+              onPickImage={(key) => openMedia(node, key)}
             />,
             railHost,
           );
@@ -327,12 +331,66 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
+  function sectionOutline(): NavSection[] {
+    const sel = selectedPath?.length === 1 ? selectedPath[0] : undefined;
+    return doc.children.flatMap((node, index) => {
+      if (node.type === "yaml") return [];
+      const label = "name" in node && node.name ? String(node.name) : node.type;
+      return [{ label, index, selected: index === sel }];
+    });
+  }
+
+  function mediaItems() {
+    return [
+      {
+        url: "https://placehold.co/400x300/B0542F/ffffff?text=hero",
+        name: "hero-cover.jpg",
+      },
+      { url: "https://placehold.co/400x300/5B6B4A/ffffff?text=team", name: "team.jpg" },
+      {
+        url: "https://placehold.co/400x300/3D5A98/ffffff?text=office",
+        name: "office.jpg",
+      },
+      {
+        url: "https://placehold.co/400x300/BC9A4A/ffffff?text=product",
+        name: "product.jpg",
+      },
+      {
+        url: "https://placehold.co/400x300/1A1916/ffffff?text=banner",
+        name: "banner.jpg",
+      },
+    ];
+  }
+
   function renderOverlays(): void {
     if (overlay === "catalog") {
       render(
         <InsertSheet
           manifests={registryManifest(components)}
           onInsert={(manifest) => void handleInsert(manifest)}
+          onClose={closeOverlay}
+        />,
+        modalHost,
+      );
+    } else if (overlay === "navigator") {
+      render(
+        <Navigator
+          pageName={options.pageName ?? "Home"}
+          pages={["Home", "About", "Work", "Journal", "Contact"]}
+          sections={sectionOutline()}
+          onSelectSection={(index) => {
+            select([index]);
+            closeOverlay();
+          }}
+          onClose={closeOverlay}
+        />,
+        modalHost,
+      );
+    } else if (overlay === "media") {
+      render(
+        <MediaPicker
+          items={mediaItems()}
+          onInsert={(url) => void chooseMedia(url)}
           onClose={closeOverlay}
         />,
         modalHost,
@@ -413,8 +471,27 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlay = "catalog";
     renderOverlays();
   };
+  const openNavigator = (): void => {
+    overlay = "navigator";
+    renderOverlays();
+  };
+  const openMedia = (element: JsxElement, key: string): void => {
+    mediaTarget = { element, key };
+    overlay = "media";
+    renderOverlays();
+  };
+  const chooseMedia = async (url: string): Promise<void> => {
+    if (mediaTarget) {
+      setProp(mediaTarget.element, mediaTarget.key, url);
+      mediaTarget = undefined;
+      overlay = null;
+      renderOverlays();
+      await handleEdit();
+    }
+  };
   const closeOverlay = (): void => {
     overlay = null;
+    mediaTarget = undefined;
     renderOverlays();
   };
 

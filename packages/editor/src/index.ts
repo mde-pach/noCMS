@@ -36,6 +36,12 @@ export {
   setProp,
 } from "./jsx-attributes.js";
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
+export { MediaPicker, type MediaPickerProps } from "./media.js";
+export {
+  Navigator,
+  type NavigatorProps,
+  type NavSection,
+} from "./navigator.js";
 export {
   deepestNodeAtOffset,
   type IndexPath,
