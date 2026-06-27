@@ -22,7 +22,7 @@ export { Section, type SectionProps, SectionSchema } from "./primitives/Section"
 export { Select, type SelectProps, SelectSchema } from "./primitives/Select";
 export { Stack, type StackProps, StackSchema } from "./primitives/Stack";
 export { Textarea, type TextareaProps, TextareaSchema } from "./primitives/Textarea";
-export { defineSavedComponent, type SavedComponentDef, savedBlockFromDefinition, savedPack, } from "./saved";
+export { type ComposedComponentDef, composedBlockFromDefinition, defineSavedComponent, type PropSlot, type SavedComponentDef, type StructureNode, savedBlockFromDefinition, savedPack, } from "./saved";
 export { CTA, type CTAProps, CTASchema } from "./sections/CTA";
 export { Features, type FeaturesProps, FeaturesSchema } from "./sections/Features";
 export { Footer, type FooterProps, FooterSchema } from "./sections/Footer";

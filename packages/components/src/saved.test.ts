@@ -2,12 +2,15 @@ import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, test } from "vitest";
 import {
+  type ComposedComponentDef,
+  composedBlockFromDefinition,
   controlsOf,
   core,
   createRegistry,
   defineSavedComponent,
   manifestOf,
   registryManifest,
+  type StructureNode,
   savedBlockFromDefinition,
   savedPack,
 } from "./index";
@@ -86,5 +89,66 @@ describe("savedPack", () => {
     const manifest = manifestOf("PrimaryCTA", def);
     expect(manifest.displayName).toBe("PrimaryCTA");
     expect(manifest.description).toBe("Our primary call-to-action.");
+  });
+});
+
+describe("composedBlockFromDefinition (compose + slots)", () => {
+  // A "Panel" = a Card titled by an exposed `heading`, holding a Button whose label is exposed
+  // and whose variant is baked, plus an open slot for the instance's own children.
+  const structure: StructureNode = {
+    kind: "component",
+    component: "Card",
+    props: { title: { exposed: "heading" } },
+    children: [
+      {
+        kind: "component",
+        component: "Button",
+        props: { label: { exposed: "cta" }, variant: { fixed: "primary" } },
+        children: [],
+      },
+      { kind: "slot" },
+    ],
+  };
+  const panel: ComposedComponentDef = {
+    name: "Panel",
+    structure,
+    controls: [
+      { key: "heading", kind: "text", label: "Heading", required: false },
+      { key: "cta", kind: "text", label: "CTA", required: false },
+    ],
+    slot: true,
+    description: "A titled card with a CTA and a body slot.",
+  };
+
+  test("renders the structure, substituting exposed props and the slot's children", () => {
+    const def = composedBlockFromDefinition(panel, base);
+    const html = renderToString(
+      h(def.component, { heading: "Welcome", cta: "Go" }, h("p", {}, "body text")),
+    );
+    expect(html).toContain("Welcome"); // the exposed Card title
+    expect(html).toContain("Go"); // the exposed Button label
+    expect(html).toContain("btn-primary"); // the baked variant
+    expect(html).toContain("body text"); // the instance's children, via the slot
+    expect(html).toContain("card");
+  });
+
+  test("surfaces only the exposed controls and declares its slot in the manifest", () => {
+    const def = composedBlockFromDefinition(panel, base);
+    const manifest = manifestOf("Panel", def);
+    expect(manifest.controls.map((c) => c.key)).toEqual(["heading", "cta"]);
+    expect(manifest.slots).toEqual(["children"]);
+    // The baked `variant` is not part of the interface.
+    expect(manifest.controls.some((c) => c.key === "variant")).toBe(false);
+  });
+
+  test("composes into a registry and renders by name like any block", () => {
+    const def = composedBlockFromDefinition(panel, base);
+    const registry = createRegistry(core, {
+      id: "site-saved",
+      blocks: { Panel: def },
+    });
+    expect(registryManifest(registry).some((m) => m.name === "Panel")).toBe(true);
+    const fromRegistry = registry.Panel;
+    expect(fromRegistry).toBeDefined();
   });
 });

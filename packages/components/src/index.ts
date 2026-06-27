@@ -235,8 +235,12 @@ export { Select, type SelectProps, SelectSchema } from "./primitives/Select";
 export { Stack, type StackProps, StackSchema } from "./primitives/Stack";
 export { Textarea, type TextareaProps, TextareaSchema } from "./primitives/Textarea";
 export {
+  type ComposedComponentDef,
+  composedBlockFromDefinition,
   defineSavedComponent,
+  type PropSlot,
   type SavedComponentDef,
+  type StructureNode,
   savedBlockFromDefinition,
   savedPack,
 } from "./saved";

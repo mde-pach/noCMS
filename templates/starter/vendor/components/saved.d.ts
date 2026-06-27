@@ -1,3 +1,4 @@
+import type { ControlDescriptor } from "@nocms/core";
 import { type BlockDef, type ComponentPack, type ComponentRegistry, type PropPrimitive } from "./packs";
 /** A saved component declared by specializing one existing block. Fully serializable data — the
  *  currency a future runtime loader reads from the repo (Phase 1 inlines it as a literal). */
@@ -35,3 +36,40 @@ export declare function defineSavedComponent(input: {
     description?: string;
     category?: string;
 }): SavedComponentDef;
+/** A prop value in a composed structure: a baked-in primitive, or a reference to one of the
+ *  component's exposed controls (filled per instance). */
+export type PropSlot = {
+    fixed: PropPrimitive;
+} | {
+    exposed: string;
+};
+/** One node of a composed component's stored implementation — a purpose-built, serializable tree
+ *  of known components. A `slot` node is where the instance's own children render (the open child
+ *  region); a `text` node is literal text. */
+export type StructureNode = {
+    kind: "component";
+    component: string;
+    props: Record<string, PropSlot>;
+    children: StructureNode[];
+} | {
+    kind: "slot";
+} | {
+    kind: "text";
+    text: string;
+};
+/** A composed saved component: a structure plus the controls it exposes (and whether it leaves a
+ *  child region open). Its instances reference it by name and fill the exposed controls + slot. */
+export interface ComposedComponentDef {
+    name: string;
+    structure: StructureNode;
+    controls: ControlDescriptor[];
+    /** true when the structure has a `slot` node — the component accepts children. */
+    slot?: boolean;
+    displayName?: string;
+    description?: string;
+    category?: string;
+    version?: number;
+}
+/** Build a `BlockDef` from a composed definition: the component renders the stored structure with
+ *  exposed controls and the instance's children substituted in, through the registry's components. */
+export declare function composedBlockFromDefinition(def: ComposedComponentDef, registry: ComponentRegistry): BlockDef;

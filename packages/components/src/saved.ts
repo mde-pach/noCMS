@@ -6,11 +6,17 @@
 //
 // Phase 1 covers *specialize*: take one existing block, bake some props (locked, hidden from the
 // panel) and keep the rest editable (exposed, their saved value becoming the new default). The
-// synthesized component is just the base partially applied — no template substitution, which arrives
-// with *compose* (multi-block subtrees) and exposed slots.
+// synthesized component is just the base partially applied.
+//
+// Phase 2 adds *compose*: a saved component whose implementation is a whole subtree of known
+// components, with some inner props exposed and a child region left open as a slot. Its component
+// builds a Preact tree from the stored structure using the same registry components — the
+// data-driven twin of a hand-written composite (like the curated HeroSection). Same components,
+// same Preact, so it renders identically in editor preview and publish prerender (invariant #1);
+// it is not a second renderer, just one component whose tree comes from data instead of source.
 
 import type { ControlDescriptor } from "@nocms/core";
-import { h } from "preact";
+import { type ComponentChild, h, type VNode } from "preact";
 import {
   type AnyComponent,
   type BlockDef,
@@ -124,5 +130,86 @@ export function defineSavedComponent(input: {
     description: input.description,
     category: input.category,
     version: 1,
+  };
+}
+
+/** A prop value in a composed structure: a baked-in primitive, or a reference to one of the
+ *  component's exposed controls (filled per instance). */
+export type PropSlot = { fixed: PropPrimitive } | { exposed: string };
+
+/** One node of a composed component's stored implementation — a purpose-built, serializable tree
+ *  of known components. A `slot` node is where the instance's own children render (the open child
+ *  region); a `text` node is literal text. */
+export type StructureNode =
+  | {
+      kind: "component";
+      component: string;
+      props: Record<string, PropSlot>;
+      children: StructureNode[];
+    }
+  | { kind: "slot" }
+  | { kind: "text"; text: string };
+
+/** A composed saved component: a structure plus the controls it exposes (and whether it leaves a
+ *  child region open). Its instances reference it by name and fill the exposed controls + slot. */
+export interface ComposedComponentDef {
+  name: string;
+  structure: StructureNode;
+  controls: ControlDescriptor[];
+  /** true when the structure has a `slot` node — the component accepts children. */
+  slot?: boolean;
+  displayName?: string;
+  description?: string;
+  category?: string;
+  version?: number;
+}
+
+function resolveProps(
+  props: Record<string, PropSlot>,
+  exposed: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, slot] of Object.entries(props)) {
+    out[key] = "fixed" in slot ? slot.fixed : exposed[slot.exposed];
+  }
+  return out;
+}
+
+function buildStructure(
+  node: StructureNode,
+  exposed: Record<string, unknown>,
+  slotChildren: ComponentChild,
+  registry: ComponentRegistry,
+): ComponentChild {
+  if (node.kind === "text") return node.text;
+  if (node.kind === "slot") return slotChildren;
+  const target = registry[node.component]?.component ?? node.component;
+  const props = resolveProps(node.props, exposed);
+  const children = node.children.map((child) =>
+    buildStructure(child, exposed, slotChildren, registry),
+  );
+  return h(target as AnyComponent, props, ...children);
+}
+
+/** Build a `BlockDef` from a composed definition: the component renders the stored structure with
+ *  exposed controls and the instance's children substituted in, through the registry's components. */
+export function composedBlockFromDefinition(
+  def: ComposedComponentDef,
+  registry: ComponentRegistry,
+): BlockDef {
+  const component: AnyComponent = (props) =>
+    buildStructure(
+      def.structure,
+      props,
+      (props as { children?: ComponentChild }).children,
+      registry,
+    ) as VNode;
+  return {
+    component,
+    controls: def.controls,
+    slots: def.slot ? ["children"] : undefined,
+    displayName: def.displayName ?? def.name,
+    description: def.description,
+    category: def.category,
   };
 }
