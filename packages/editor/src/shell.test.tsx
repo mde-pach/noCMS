@@ -575,6 +575,52 @@ describe("save as component (D20)", () => {
     handle.dispose();
   });
 
+  test("does not offer 'Save as component' for a block with no controls", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const handle = await mountEditor({
+      target,
+      mdx: `# A heading\n`,
+      components: savedComponents,
+    });
+
+    selectFirst(target, "h1");
+    // The block is selectable (toolbar shows) but not saveable — no action.
+    expect(target.querySelector(".nocms-toolbar")).not.toBeNull();
+    expect(target.querySelector(".nocms-tool-save-component")).toBeNull();
+
+    handle.dispose();
+  });
+
+  test("a leaf block's dialog has no slot toggle, and confirm gates on a valid name", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const handle = await mountEditor({
+      target,
+      mdx: `<Button label="Go" variant="secondary" />\n`,
+      components: savedComponents,
+    });
+
+    openSaveDialog(target);
+    // A leaf has no contents to keep — no slot toggle.
+    expect(target.querySelector(".nocms-slot-toggle")).toBeNull();
+
+    // Confirm is disabled until the name validates (empty, then invalid, then valid).
+    const confirm = target.querySelector(".nocms-save-confirm") as HTMLButtonElement;
+    const input = target.querySelector(
+      '.nocms-save-dialog [name="component-name"]',
+    ) as HTMLInputElement;
+    expect(confirm.disabled).toBe(true);
+    input.value = "1bad";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.waitFor(() => expect(confirm.disabled).toBe(true));
+    input.value = "Good";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await vi.waitFor(() => expect(confirm.disabled).toBe(false));
+
+    handle.dispose();
+  });
+
   test("composes a container into a component, keeping its contents as a slot", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
