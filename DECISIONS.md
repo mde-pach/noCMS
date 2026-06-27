@@ -280,6 +280,34 @@ serialization) so any assembler's diffs stay clean.
 
 ## Resolved
 
+### D18 — Pluggable component packs: composition seam + serializable manifest → **RESOLVED.**
+The curated library was a single static `registry` object literal in `@nocms/components`;
+adding a component meant editing that file and re-vendoring, with no way for a site (or a
+plugin) to contribute its own set. The library was decoupled *internally* (the renderer and
+editor take the registry by injection, controls derive from schema) but had no *composition*
+or *distribution* seam — which is what made it feel hardcoded.
+
+- **Packs are the unit of distribution.** `definePack({ id, blocks, trust })` declares a pack;
+  `createRegistry(...packs)` merges them, later packs overriding earlier ones by block name
+  (the override seam). The curated set is now the `core` pack; `registry = createRegistry(core)`.
+  A site composes its own with `createRegistry(core, myPack)` — no edit to `@nocms/components`.
+
+- **The cross-boundary currency is a serializable manifest, not a schema or a component.**
+  `ComponentManifest` = `{ name, displayName, description, category, icon, tags, slots, island,
+  controls: ControlDescriptor[], defaults }`. A valibot schema (a function) and a Preact
+  component do not survive `postMessage`; a `ControlDescriptor[]` plus plain metadata do.
+  `manifestOf`/`registryManifest` derive it (controls via `deriveControls`, plus friendly
+  starter defaults). The insert palette and any catalog consume manifests *only* — so a builtin
+  component and a future sandboxed plugin component are indistinguishable to them. This is what
+  "design for sandbox from day one" means concretely (invariant #8): the seam is in place even
+  though the first packs are in-process; wiring `@nocms/sandbox` to supply a render proxy + a
+  manifest is additive, not a redesign.
+
+- **`BlockDef` gained catalog metadata** (category/description/icon/tags) so a palette has
+  something to show; the insert palette + richer props widgets (D16) make the library visibly
+  usable. Still deferred: a site-local pack that vendors a fork's *own* components (decouple
+  authorship from the monorepo), and the actual sandbox→registry wiring.
+
 ### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**
 
 **Decision.** The editing surface is a **bespoke composition of noCMS's own packages**, not
