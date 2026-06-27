@@ -1,7 +1,8 @@
 // The curated component library, declared as the `core` component pack and composed into
-// a registry by the editor and renderer. Props are plain typed Preact props so controls
-// derive automatically (D9). A site adds more with `createRegistry(core, myPack)` — plugin
-// packs contribute via the sandbox without editing this package (D18).
+// a registry by the editor and renderer. Every component declares a valibot props schema
+// (D9) so `deriveControls` produces its panel — one source, no drift. A site adds more with
+// `createRegistry(core, myPack)` — plugin packs contribute via the sandbox without editing
+// this package (D18).
 
 import {
   type BlockDef,
@@ -10,24 +11,34 @@ import {
   createRegistry,
   definePack,
 } from "./packs";
-import { Badge } from "./primitives/Badge";
+import { Badge, BadgeSchema } from "./primitives/Badge";
 import { Button, ButtonSchema } from "./primitives/Button";
-import { Callout } from "./primitives/Callout";
-import { Card } from "./primitives/Card";
-import { Container } from "./primitives/Container";
-import { Counter } from "./primitives/Counter";
-import { Divider } from "./primitives/Divider";
-import { Form } from "./primitives/Form";
-import { Grid } from "./primitives/Grid";
-import { Hero } from "./primitives/Hero";
+import { Callout, CalloutSchema } from "./primitives/Callout";
+import { Card, CardSchema } from "./primitives/Card";
+import { Container, ContainerSchema } from "./primitives/Container";
+import { Counter, CounterSchema } from "./primitives/Counter";
+import { Divider, DividerSchema } from "./primitives/Divider";
+import { Form, FormSchema } from "./primitives/Form";
+import { Grid, GridSchema } from "./primitives/Grid";
+import { Hero, HeroSchema } from "./primitives/Hero";
 import { Image, ImageSchema } from "./primitives/Image";
-import { Input } from "./primitives/Input";
-import { LanguageSwitcher } from "./primitives/LanguageSwitcher";
-import { LatestPosts } from "./primitives/LatestPosts";
+import { Input, InputSchema } from "./primitives/Input";
+import {
+  LanguageSwitcher,
+  LanguageSwitcherSchema,
+} from "./primitives/LanguageSwitcher";
+import { LatestPosts, LatestPostsSchema } from "./primitives/LatestPosts";
 import { Section, SectionSchema } from "./primitives/Section";
-import { Select } from "./primitives/Select";
+import { Select, SelectSchema } from "./primitives/Select";
 import { Stack, StackSchema } from "./primitives/Stack";
-import { Textarea } from "./primitives/Textarea";
+import { Textarea, TextareaSchema } from "./primitives/Textarea";
+import { CTA, CTASchema } from "./sections/CTA";
+import { Features, FeaturesSchema } from "./sections/Features";
+import { Footer, FooterSchema } from "./sections/Footer";
+import { HeroSection, HeroSectionSchema } from "./sections/HeroSection";
+import { Pricing, PricingSchema } from "./sections/Pricing";
+import { Stats, StatsSchema } from "./sections/Stats";
+import { Testimonials, TestimonialsSchema } from "./sections/Testimonials";
 
 const entry = (
   component: unknown,
@@ -41,6 +52,7 @@ export const core: ComponentPack = definePack({
   trust: "builtin",
   blocks: {
     Hero: entry(Hero, {
+      schema: HeroSchema,
       category: "Content",
       description: "Large page-opening banner with a title and slot for actions.",
     }),
@@ -51,10 +63,12 @@ export const core: ComponentPack = definePack({
       description: "A full-width band that groups content vertically.",
     }),
     Container: entry(Container, {
+      schema: ContainerSchema,
       category: "Layout",
       description: "Centers and width-constrains its contents.",
     }),
     Grid: entry(Grid, {
+      schema: GridSchema,
       category: "Layout",
       description: "Arranges children in responsive columns.",
     }),
@@ -65,10 +79,12 @@ export const core: ComponentPack = definePack({
       description: "Stacks children with consistent spacing.",
     }),
     Card: entry(Card, {
+      schema: CardSchema,
       category: "Content",
       description: "A bordered surface for a self-contained piece of content.",
     }),
     Callout: entry(Callout, {
+      schema: CalloutSchema,
       category: "Content",
       description: "Highlights a note, tip, or warning.",
     }),
@@ -78,10 +94,12 @@ export const core: ComponentPack = definePack({
       description: "A responsive image with alt text.",
     }),
     Divider: entry(Divider, {
+      schema: DividerSchema,
       category: "Layout",
       description: "A horizontal rule between sections.",
     }),
     Badge: entry(Badge, {
+      schema: BadgeSchema,
       category: "Content",
       description: "A small inline label or status pill.",
     }),
@@ -90,33 +108,85 @@ export const core: ComponentPack = definePack({
       category: "Content",
       description: "A call-to-action link styled as a button.",
     }),
-    Form: entry(Form, { category: "Forms", description: "A form wrapper for inputs." }),
+    Form: entry(Form, {
+      schema: FormSchema,
+      category: "Forms",
+      description: "A form wrapper for inputs.",
+    }),
     Input: entry(Input, {
+      schema: InputSchema,
       category: "Forms",
       description: "A single-line text field.",
     }),
     Textarea: entry(Textarea, {
+      schema: TextareaSchema,
       category: "Forms",
       description: "A multi-line text field.",
     }),
     Select: entry(Select, {
+      schema: SelectSchema,
       category: "Forms",
       description: "A dropdown of predefined options.",
     }),
     Counter: entry(Counter, {
+      schema: CounterSchema,
       island: true,
       category: "Interactive",
       description: "A demo interactive counter (hydrated island).",
     }),
     LanguageSwitcher: entry(LanguageSwitcher, {
+      schema: LanguageSwitcherSchema,
       island: true,
       category: "Interactive",
       description: "Switches the active site language.",
     }),
     LatestPosts: entry(LatestPosts, {
+      schema: LatestPostsSchema,
       island: true,
       category: "Interactive",
       description: "Lists the most recent collection entries.",
+    }),
+
+    // Page-role sections: finished compositions of primitives, seeded with real
+    // content, styled only through tokens, static unless interactive.
+    HeroSection: entry(HeroSection, {
+      schema: HeroSectionSchema,
+      displayName: "Hero Section",
+      category: "Sections",
+      description:
+        "A page-opening hero with headline, copy, and call-to-action buttons.",
+    }),
+    Features: entry(Features, {
+      schema: FeaturesSchema,
+      category: "Sections",
+      description: "A grid of feature cards, each with an icon, heading, and copy.",
+    }),
+    Pricing: entry(Pricing, {
+      schema: PricingSchema,
+      category: "Sections",
+      description:
+        "Side-by-side pricing tiers with a feature checklist and a highlight.",
+    }),
+    Testimonials: entry(Testimonials, {
+      schema: TestimonialsSchema,
+      category: "Sections",
+      description: "Customer quotes with attribution and optional avatars.",
+    }),
+    Stats: entry(Stats, {
+      schema: StatsSchema,
+      category: "Sections",
+      description: "A row of headline metrics on a brand band.",
+    }),
+    CTA: entry(CTA, {
+      schema: CTASchema,
+      displayName: "Call to action",
+      category: "Sections",
+      description: "A closing call-to-action, as a full band or an inset box.",
+    }),
+    Footer: entry(Footer, {
+      schema: FooterSchema,
+      category: "Sections",
+      description: "Site footer with a brand blurb, link columns, and copyright.",
     }),
   },
 });
@@ -136,25 +206,49 @@ export {
   registryManifest,
 } from "./packs";
 
-export { Badge, type BadgeProps } from "./primitives/Badge";
+export { Badge, type BadgeProps, BadgeSchema } from "./primitives/Badge";
 export { Button, type ButtonProps, ButtonSchema } from "./primitives/Button";
-export { Callout, type CalloutProps } from "./primitives/Callout";
-export { Card, type CardProps } from "./primitives/Card";
-export { Container, type ContainerProps } from "./primitives/Container";
-export { Counter, type CounterProps } from "./primitives/Counter";
-export { Divider, type DividerProps } from "./primitives/Divider";
-export { Form, type FormProps } from "./primitives/Form";
-export { Grid, type GridProps } from "./primitives/Grid";
-export { Hero, type HeroProps } from "./primitives/Hero";
+export { Callout, type CalloutProps, CalloutSchema } from "./primitives/Callout";
+export { Card, type CardProps, CardSchema } from "./primitives/Card";
+export {
+  Container,
+  type ContainerProps,
+  ContainerSchema,
+} from "./primitives/Container";
+export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
+export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
+export { Form, type FormProps, FormSchema } from "./primitives/Form";
+export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
+export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";
-export { Input, type InputProps } from "./primitives/Input";
+export { Input, type InputProps, InputSchema } from "./primitives/Input";
 export {
   LanguageSwitcher,
   type LanguageSwitcherProps,
+  LanguageSwitcherSchema,
 } from "./primitives/LanguageSwitcher";
-export { LatestPosts, type LatestPostsProps } from "./primitives/LatestPosts";
+export {
+  LatestPosts,
+  type LatestPostsProps,
+  LatestPostsSchema,
+} from "./primitives/LatestPosts";
 export { Section, type SectionProps, SectionSchema } from "./primitives/Section";
-export { Select, type SelectProps } from "./primitives/Select";
+export { Select, type SelectProps, SelectSchema } from "./primitives/Select";
 export { Stack, type StackProps, StackSchema } from "./primitives/Stack";
-export { Textarea, type TextareaProps } from "./primitives/Textarea";
+export { Textarea, type TextareaProps, TextareaSchema } from "./primitives/Textarea";
+export { CTA, type CTAProps, CTASchema } from "./sections/CTA";
+export { Features, type FeaturesProps, FeaturesSchema } from "./sections/Features";
+export { Footer, type FooterProps, FooterSchema } from "./sections/Footer";
+export {
+  HeroSection,
+  type HeroSectionProps,
+  HeroSectionSchema,
+} from "./sections/HeroSection";
+export { Pricing, type PricingProps, PricingSchema } from "./sections/Pricing";
+export { Stats, type StatsProps, StatsSchema } from "./sections/Stats";
+export {
+  Testimonials,
+  type TestimonialsProps,
+  TestimonialsSchema,
+} from "./sections/Testimonials";
 export { readSiteRuntime } from "./site-runtime";
