@@ -7,7 +7,16 @@
 // keep in sync. Loading the editor (it pulls the MDX compiler) is gated behind `?edit`, so
 // the reader bundle never carries it.
 
-import { mountEditor } from "@nocms/editor";
+import { registryManifest } from "@nocms/components";
+import {
+  EDITOR_CSS,
+  FONTS_HREF,
+  type LibraryEntry,
+  LibraryManager,
+  mountEditor,
+  SignInGate,
+} from "@nocms/editor";
+import { render } from "preact";
 import themeTokens from "../theme.tokens?raw";
 import { registry } from "./registry";
 
@@ -79,8 +88,53 @@ variables at runtime. Try the Theming panel — every block updates live, with n
 </Callout>
 `;
 
-const root = document.getElementById("app");
-if (root) {
+// The standalone editor screens (sign-in gate, library manager) need the editor's
+// stylesheet and fonts present before mountEditor injects them, so set them up once here.
+function ensureChrome(): void {
+  if (!document.getElementById("nocms-editor-css")) {
+    const style = document.createElement("style");
+    style.id = "nocms-editor-css";
+    style.textContent = EDITOR_CSS;
+    document.head.appendChild(style);
+  }
+  if (!document.querySelector("link[data-nocms-fonts]")) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = FONTS_HREF;
+    link.setAttribute("data-nocms-fonts", "");
+    document.head.appendChild(link);
+  }
+}
+
+const SIGNED_IN_KEY = "nocms-dev-signed-in";
+
+function libraries(): LibraryEntry[] {
+  return [
+    {
+      id: "core",
+      name: "Core",
+      version: "2.4.0",
+      verified: true,
+      blocks: registryManifest(registry).length,
+      description:
+        "The curated noCMS component library — heroes, sections, content, and forms.",
+      builtin: true,
+    },
+    {
+      id: "studio",
+      name: "Studio Pack",
+      version: "1.1.0",
+      verified: true,
+      blocks: 9,
+      description:
+        "Editorial extras: testimonials, pricing FAQ, and richer social proof.",
+      builtin: false,
+    },
+  ];
+}
+
+function startEditor(root: HTMLElement): void {
+  root.replaceChildren();
   mountEditor({
     target: root,
     mdx: content,
@@ -89,4 +143,37 @@ if (root) {
     tokens: themeTokens,
     onTokensChange: () => console.info("[nocms] theme edited"),
   });
+}
+
+const root = document.getElementById("app");
+if (root) {
+  ensureChrome();
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("libraries")) {
+    render(
+      <LibraryManager
+        libraries={libraries()}
+        onBack={() => {
+          window.location.search = "?edit";
+        }}
+        onAdd={() => console.info("[nocms] add a library")}
+        onRemove={(id) => console.info("[nocms] remove library", id)}
+      />,
+      root,
+    );
+  } else if (sessionStorage.getItem(SIGNED_IN_KEY) !== "1") {
+    render(
+      <SignInGate
+        siteHost="nocms.github.io"
+        onContinue={() => {
+          sessionStorage.setItem(SIGNED_IN_KEY, "1");
+          render(null, root);
+          startEditor(root);
+        }}
+      />,
+      root,
+    );
+  } else {
+    startEditor(root);
+  }
 }

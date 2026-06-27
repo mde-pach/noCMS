@@ -24,6 +24,7 @@ export {
   type TopBarProps,
 } from "./chrome.js";
 export { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+export { FormatBar, type FormatBarProps } from "./format-bar.js";
 export { createHistory, type History } from "./history.js";
 export { blockFromManifest, insertBlock } from "./insert.js";
 export {
@@ -35,6 +36,11 @@ export {
   removeProp,
   setProp,
 } from "./jsx-attributes.js";
+export {
+  type LibraryEntry,
+  LibraryManager,
+  type LibraryManagerProps,
+} from "./library-manager.js";
 export { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
 export { MediaPicker, type MediaPickerProps } from "./media.js";
 export {
@@ -68,5 +74,7 @@ export {
   type EditorOptions,
   mountEditor,
 } from "./shell.js";
+export { SignInGate, type SignInGateProps } from "./sign-in.js";
+export { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 export { TokensPanel, type TokensPanelProps } from "./tokens-panel.js";
 export { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";

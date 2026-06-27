@@ -362,6 +362,45 @@ export const EDITOR_CSS = `
 .nc-media-name { display: block; font-size: 11.5px; color: var(--nc-text-2); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nc-media-upload { height: 96px; border: 1px dashed #D5D1C8; border-radius: var(--nc-radius); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--nc-text-2); font-size: 12px; cursor: pointer; }
 
+/* ---------- sign-in gate ---------- */
+.nc-signin-root { align-items: center; justify-content: center; }
+.nc-signin-card {
+  width: 430px; max-width: 92vw; background: #fff; border: 1px solid var(--nc-border);
+  border-radius: 16px; box-shadow: 0 30px 80px rgba(26,25,22,0.18); padding: 38px 34px;
+  text-align: center;
+}
+.nc-signin-mark { font-family: var(--nc-font-display); font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 22px; }
+.nc-signin-mark span { color: var(--nc-rust); }
+.nc-signin-title { font-family: var(--nc-font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.nc-signin-copy { font-size: 13.5px; line-height: 1.55; color: var(--nc-text-2); margin: 10px auto 24px; max-width: 34ch; }
+.nc-signin-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%;
+  background: var(--nc-text); color: #fff; border: 0; padding: 12px; border-radius: var(--nc-radius);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.nc-signin-btn:hover { filter: brightness(1.15); }
+.nc-signin-foot { margin-top: 22px; font-size: 10px; color: var(--nc-text-3); }
+
+/* ---------- library manager ---------- */
+.nc-lib-root { background: var(--nc-shell); }
+.nc-lib-body { flex: 1; overflow-y: auto; display: flex; justify-content: center; padding: 40px 20px; }
+.nc-lib-column { width: 760px; max-width: 100%; }
+.nc-lib-titlerow { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+.nc-lib-card { background: #fff; border: 1px solid var(--nc-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.nc-lib-head { display: flex; align-items: center; justify-content: space-between; }
+.nc-lib-name { font-size: 16px; font-weight: 600; }
+.nc-lib-meta { display: flex; align-items: center; gap: 12px; color: var(--nc-text-3); }
+.nc-lib-verified { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--nc-olive); }
+.nc-lib-desc { font-size: 13px; color: var(--nc-text-2); line-height: 1.5; margin: 9px 0 14px; }
+.nc-lib-foot { display: flex; justify-content: flex-end; }
+.nc-lib-builtin { color: var(--nc-text-3); }
+.nc-lib-add {
+  display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%;
+  border: 1px dashed #D5D1C8; border-radius: 12px; padding: 18px; margin-top: 4px;
+  background: none; color: var(--nc-text-2); font: inherit; font-size: 13px; cursor: pointer;
+}
+.nc-lib-add:hover { border-color: var(--nc-accent); color: var(--nc-accent); }
+
 /* ---------- navigator ---------- */
 .nc-nav-scrim { position: absolute; inset: 0; z-index: 45; }
 .nc-navigator { position: absolute; top: 0; left: 0; bottom: 0; width: 316px; background: #fff; border-right: 1px solid var(--nc-border); box-shadow: 12px 0 30px rgba(26,25,22,0.1); padding: 18px 16px; overflow-y: auto; z-index: 46; }
