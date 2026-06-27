@@ -5,6 +5,13 @@
 // the canvas from the updated source, and re-highlights the same node by its index-path —
 // never by raw offset, which shifts when the edit changes the source length.
 //
+// Every structural change — insert, delete, reorder, drag — is one tree-transform over
+// the uniform block tree (D15), addressed by index-path, then re-serialized to canonical
+// MDX. Because every edit (inline text, prop, structural) funnels through one commit that
+// snapshots the serialized MDX, undo/redo is a single uniform stack, not one history per
+// edit kind. Nothing here special-cases a block type, so a brick added to the registry
+// reorders, inserts, and deletes with zero changes here.
+//
 // Double-clicking a paragraph or heading edits its text in place via @nocms/prose: a
 // transient ProseMirror view mounts over the block, edits splice into the live document,
 // and the canvas re-renders only on commit (a click elsewhere, or Escape) — re-rendering
@@ -15,7 +22,7 @@ import { deriveControls } from "@nocms/core";
 import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { parseTokens, toCssVariables } from "@nocms/tokens";
-import type { Nodes, PhrasingContent } from "mdast";
+import type { Nodes, Parent, PhrasingContent } from "mdast";
 import { render } from "preact";
 import {
   type CanvasHandle,
@@ -23,8 +30,12 @@ import {
   mountCanvas,
   offsetFromElement,
 } from "./canvas.js";
+import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+import { createHistory } from "./history.js";
 import { isJsxElement } from "./jsx-attributes.js";
-import { parseMdx, serializeMdx } from "./mdx-document.js";
+import { type MdxDocument, parseMdx, serializeMdx } from "./mdx-document.js";
+import { createBlockNode, paletteItems } from "./palette.js";
+import { PaletteMenu } from "./palette-menu.js";
 import {
   type IndexPath,
   indexPathOf,
@@ -35,7 +46,9 @@ import {
 import { PropsPanel } from "./props-panel.js";
 import { isProseEditable, type ProseBlock } from "./prose-edit.js";
 import { selectableNode } from "./selectable.js";
+import { SelectionToolbar } from "./selection-toolbar.js";
 import { TokensPanel } from "./tokens-panel.js";
+import { insertAt, moveChild, moveNode, removeAt } from "./tree-edit.js";
 
 export interface EditorOptions {
   /** DOM node the editor mounts into; the shell owns its contents. */
@@ -61,6 +74,11 @@ export interface EditorHandle {
   /** The live prose view when a text block is being edited in place, else undefined.
    *  The escape hatch for host UI (a formatting toolbar) and tests. */
   proseView(): ProseEditorHandle["view"] | undefined;
+  /** The index-path of the selected block, or undefined when nothing is selected. */
+  selection(): IndexPath | undefined;
+  /** Step the uniform history back/forward; the seam for host undo/redo chrome. */
+  undo(): void;
+  redo(): void;
   dispose(): void;
 }
 
@@ -70,13 +88,32 @@ function toComponentMap(registry: ComponentRegistry): ComponentMap {
   );
 }
 
+function childrenOf(node: Nodes | undefined): Nodes[] {
+  return node && "children" in node ? (node as Parent).children : [];
+}
+
+/** A keystroke landing in a text field or the prose view must not trigger a block-level
+ *  shortcut (delete, reorder, slash) — that is the field's own input. */
+function isTextEntry(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || target.closest(".ProseMirror")) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+interface InsertTarget {
+  parentPath: IndexPath;
+  index: number;
+}
+
 /**
  * Mount the in-site editor into `target`. Resolves once the canvas has rendered.
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
  */
 export async function mountEditor(options: EditorOptions): Promise<EditorHandle> {
   const { target, mdx, components, data, onChange, onTokensChange } = options;
-  const doc = parseMdx(mdx);
+  let doc: MdxDocument = parseMdx(mdx);
+  const history = createHistory(serializeMdx(doc));
 
   const style = document.createElement("style");
   style.textContent = EDITOR_CSS;
@@ -84,12 +121,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   layout.className = "nocms-editor";
   const canvasRegion = document.createElement("div");
   canvasRegion.className = "nocms-editor-canvas";
+  const toolbarHost = document.createElement("div");
+  toolbarHost.className = "nocms-toolbar-host";
+  const insertsHost = document.createElement("div");
+  insertsHost.className = "nocms-inserts-host";
+  const paletteHost = document.createElement("div");
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
   const propsHost = document.createElement("div");
   const tokensHost = document.createElement("div");
   panelRegion.append(propsHost, tokensHost);
-  layout.append(canvasRegion, panelRegion);
+  layout.append(canvasRegion, panelRegion, paletteHost);
   target.append(style, layout);
 
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
@@ -110,6 +152,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   let selectedPath: IndexPath | undefined;
+  let paletteTarget: InsertTarget | undefined;
+  let dragFrom: IndexPath | undefined;
 
   // A live in-place prose edit. While one is active the canvas hands clicks inside `el`
   // to the ProseMirror view untouched (see `suppressWhen`), and the canvas is not
@@ -117,16 +161,211 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // canvas only re-renders on commit.
   let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
 
+  const childCountAt = (path: IndexPath): number =>
+    childrenOf(nodeAtIndexPath(doc, path)).length;
+
+  // A prop edit mutates the selected node in place, so the doc is re-serialized but not
+  // re-parsed (that would invalidate the panel's node reference and steal input focus).
   const handleEdit = async (): Promise<void> => {
     const next = serializeMdx(doc);
+    history.push(next);
     await canvas.update(next);
     canvas.highlight(selectedPath);
     onChange?.(next);
   };
 
+  // Apply already-serialized MDX as the new document: re-parse (so positions and node
+  // references are fresh), re-render the canvas, restore selection. Used by every
+  // structural transform and by undo/redo — not by in-place prop/prose edits.
+  const apply = async (
+    nextMdx: string,
+    nextPath: IndexPath | undefined,
+  ): Promise<void> => {
+    doc = parseMdx(nextMdx);
+    await canvas.update(nextMdx);
+    select(nextPath);
+    renderInserts();
+  };
+
+  const commit = async (
+    nextMdx: string,
+    nextPath: IndexPath | undefined,
+  ): Promise<void> => {
+    history.push(nextMdx);
+    await apply(nextMdx, nextPath);
+    onChange?.(nextMdx);
+  };
+
+  const undo = (): void => {
+    const state = history.undo();
+    if (state === undefined) return;
+    void apply(state, undefined).then(() => onChange?.(state));
+  };
+
+  const redo = (): void => {
+    const state = history.redo();
+    if (state === undefined) return;
+    void apply(state, undefined).then(() => onChange?.(state));
+  };
+
+  const insertBlock = async (target_: InsertTarget, name: string): Promise<void> => {
+    const node = createBlockNode(name, components[name]);
+    const at = Math.max(0, Math.min(target_.index, childCountAt(target_.parentPath)));
+    const next = insertAt(doc, target_.parentPath, at, node);
+    await commit(serializeMdx(next), [...target_.parentPath, at]);
+  };
+
+  const deleteSelected = async (): Promise<void> => {
+    if (!selectedPath || selectedPath.length === 0) return;
+    const next = removeAt(doc, selectedPath);
+    await commit(serializeMdx(next), undefined);
+  };
+
+  const moveSelected = async (direction: -1 | 1): Promise<void> => {
+    if (!selectedPath || selectedPath.length === 0) return;
+    const parentPath = selectedPath.slice(0, -1);
+    const from = selectedPath[selectedPath.length - 1] ?? 0;
+    const to = Math.max(0, Math.min(from + direction, childCountAt(parentPath) - 1));
+    if (to === from) return;
+    const next = moveChild(doc, parentPath, from, to);
+    await commit(serializeMdx(next), [...parentPath, to]);
+  };
+
+  // Drag-reorder among siblings: the drop position is geometry (drag.ts), the move
+  // itself is a `moveNode` tree-transform — drag holds no separate model, so it shares
+  // the one undo stack with every other edit.
+  const siblingBoxes = (parentPath: IndexPath): BlockBox[] => {
+    const siblings = childrenOf(nodeAtIndexPath(doc, parentPath));
+    const region = canvasRegion.getBoundingClientRect();
+    const boxes: BlockBox[] = [];
+    siblings.forEach((child, index) => {
+      const offset = child.position?.start.offset;
+      const el =
+        offset === undefined
+          ? null
+          : canvasRegion.querySelector(`[data-mdx-pos="${offset}"]`);
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      boxes.push({
+        index,
+        top: rect.top - region.top,
+        bottom: rect.bottom - region.top,
+      });
+    });
+    return boxes;
+  };
+
+  const handleDrop = async (event: DragEvent): Promise<void> => {
+    if (!dragFrom || dragFrom.length === 0) return;
+    event.preventDefault();
+    const parentPath = dragFrom.slice(0, -1);
+    const from = dragFrom[dragFrom.length - 1] ?? 0;
+    const region = canvasRegion.getBoundingClientRect();
+    const gap = dropGapAt(siblingBoxes(parentPath), event.clientY - region.top);
+    const to = destinationIndex(from, gap);
+    dragFrom = undefined;
+    if (to === undefined) return;
+    const next = moveNode(doc, [...parentPath, from], parentPath, to);
+    await commit(serializeMdx(next), [...parentPath, to]);
+  };
+
+  const openPalette = (target_: InsertTarget): void => {
+    paletteTarget = target_;
+    renderPalette();
+  };
+
+  const closePalette = (): void => {
+    paletteTarget = undefined;
+    renderPalette();
+  };
+
+  function renderPalette(): void {
+    if (!paletteTarget) {
+      render(null, paletteHost);
+      return;
+    }
+    const target_ = paletteTarget;
+    render(
+      <PaletteMenu
+        items={paletteItems(components)}
+        onPick={(name) => {
+          closePalette();
+          void insertBlock(target_, name);
+        }}
+        onClose={closePalette}
+      />,
+      paletteHost,
+    );
+  }
+
+  // A "+" affordance in each sibling gap of the root — the discoverable, mouse-first
+  // inserter. Slot-internal handles follow the same `insert(node, atPath)` transform.
+  function renderInserts(): void {
+    if (prose) {
+      render(null, insertsHost);
+      return;
+    }
+    const gaps = childCountAt([]) + 1;
+    render(
+      <div class="nocms-inserts">
+        {Array.from({ length: gaps }, (_unused, gap) => (
+          <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: gap index is the stable identity here.
+            key={gap}
+            type="button"
+            class="nocms-insert-handle"
+            data-insert-index={gap}
+            title="Insert block"
+            onClick={(event) => {
+              // The canvas click handler would treat this as a deselect.
+              event.stopPropagation();
+              openPalette({ parentPath: [], index: gap });
+            }}
+          >
+            +
+          </button>
+        ))}
+      </div>,
+      insertsHost,
+    );
+  }
+
+  function renderToolbar(): void {
+    const node = selectedPath ? nodeAtIndexPath(doc, selectedPath) : undefined;
+    if (!node || !selectedPath || selectedPath.length === 0 || prose) {
+      render(null, toolbarHost);
+      return;
+    }
+    const parentPath = selectedPath.slice(0, -1);
+    const from = selectedPath[selectedPath.length - 1] ?? 0;
+    const count = childCountAt(parentPath);
+    const label = "name" in node && node.name ? String(node.name) : node.type;
+    render(
+      <SelectionToolbar
+        label={label}
+        canMoveUp={from > 0}
+        canMoveDown={from < count - 1}
+        onMoveUp={() => void moveSelected(-1)}
+        onMoveDown={() => void moveSelected(1)}
+        onDelete={() => void deleteSelected()}
+        onInsert={() => openPalette({ parentPath, index: from + 1 })}
+        onDragStart={(event) => {
+          dragFrom = selectedPath;
+          event.dataTransfer?.setData("text/plain", "");
+        }}
+        onDragEnd={() => {
+          dragFrom = undefined;
+        }}
+      />,
+      toolbarHost,
+    );
+  }
+
   const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
     canvas.highlight(undefined);
     showPanel(undefined);
+    renderToolbar();
+    renderInserts();
     el.replaceChildren();
     const handle = mountProseEditor(el, {
       nodes: block.children,
@@ -144,7 +383,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const { handle, path } = prose;
     prose = undefined;
     handle.destroy();
-    await canvas.update(serializeMdx(doc));
+    const next = serializeMdx(doc);
+    history.push(next);
+    await apply(next, path);
     return path;
   };
 
@@ -172,11 +413,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
-  const select = (path: IndexPath | undefined): void => {
+  function select(path: IndexPath | undefined): void {
     selectedPath = path;
     canvas.highlight(path);
     showPanel(path ? nodeAtIndexPath(doc, path) : undefined);
-  };
+    renderToolbar();
+  }
 
   const handleSelect = async (
     selection: CanvasSelection | undefined,
@@ -184,6 +426,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     // A click outside the active prose block reaches here (clicks inside it are
     // suppressed): commit the edit first, then select what was clicked.
     if (prose) await commitProse();
+    if (paletteTarget) closePalette();
     const node = selection ? selectableNode(selection.path) : undefined;
     select(node ? indexPathOf(selection?.path ?? [], node) : undefined);
   };
@@ -215,6 +458,57 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
   };
 
+  // Block-level shortcuts live on the whole editor so they work whether the canvas or a
+  // panel has focus, but defer to any text field (including the prose view) so typing is
+  // never hijacked.
+  const handleShortcuts = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && paletteTarget) {
+      event.preventDefault();
+      closePalette();
+      return;
+    }
+    if (isTextEntry(event.target)) return;
+    const mod = event.metaKey || event.ctrlKey;
+    if (mod && (event.key === "z" || event.key === "Z")) {
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (mod && event.key === "y") {
+      event.preventDefault();
+      redo();
+      return;
+    }
+    if (prose) return;
+    if (event.altKey && event.key === "ArrowUp") {
+      event.preventDefault();
+      void moveSelected(-1);
+      return;
+    }
+    if (event.altKey && event.key === "ArrowDown") {
+      event.preventDefault();
+      void moveSelected(1);
+      return;
+    }
+    if ((event.key === "Delete" || event.key === "Backspace") && selectedPath) {
+      event.preventDefault();
+      void deleteSelected();
+      return;
+    }
+    if (event.key === "/") {
+      event.preventDefault();
+      if (selectedPath && selectedPath.length > 0) {
+        openPalette({
+          parentPath: selectedPath.slice(0, -1),
+          index: (selectedPath[selectedPath.length - 1] ?? -1) + 1,
+        });
+      } else {
+        openPalette({ parentPath: [], index: childCountAt([]) });
+      }
+    }
+  };
+
   const canvas: CanvasHandle = await mountCanvas({
     target: canvasRegion,
     mdx,
@@ -223,22 +517,36 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     suppressWhen: (el) => prose?.el.contains(el) ?? false,
   });
+  canvasRegion.append(insertsHost, toolbarHost);
 
   canvasRegion.addEventListener("dblclick", handleActivate);
   canvasRegion.addEventListener("keydown", handleKeydown);
+  canvasRegion.addEventListener("dragover", (event) => {
+    if (dragFrom) event.preventDefault();
+  });
+  canvasRegion.addEventListener("drop", (event) => void handleDrop(event));
+  layout.addEventListener("keydown", handleShortcuts);
 
   showPanel(undefined);
+  renderInserts();
 
   return {
     proseView: () => prose?.handle.view,
+    selection: () => selectedPath,
+    undo,
+    redo,
     dispose() {
       prose?.handle.destroy();
       prose = undefined;
       canvasRegion.removeEventListener("dblclick", handleActivate);
       canvasRegion.removeEventListener("keydown", handleKeydown);
+      layout.removeEventListener("keydown", handleShortcuts);
       canvas.dispose();
       render(null, propsHost);
       render(null, tokensHost);
+      render(null, toolbarHost);
+      render(null, insertsHost);
+      render(null, paletteHost);
       layout.remove();
       style.remove();
       themeStyle.remove();
@@ -247,8 +555,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 }
 
 const EDITOR_CSS = `
-.nocms-editor { display: flex; align-items: stretch; min-height: 100vh; }
-.nocms-editor-canvas { flex: 1 1 auto; overflow: auto; }
+.nocms-editor { display: flex; align-items: stretch; min-height: 100vh; position: relative; }
+.nocms-editor-canvas { flex: 1 1 auto; overflow: auto; position: relative; }
 .nocms-editor-panel {
   flex: 0 0 18rem; overflow: auto; padding: 1rem; background: #fafafa;
   border-left: 1px solid #e5e7eb; font: 14px/1.4 system-ui, sans-serif; color: #111827;
@@ -265,4 +573,36 @@ const EDITOR_CSS = `
 .nocms-tokens-group { margin-bottom: 1rem; }
 .nocms-tokens-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0 0 0.5rem; }
 .nocms-tokens .nocms-field input[type="color"] { height: 2rem; padding: 0.1rem; }
+.nocms-toolbar {
+  display: inline-flex; gap: 2px; align-items: center; padding: 2px;
+  background: #1f2937; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  font: 12px/1 system-ui, sans-serif;
+}
+.nocms-toolbar button, .nocms-tool-drag {
+  border: 0; background: transparent; color: #f9fafb; cursor: pointer;
+  padding: 4px 6px; border-radius: 4px; font: inherit;
+}
+.nocms-toolbar button:disabled { opacity: 0.35; cursor: default; }
+.nocms-toolbar button:not(:disabled):hover { background: #374151; }
+.nocms-tool-drag { cursor: grab; }
+.nocms-tool-tag { color: #9ca3af; padding: 0 4px; }
+.nocms-inserts { position: absolute; inset: 0; pointer-events: none; }
+.nocms-insert-handle {
+  pointer-events: auto; display: block; margin: 2px auto; border: 0;
+  width: 22px; height: 22px; border-radius: 50%; background: #3b82f6; color: #fff;
+  cursor: pointer; opacity: 0; transition: opacity 0.1s;
+}
+.nocms-editor-canvas:hover .nocms-insert-handle { opacity: 0.5; }
+.nocms-insert-handle:hover { opacity: 1; }
+.nocms-palette {
+  position: absolute; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 10;
+  width: 16rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 0.5rem; font: 14px/1.4 system-ui, sans-serif;
+}
+.nocms-palette-search { width: 100%; box-sizing: border-box; padding: 0.4rem; border: 1px solid #d1d5db; border-radius: 4px; }
+.nocms-palette-list { list-style: none; margin: 0.5rem 0 0; padding: 0; max-height: 16rem; overflow: auto; }
+.nocms-palette-item { display: flex; justify-content: space-between; width: 100%; text-align: left; border: 0; background: transparent; padding: 0.35rem 0.5rem; border-radius: 4px; cursor: pointer; font: inherit; }
+.nocms-palette-item:hover { background: #eff6ff; }
+.nocms-palette-tag { color: #9ca3af; }
+.nocms-palette-empty { color: #6b7280; padding: 0.35rem 0.5rem; }
 `;
