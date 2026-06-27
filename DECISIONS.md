@@ -335,6 +335,54 @@ components across the capability boundary. Full picture in `.claude/rules/compon
   render protocol (the iframe is static-template only in v1); live hot-add into a mounted editor
   needs a registry-update API (`subscribe()` is the hook).
 
+### D20 — No-code component authoring: visual symbols with an encapsulated implementation → **RESOLVED (model; build deferred).**
+Non-developers **build** components, not just place them — no code, no build. Two flows,
+**specialize** (lock props on one brick) and **compose** (arrange several into a new named unit),
+are one gesture: select on the canvas → "Save as component" → prune what stays editable
+(**opt-out demotion** — everything exposed by default, locked down to a small opinionated surface;
+structural props auto-lock). Authoring new *rendering behavior* (a "new primitive") stays out —
+that is the plugin/sandbox path (D14) or a future AI accelerator *atop* compose, never a code
+generator. Full spec: `docs/specs/saved-components.md`. Builds on the pack/manifest seam (D18/D19):
+a saved component is the owner-authored, trusted twin of a plugin-contributed one.
+
+- **A symbol with proper encapsulation — instances depend on the *interface*, never the
+  *implementation*.** The master (in the site pack via `createRegistry`) owns the internal structure
+  *and* the interface (exposed scalar props + exposed slots + their defaults), stored as text and
+  loaded into the registry at **runtime** (no build — invariant #3). An instance carries only the
+  **exposed interface, written explicit inline**, tagged `data-symbol="Name@v"` (a source-level
+  annotation read from the MDX AST, not necessarily emitted to HTML). The implementation is never
+  inlined — delete the master and instances keep their interface but lose their internals; a saved
+  component is a real dependency, as a component should be.
+
+- **Exposed values are seeds; implementation is by reference; sync is interface-scoped.** An exposed
+  value is copied at insert and frozen per instance (editing a master *default* seeds only future
+  inserts). Editing the *implementation* touches one file — instances re-render fresh.
+  **Auto-sync fires only on an interface change** (rename / add / remove an exposed prop), rewriting
+  every instance to the new contract — a wide commit, justified because the contract moved;
+  everything else is local or encapsulated, so wide commits are rare. Sync runs live in the editor
+  (runtime), persists as a branch-per-session commit (invariant #7, D7), publishes async. **Detach**
+  = drop the tag → plain owned blocks. Guardrail: the editor must block hand-edits to the
+  locked/internal part of an attached instance (steer to *edit master* or *detach*), else sync
+  clobbers them.
+
+- **Slots are first-class interface, not just scalars.** A component's interface = exposed scalar
+  props **+ exposed child regions** (`BlockDef.slots`). A slot's contents are per-instance,
+  materialized inline, and preserved across auto-sync exactly like exposed values — so saved
+  *containers* ("our Card", "our Section with our padding/border") are possible, not just
+  fill-in-the-blank presets. This is the line between a real layout component and a section template
+  (`component-library.md`).
+
+- **A list is children in a slot — there is no "repeater" primitive.** A card row, a team grid, a
+  nav are an exposed slot filled with N child blocks; add / remove / reorder is ordinary block
+  editing, and each item is edited via its own props panel. The uniform block tree with container
+  slots (D15) already expresses "multiple children" — a repeater would be a redundant second
+  mechanism. A per-slot *shape constraint* ("this slot accepts only `Card`") is a possible future
+  slot property, not a concept of its own; deferred, not needed for v1.
+
+- **Deferred:** promoted-control rename / group / order, and exposed-value migration when an
+  interface change renames or removes a prop; catalog placement and naming/collision rules for the
+  site's library pack vs the curated `core` pack.
+
 ### D2 — Editor engine architecture → **RESOLVED: bespoke composition over `@nocms/renderer`; MDX-text/mdast is the source of truth**
 
 **Decision.** The editing surface is a **bespoke composition of noCMS's own packages**, not
