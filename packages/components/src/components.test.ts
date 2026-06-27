@@ -13,6 +13,7 @@ import {
   Hero,
   Image,
   Input,
+  Navbar,
   registry,
   Section,
   Select,
@@ -134,6 +135,24 @@ describe("field primitives", () => {
   });
 });
 
+describe("navigation", () => {
+  it("Navbar renders its wordmark and link list", () => {
+    const html = renderToString(
+      h(Navbar, {
+        brand: "no",
+        brandMark: "CMS",
+        links: [{ label: "Pricing", href: "#pricing" }],
+        ctaLabel: "Fork",
+        ctaHref: "/x",
+      }),
+    );
+    expect(html).toContain("CMS");
+    expect(html).toContain('href="#pricing"');
+    expect(html).toContain("Pricing");
+    expect(html).toContain("Fork");
+  });
+});
+
 describe("interactive island", () => {
   it("Counter prerenders its label and starting count", () => {
     const html = renderToString(h(Counter, { label: "Votes", start: 3 }));
@@ -162,6 +181,7 @@ describe("registry", () => {
       "Input",
       "LanguageSwitcher",
       "LatestPosts",
+      "Navbar",
       "Pricing",
       "Section",
       "Select",

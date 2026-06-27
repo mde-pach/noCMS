@@ -26,6 +26,7 @@ export { CTA, type CTAProps, CTASchema } from "./sections/CTA";
 export { Features, type FeaturesProps, FeaturesSchema } from "./sections/Features";
 export { Footer, type FooterProps, FooterSchema } from "./sections/Footer";
 export { HeroSection, type HeroSectionProps, HeroSectionSchema, } from "./sections/HeroSection";
+export { Navbar, type NavbarProps, NavbarSchema } from "./sections/Navbar";
 export { Pricing, type PricingProps, PricingSchema } from "./sections/Pricing";
 export { Stats, type StatsProps, StatsSchema } from "./sections/Stats";
 export { Testimonials, type TestimonialsProps, TestimonialsSchema, } from "./sections/Testimonials";

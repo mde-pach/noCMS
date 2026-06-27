@@ -35,6 +35,7 @@ import { CTA, CTASchema } from "./sections/CTA";
 import { Features, FeaturesSchema } from "./sections/Features";
 import { Footer, FooterSchema } from "./sections/Footer";
 import { HeroSection, HeroSectionSchema } from "./sections/HeroSection";
+import { Navbar, NavbarSchema } from "./sections/Navbar";
 import { Pricing, PricingSchema } from "./sections/Pricing";
 import { Stats, StatsSchema } from "./sections/Stats";
 import { Testimonials, TestimonialsSchema } from "./sections/Testimonials";
@@ -145,6 +146,12 @@ export const core: ComponentPack = definePack({
 
     // Page-role sections: finished compositions of primitives, seeded with real
     // content, styled only through tokens, static unless interactive.
+    Navbar: entry(Navbar, {
+      schema: NavbarSchema,
+      category: "Sections",
+      description:
+        "Site header with a wordmark, navigation links, and an optional CTA.",
+    }),
     HeroSection: entry(HeroSection, {
       schema: HeroSectionSchema,
       displayName: "Hero Section",
@@ -252,6 +259,7 @@ export {
   type HeroSectionProps,
   HeroSectionSchema,
 } from "./sections/HeroSection";
+export { Navbar, type NavbarProps, NavbarSchema } from "./sections/Navbar";
 export { Pricing, type PricingProps, PricingSchema } from "./sections/Pricing";
 export { Stats, type StatsProps, StatsSchema } from "./sections/Stats";
 export {
