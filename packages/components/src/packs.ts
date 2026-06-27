@@ -45,6 +45,16 @@ export interface BlockDef {
 
 export type ComponentRegistry = Record<string, BlockDef>;
 
+/** Declare a block from a component + metadata. The cast is the one place a typed Preact
+ *  component meets the registry's structural `AnyComponent`; site authors use it so they
+ *  never fight prop-type variance. */
+export function block(
+  component: unknown,
+  extra: Omit<BlockDef, "component"> = {},
+): BlockDef {
+  return { component: component as AnyComponent, ...extra };
+}
+
 /** A distributable bundle of components. The curated library is the `core` pack; plugin
  *  packs add more. `trust` records how the pack's code runs: `builtin` is trusted
  *  in-process code; `sandboxed` runs behind the capability boundary (invariant #8). */

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { registry } from "@nocms/components";
+import { type ComponentRegistry, registry as coreRegistry } from "@nocms/components";
 import {
   contentPathToRoute,
   loadSiteConfig,
@@ -25,6 +25,12 @@ export interface BuildOptions {
    * the config `base` (CI injects the repo name via this); defaults to it when omitted.
    */
   base?: string;
+  /**
+   * The component registry MDX tags prerender against. A fork passes its own composed
+   * registry (`createRegistry(core, sitePack)`) so site-local components publish; defaults
+   * to the curated core set.
+   */
+  registry?: ComponentRegistry;
 }
 
 /** A route path → its output file. `/` → `index.html`, `/x` → `x/index.html`. */
@@ -69,6 +75,7 @@ async function loadRoutes(contentDir: string): Promise<Route[]> {
  */
 export async function buildSite(options: BuildOptions): Promise<void> {
   const { root, outDir } = options;
+  const registry = options.registry ?? coreRegistry;
   const config = await loadSiteConfig(root);
   const base = normalizeBase(options.base ?? config.base);
 

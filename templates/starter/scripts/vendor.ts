@@ -20,27 +20,22 @@ interface VendoredPackage {
    * tooling, which runs only in CI and pulls the MDX compiler + remark stack.
    */
   target?: "browser" | "node";
-  /**
-   * Extra browser-target client bundles emitted into the same vendor dir, with preact inlined
-   * (the published static site serves flat files with no module resolver). The island client
-   * and the (lazy, edit-only) editor client live here — the client JS a published page ships.
-   */
-  clientBundles?: { entry: string; outFile: string }[];
 }
 
 const PACKAGES: VendoredPackage[] = [
   { name: "@nocms/tokens", dir: "tokens" },
   { name: "@nocms/components", dir: "components" },
   { name: "@nocms/renderer", dir: "renderer", target: "node" },
-  {
-    name: "@nocms/build",
-    dir: "build",
-    target: "node",
-    clientBundles: [
-      { entry: "island-client.ts", outFile: "islands.client.js" },
-      { entry: "editor-client.ts", outFile: "editor.client.js" },
-    ],
-  },
+  { name: "@nocms/build", dir: "build", target: "node" },
+];
+
+// The client JS a published page ships, bundled from the *site's* own entries (not the
+// packages') so they compose the site registry — `createRegistry(core, sitePack)` — and a
+// fork's own components hydrate and edit on the deployed site. preact is inlined (a static
+// page has no module resolver); buildSite copies these into `dist/_nocms/`.
+const STARTER_CLIENTS: { entry: string; outFile: string }[] = [
+  { entry: "island.client.ts", outFile: "islands.client.js" },
+  { entry: "editor.client.ts", outFile: "editor.client.js" },
 ];
 
 const starterDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -98,10 +93,6 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
   if (!artifact) throw new Error(`vendor: no output for ${pkg.name}`);
   await writeFile(join(outDir, "index.js"), await artifact.text());
 
-  for (const bundle of pkg.clientBundles ?? []) {
-    await vendorClientBundle(pkg, srcDir, outDir, bundle);
-  }
-
   await emitDeclarations(srcDir, outDir);
 
   const manifest = {
@@ -123,28 +114,45 @@ async function vendor(pkg: VendoredPackage): Promise<void> {
 // A client bundle runs in the browser on a static page, so preact is inlined (no resolver at
 // runtime). Unused heavy imports tree-shake away — the island client keeps only the registry +
 // `hydrateIslands`; the editor client necessarily carries the MDX compiler + prose editor, so
-// it's the heavy one (lazy-loaded on `?edit`). buildSite copies these into `dist`.
-async function vendorClientBundle(
-  pkg: VendoredPackage,
-  srcDir: string,
-  outDir: string,
-  bundle: { entry: string; outFile: string },
-): Promise<void> {
+// it's the heavy one (lazy-loaded on `?edit`). Bundled from `src/` so they compose the site
+// registry; emitted into `vendor/build/` where buildSite finds and copies them into `dist`.
+async function vendorStarterClient(bundle: {
+  entry: string;
+  outFile: string;
+}): Promise<void> {
+  const outDir = join(vendorDir, "build");
+  await mkdir(outDir, { recursive: true });
   const built = await Bun.build({
-    entrypoints: [join(srcDir, bundle.entry)],
+    entrypoints: [join(starterDir, "src", bundle.entry)],
     target: "browser",
     format: "esm",
     minify: true,
+    // Resolve `@nocms/*` to workspace source, not the vendored bundles: the vendored
+    // renderer/build are node-targeted (they carry node:url etc.), but bundling from source
+    // for the browser tree-shakes those node-only paths out — the same reason dev aliases
+    // these (vite.config). A fork never runs this; it serves the committed result.
+    plugins: [
+      {
+        name: "nocms-src-alias",
+        setup(build) {
+          build.onResolve({ filter: /^@nocms\// }, (args) => {
+            const name = args.path.slice("@nocms/".length);
+            const src = join(packagesDir, name, "src", "index.ts");
+            return existsSync(src) ? { path: src } : undefined;
+          });
+        },
+      },
+    ],
   });
   if (!built.success) {
     throw new Error(
-      `vendor: failed to bundle ${pkg.name} ${bundle.outFile}\n${built.logs.join("\n")}`,
+      `vendor: failed to bundle site ${bundle.outFile}\n${built.logs.join("\n")}`,
     );
   }
   const artifact = built.outputs[0];
-  if (!artifact) throw new Error(`vendor: no output for ${pkg.name} ${bundle.outFile}`);
+  if (!artifact) throw new Error(`vendor: no output for site ${bundle.outFile}`);
   await writeFile(join(outDir, bundle.outFile), await artifact.text());
-  console.log(`vendor: ${pkg.name} → vendor/${pkg.dir}/${bundle.outFile}`);
+  console.log(`vendor: site src/${bundle.entry} → vendor/build/${bundle.outFile}`);
 }
 
 if (!existsSync(packagesDir)) {
@@ -152,5 +160,8 @@ if (!existsSync(packagesDir)) {
 } else {
   for (const pkg of PACKAGES) {
     await vendor(pkg);
+  }
+  for (const bundle of STARTER_CLIENTS) {
+    await vendorStarterClient(bundle);
   }
 }

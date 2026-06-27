@@ -4,7 +4,7 @@
 // packs contribute via the sandbox without editing this package (D18).
 
 import {
-  type BlockDef,
+  block,
   type ComponentPack,
   type ComponentRegistry,
   createRegistry,
@@ -29,10 +29,7 @@ import { Select } from "./primitives/Select";
 import { Stack, StackSchema } from "./primitives/Stack";
 import { Textarea } from "./primitives/Textarea";
 
-const entry = (
-  component: unknown,
-  extra: Omit<BlockDef, "component"> = {},
-): BlockDef => ({ component: component as BlockDef["component"], ...extra });
+const entry = block;
 
 /** The curated component library: the always-present `core` pack a site composes with. */
 export const core: ComponentPack = definePack({
@@ -126,6 +123,7 @@ export const registry: ComponentRegistry = createRegistry(core);
 
 export {
   type BlockDef,
+  block,
   type ComponentManifest,
   type ComponentPack,
   type ComponentRegistry,

@@ -2,16 +2,14 @@
 // (main.tsx / scripts/build.ts) is untouched. The editor previews with the same
 // renderer the build prerenders with, so what you edit is what publishes.
 //
-// Schemas are injected, not discovered live (props-discovery parses TS source via the
-// compiler — a Node step, impractical in-browser). They're hand-authored in `editor.json`,
-// shared with the published deploy editor. Loading the editor (it pulls the MDX compiler) is
-// gated behind `?edit`, so the reader bundle never carries it.
+// Controls derive live from each block's valibot schema (D9), carried on the composed
+// `registry` — including this fork's own components — so there is no separate schema file to
+// keep in sync. Loading the editor (it pulls the MDX compiler) is gated behind `?edit`, so
+// the reader bundle never carries it.
 
-import { registry } from "@nocms/components";
 import { mountEditor } from "@nocms/editor";
-import type { ComponentSchema } from "@nocms/props-discovery";
-import schemasJson from "../editor.json";
 import themeTokens from "../theme.tokens?raw";
+import { registry } from "./registry";
 
 // The editor edits MDX *text*. In the real editor that text comes from the GitHub API
 // (the repo is the database). Bundling it via `index.mdx?raw` would be the dev shim, but
@@ -81,17 +79,12 @@ variables at runtime. Try the Theming panel — every block updates live, with n
 </Callout>
 `;
 
-// Schemas live in `editor.json` so the dev `?edit` flow and the published deploy editor
-// (buildSite inlines the same file) share one source.
-const schemas = schemasJson as Record<string, ComponentSchema>;
-
 const root = document.getElementById("app");
 if (root) {
   mountEditor({
     target: root,
     mdx: content,
     components: registry,
-    schemas,
     onChange: (mdx) => console.info("[nocms] content edited", mdx.length, "chars"),
     tokens: themeTokens,
     onTokensChange: () => console.info("[nocms] theme edited"),
