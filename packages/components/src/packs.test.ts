@@ -45,7 +45,7 @@ test("manifestOf derives serializable controls + starter defaults from a schema"
 });
 
 test("manifestOf tolerates a schema-less block", () => {
-  const m = manifestOf("Hero", core.blocks.Hero!);
+  const m = manifestOf("Bare", { component: () => null });
   expect(m.controls).toEqual([]);
   expect(m.defaults).toEqual({});
   expect(m.island).toBe(false);
