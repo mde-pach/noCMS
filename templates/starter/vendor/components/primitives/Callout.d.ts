@@ -1,6 +1,9 @@
 import type { ComponentChildren } from "preact";
-export interface CalloutProps {
-    variant: "info" | "warn" | "tip";
+import * as v from "valibot";
+export declare const CalloutSchema: v.ObjectSchema<{
+    readonly variant: v.PicklistSchema<["info", "warn", "tip"], undefined>;
+}, undefined>;
+export type CalloutProps = v.InferInput<typeof CalloutSchema> & {
     children?: ComponentChildren;
-}
+};
 export declare function Callout({ variant, children }: CalloutProps): import("preact").JSX.Element;

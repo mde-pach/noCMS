@@ -1,7 +1,10 @@
 import type { ComponentChildren } from "preact";
-export interface HeroProps {
-    title: string;
-    subtitle?: string;
+import * as v from "valibot";
+export declare const HeroSchema: v.ObjectSchema<{
+    readonly title: v.StringSchema<undefined>;
+    readonly subtitle: v.OptionalSchema<v.StringSchema<undefined>, undefined>;
+}, undefined>;
+export type HeroProps = v.InferInput<typeof HeroSchema> & {
     children?: ComponentChildren;
-}
+};
 export declare function Hero({ title, subtitle, children }: HeroProps): import("preact").JSX.Element;
