@@ -194,6 +194,7 @@ export interface CatalogCardProps {
 
 export function CatalogCard({ manifest, onInsert }: CatalogCardProps): VNode {
   const kind = previewKind(manifest);
+  const saved = manifest.category === "Saved";
   return (
     <button
       type="button"
@@ -202,7 +203,15 @@ export function CatalogCard({ manifest, onInsert }: CatalogCardProps): VNode {
       onClick={() => onInsert(manifest)}
     >
       <div class="nc-card-preview">
-        <MiniPreview kind={kind} />
+        {manifest.preview ? (
+          <div
+            class="nocms-card-render"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: a snapshot of the component already rendered (and sanitized) on the canvas.
+            dangerouslySetInnerHTML={{ __html: manifest.preview }}
+          />
+        ) : (
+          <MiniPreview kind={kind} />
+        )}
         <div class="nc-card-insert">
           <span>
             <PlusIcon size={12} /> Insert
@@ -219,7 +228,9 @@ export function CatalogCard({ manifest, onInsert }: CatalogCardProps): VNode {
             <div class="nc-card-desc">{manifest.description}</div>
           ) : null}
         </div>
-        <span class="nc-card-badge">Core</span>
+        <span class={`nc-card-badge${saved ? " nc-pack" : ""}`}>
+          {saved ? "Saved" : "Core"}
+        </span>
       </div>
     </button>
   );

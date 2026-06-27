@@ -517,6 +517,9 @@ describe("save as component (D20)", () => {
       b.textContent?.includes("PrimaryCTA"),
     );
     if (!card) throw new Error("PrimaryCTA not in the catalog");
+    // The card shows a real render of the saved component and a "Saved" badge.
+    expect(card.querySelector(".nocms-card-render .btn")).not.toBeNull();
+    expect(card.querySelector(".nc-card-badge")?.textContent).toBe("Saved");
     (card as HTMLElement).click();
 
     // Inserting it renders a second instance via the one renderer.

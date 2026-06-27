@@ -317,6 +317,7 @@ export const EDITOR_CSS = `
 .nc-card { border: 1px solid var(--nc-border); border-radius: 12px; overflow: hidden; background: #fff; cursor: pointer; text-align: left; padding: 0; font: inherit; transition: transform .12s, box-shadow .12s, border-color .12s; position: relative; }
 .nc-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(26,25,22,0.1); border-color: #D5D1C8; }
 .nc-card-preview { height: 132px; background: var(--nc-surface-muted); border-bottom: 1px solid var(--nc-border-faint); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.nocms-card-render { max-width: 88%; max-height: 116px; overflow: hidden; pointer-events: none; display: flex; align-items: center; justify-content: center; }
 .nc-card-insert { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(26,25,22,0.18); opacity: 0; transition: opacity .12s; }
 .nc-card:hover .nc-card-insert { opacity: 1; }
 .nc-card-insert span { background: var(--nc-accent); color: #fff; font-size: 12.5px; font-weight: 600; padding: 8px 18px; border-radius: 999px; box-shadow: 0 4px 12px rgba(61,90,152,0.35); }

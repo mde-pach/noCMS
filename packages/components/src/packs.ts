@@ -41,6 +41,9 @@ export interface BlockDef {
   icon?: string;
   /** free-text tags for palette search. */
   tags?: string[];
+  /** an optional pre-rendered HTML snapshot for the catalog card — a real preview of a saved
+   *  component, where the curated set uses a hand-drawn mock. Plain HTML, so it stays serializable. */
+  preview?: string;
 }
 
 export type ComponentRegistry = Record<string, BlockDef>;
@@ -100,6 +103,8 @@ export interface ComponentManifest {
   controls: ControlDescriptor[];
   /** starter props an insert should stamp onto the new block. */
   defaults: Record<string, PropPrimitive>;
+  /** optional rendered-HTML preview for the catalog card; absent for curated blocks. */
+  preview?: string;
 }
 
 const DEFAULT_CATEGORY = "Other";
@@ -157,6 +162,7 @@ export function manifestOf(name: string, def: BlockDef): ComponentManifest {
     island: def.island ?? false,
     controls,
     defaults,
+    preview: def.preview,
   };
 }
 

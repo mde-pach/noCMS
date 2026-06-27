@@ -656,6 +656,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     saveTarget = undefined;
     renderOverlays();
     await commit(serializeMdx(doc), path);
+    // The instance has now rendered; snapshot it so the catalog card shows the real component.
+    const rendered = elementAtPath(path);
+    const block = components[name];
+    if (rendered && block) block.preview = rendered.outerHTML;
   };
 
   function editFrontmatter(key: string, value: string): void {
