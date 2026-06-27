@@ -283,7 +283,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           ? null
           : canvasRegion.querySelector(`[data-mdx-pos="${offset}"]`);
       if (!el) return;
-      const rect = el.getBoundingClientRect();
+      // Component blocks render inside a boxless `display:contents` carrier; measure the
+      // union of its real descendant boxes, else every gap collapses to zero.
+      const rect = boundingRect(el);
       boxes.push({
         index,
         top: rect.top - region.top,
