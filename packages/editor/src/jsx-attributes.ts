@@ -79,3 +79,21 @@ export function setProp(el: JsxElement, name: string, value: PropValue): void {
 export function removeProp(el: JsxElement, name: string): void {
   el.attributes = el.attributes.filter((a) => !isNamed(a, name));
 }
+
+/**
+ * Build a fresh JSX flow element from a name and plain prop values — the node an insert
+ * stamps into the document. `withChildren` opens an (empty) child region for a container
+ * so the serializer writes `<Name></Name>` rather than a self-closing leaf.
+ */
+export function buildJsxElement(
+  name: string,
+  props: Record<string, PropValue> = {},
+  withChildren = false,
+): JsxElement {
+  return {
+    type: "mdxJsxFlowElement",
+    name,
+    attributes: Object.entries(props).map(([key, value]) => encode(key, value)),
+    children: withChildren ? [{ type: "paragraph", children: [] }] : [],
+  };
+}

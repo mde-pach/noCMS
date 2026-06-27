@@ -10,7 +10,11 @@
 // and the canvas re-renders only on commit (a click elsewhere, or Escape) — re-rendering
 // mid-edit would tear the view out.
 
-import type { ComponentRegistry } from "@nocms/components";
+import {
+  type ComponentManifest,
+  type ComponentRegistry,
+  registryManifest,
+} from "@nocms/components";
 import { deriveControls } from "@nocms/core";
 import { mountProseEditor, type ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
@@ -23,6 +27,8 @@ import {
   mountCanvas,
   offsetFromElement,
 } from "./canvas.js";
+import { blockFromManifest, insertBlock } from "./insert.js";
+import { InsertPalette } from "./insert-palette.js";
 import { isJsxElement } from "./jsx-attributes.js";
 import { parseMdx, serializeMdx } from "./mdx-document.js";
 import {
@@ -86,9 +92,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   canvasRegion.className = "nocms-editor-canvas";
   const panelRegion = document.createElement("div");
   panelRegion.className = "nocms-editor-panel";
+  const paletteHost = document.createElement("div");
   const propsHost = document.createElement("div");
   const tokensHost = document.createElement("div");
-  panelRegion.append(propsHost, tokensHost);
+  panelRegion.append(paletteHost, propsHost, tokensHost);
   layout.append(canvasRegion, panelRegion);
   target.append(style, layout);
 
@@ -178,6 +185,15 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     showPanel(path ? nodeAtIndexPath(doc, path) : undefined);
   };
 
+  const handleInsert = async (manifest: ComponentManifest): Promise<void> => {
+    if (prose) await commitProse();
+    const path = insertBlock(doc, blockFromManifest(manifest), selectedPath);
+    const next = serializeMdx(doc);
+    await canvas.update(next);
+    select(path);
+    onChange?.(next);
+  };
+
   const handleSelect = async (
     selection: CanvasSelection | undefined,
   ): Promise<void> => {
@@ -227,6 +243,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   canvasRegion.addEventListener("dblclick", handleActivate);
   canvasRegion.addEventListener("keydown", handleKeydown);
 
+  render(
+    <InsertPalette
+      manifests={registryManifest(components)}
+      onInsert={(manifest) => void handleInsert(manifest)}
+    />,
+    paletteHost,
+  );
   showPanel(undefined);
 
   return {
@@ -237,6 +260,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       canvasRegion.removeEventListener("dblclick", handleActivate);
       canvasRegion.removeEventListener("keydown", handleKeydown);
       canvas.dispose();
+      render(null, paletteHost);
       render(null, propsHost);
       render(null, tokensHost);
       layout.remove();
@@ -261,6 +285,17 @@ const EDITOR_CSS = `
 .nocms-field input, .nocms-field select { padding: 0.35rem; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
 .nocms-help { color: #6b7280; font-size: 12px; margin: 0; }
 .nocms-empty { color: #6b7280; font-size: 13px; }
+.nocms-palette { margin-bottom: 1.25rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem; }
+.nocms-palette-title { font-size: 14px; margin: 0 0 0.75rem; }
+.nocms-palette-search { width: 100%; box-sizing: border-box; padding: 0.35rem; margin-bottom: 0.75rem; border: 1px solid #d1d5db; border-radius: 4px; font: inherit; }
+.nocms-palette-cat { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+.nocms-palette-item { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; padding: 0.4rem 0.5rem; margin-bottom: 0.25rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #fff; cursor: pointer; font: inherit; }
+.nocms-palette-item:hover { border-color: #3b82f6; background: #f0f6ff; }
+.nocms-palette-name { font-weight: 600; font-size: 13px; }
+.nocms-palette-desc { color: #6b7280; font-size: 11px; }
+.nocms-field-color { display: grid; grid-template-columns: 2.5rem 1fr; align-items: center; gap: 0.4rem; }
+.nocms-field-color label { grid-column: 1 / -1; }
+.nocms-field-color input[type="color"] { height: 2rem; padding: 0.1rem; }
 .nocms-tokens { margin-top: 1.25rem; border-top: 1px solid #e5e7eb; padding-top: 1rem; }
 .nocms-tokens-group { margin-bottom: 1rem; }
 .nocms-tokens-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6b7280; margin: 0 0 0.5rem; }

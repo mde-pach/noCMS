@@ -10,7 +10,13 @@ export {
   offsetFromElement,
   selectionAtElement,
 } from "./canvas.js";
+export { blockFromManifest, insertBlock } from "./insert.js";
 export {
+  InsertPalette,
+  type InsertPaletteProps,
+} from "./insert-palette.js";
+export {
+  buildJsxElement,
   getProp,
   isJsxElement,
   type JsxElement,

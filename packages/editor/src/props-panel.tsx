@@ -89,16 +89,64 @@ function Field({ control, element, onChange }: FieldProps): VNode {
     );
   }
 
-  // Everything text-shaped (text, url, image, color, richtext, reference, date) and
-  // any unknown/plugin kind falls back to a text input — the richer controls (media
-  // picker, color swatch, rich text) arrive with their phases without touching blocks.
+  if (control.kind === "textarea" || control.kind === "richtext") {
+    return (
+      <div class="nocms-field">
+        <label for={id}>{control.label}</label>
+        <textarea
+          id={id}
+          name={control.key}
+          rows={3}
+          value={typeof value === "string" ? value : ""}
+          onInput={(e) => {
+            const raw = e.currentTarget.value;
+            commit(raw === "" ? undefined : raw);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (control.kind === "color") {
+    const current = typeof value === "string" ? value : "";
+    return (
+      <div class="nocms-field nocms-field-color">
+        <label for={id}>{control.label}</label>
+        <input
+          id={id}
+          name={control.key}
+          type="color"
+          value={current || "#000000"}
+          onInput={(e) => commit(e.currentTarget.value)}
+        />
+        <input
+          type="text"
+          aria-label={`${control.label} value`}
+          value={current}
+          onInput={(e) => {
+            const raw = e.currentTarget.value;
+            commit(raw === "" ? undefined : raw);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // url/image accept a URL today; image gets a media picker in a later phase. date is a
+  // native date field. text and any unknown/plugin kind fall back to a plain text input.
+  const inputType =
+    control.kind === "url" || control.kind === "image"
+      ? "url"
+      : control.kind === "date"
+        ? "date"
+        : "text";
   return (
     <div class="nocms-field">
       <label for={id}>{control.label}</label>
       <input
         id={id}
         name={control.key}
-        type="text"
+        type={inputType}
         value={typeof value === "string" ? value : ""}
         onInput={(e) => {
           const raw = e.currentTarget.value;
