@@ -13,6 +13,7 @@ import { Container, ContainerSchema } from "./primitives/Container";
 import { Counter, CounterSchema } from "./primitives/Counter";
 import { Divider, DividerSchema } from "./primitives/Divider";
 import { Form, FormSchema } from "./primitives/Form";
+import { Frame, FrameSchema } from "./primitives/Frame";
 import { Grid, GridSchema } from "./primitives/Grid";
 import { Hero, HeroSchema } from "./primitives/Hero";
 import { Image, ImageSchema } from "./primitives/Image";
@@ -56,6 +57,12 @@ export const core: ComponentPack = definePack({
       schema: ContainerSchema,
       category: "Layout",
       description: "Centers and width-constrains its contents.",
+    }),
+    Frame: entry(Frame, {
+      schema: FrameSchema,
+      slots: ["children"],
+      category: "Layout",
+      description: "Auto-layout container: arrange children as a row, column, or grid.",
     }),
     Grid: entry(Grid, {
       schema: GridSchema,
@@ -206,6 +213,7 @@ export {
 export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
 export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
 export { Form, type FormProps, FormSchema } from "./primitives/Form";
+export { Frame, type FrameProps, FrameSchema } from "./primitives/Frame";
 export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
 export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";

@@ -83,6 +83,27 @@ html.nocms-editing body {
   background: var(--nc-surface); color: var(--nc-text); font-weight: 600;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
+.nc-seg-icon { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; }
+.nc-seg-icon svg { color: var(--nc-text-2); }
+.nc-seg-icon[aria-pressed="true"] svg { color: var(--nc-accent); }
+.nc-seg-icon span { font-size: 11px; text-transform: capitalize; }
+
+/* alignment matrix: 9 cells, the active one shows the accent dot */
+.nc-align-matrix {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  width: 84px; aspect-ratio: 1; padding: 4px; border-radius: 9px;
+  background: var(--nc-field);
+}
+.nc-align-cell {
+  display: flex; align-items: center; justify-content: center; border: 0;
+  background: transparent; border-radius: 6px; cursor: pointer; padding: 0;
+  transition: background .1s;
+}
+.nc-align-cell:hover { background: rgba(0,0,0,0.04); }
+.nc-align-cell[aria-pressed="true"] { background: var(--nc-surface); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.nc-align-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--nc-text-3); transition: background .1s, transform .1s; }
+.nc-align-cell:hover .nc-align-dot { background: var(--nc-text-2); }
+.nc-align-cell[aria-pressed="true"] .nc-align-dot { background: var(--nc-accent); transform: scale(1.5); }
 
 /* toggle */
 .nc-toggle {

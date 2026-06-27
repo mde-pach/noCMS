@@ -10,6 +10,7 @@ import {
   Counter,
   Divider,
   Form,
+  Frame,
   Grid,
   Hero,
   Image,
@@ -68,6 +69,23 @@ describe("layout primitives", () => {
   it("Stack aligns its children", () => {
     const html = renderToString(h(Stack, { align: "center", children: "s" }));
     expect(html).toContain("align-items:center");
+  });
+
+  it("Frame in row mode flows horizontally with the chosen alignment", () => {
+    const html = renderToString(
+      h(Frame, { direction: "row", align: "center", justify: "end", children: "f" }),
+    );
+    expect(html).toContain("flex-direction:row");
+    expect(html).toContain("align-items:center");
+    expect(html).toContain("justify-content:flex-end");
+  });
+
+  it("Frame in grid mode lays children into columns", () => {
+    const html = renderToString(
+      h(Frame, { direction: "grid", columns: 4, children: "g" }),
+    );
+    expect(html).toContain("display:grid");
+    expect(html).toContain("repeat(4");
   });
 });
 
@@ -165,6 +183,7 @@ describe("registry", () => {
       "Features",
       "Footer",
       "Form",
+      "Frame",
       "Grid",
       "Hero",
       "HeroSection",
