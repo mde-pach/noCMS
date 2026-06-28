@@ -109,6 +109,8 @@ export {
   type ContentPath,
   contentPathsFromControls,
   enumerateContentPaths,
+  enumerateItemPaths,
+  type ItemPath,
 } from "./content-paths";
 export {
   type ControlDescriptor,

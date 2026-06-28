@@ -9,6 +9,11 @@ function childrenOf(node: Nodes): Nodes[] | undefined {
   return "children" in node ? (node as Parent).children : undefined;
 }
 
+/** True when `a` addresses `b` or an ancestor of it — i.e. `a` is a prefix of `b`. */
+function isPrefix(a: IndexPath, b: IndexPath): boolean {
+  return a.length <= b.length && a.every((v, i) => v === b[i]);
+}
+
 /** The parent node and child index a non-empty path addresses, resolved within `root`. */
 function locate(
   root: Nodes,
@@ -62,15 +67,22 @@ export function moveNode<T extends Nodes>(
   toParentPath: IndexPath,
   toIndex: number,
 ): T {
+  // Dropping a node into itself or its own descendant would detach the subtree from the
+  // document; `from` being a prefix of the destination is exactly that case.
+  if (isPrefix(from, toParentPath)) return root;
   const next = structuredClone(root);
+  // Resolve the destination container by reference *before* removing the source. A source that
+  // sits before the destination under a shared ancestor would otherwise shift the destination's
+  // indices out from under `toParentPath`, silently dropping the move; the array reference is
+  // stable across the splice. When source and destination share a parent it is the same array,
+  // so removing then inserting at `toIndex` keeps the post-removal contract above.
+  const destParent = nodeAtIndexPath(next, toParentPath);
+  const dest = destParent ? childrenOf(destParent) : undefined;
   const loc = locate(next, from);
-  if (!loc) return root;
+  if (!loc || !dest) return root;
   const [moved] = loc.siblings.splice(loc.index, 1);
   if (!moved) return root;
-  const parent = nodeAtIndexPath(next, toParentPath);
-  const siblings = parent ? childrenOf(parent) : undefined;
-  if (!siblings) return root;
-  siblings.splice(Math.max(0, Math.min(toIndex, siblings.length)), 0, moved);
+  dest.splice(Math.max(0, Math.min(toIndex, dest.length)), 0, moved);
   return next;
 }
 

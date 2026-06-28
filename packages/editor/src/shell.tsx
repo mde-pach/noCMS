@@ -31,12 +31,15 @@ import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
 import type { InspectorProps } from "./inspector.js";
+import { type ItemSelection, parseItemPath, reorderArray } from "./item-selection.js";
 import {
   getProp,
+  getStructuredProp,
   isJsxElement,
   type JsxElement,
   type PropValue,
   setProp,
+  setStructuredProp,
 } from "./jsx-attributes.js";
 import { serializeMdx } from "./mdx-document.js";
 import type { ModalProps, OverlayKind, SaveDialogData } from "./modals.js";
@@ -207,6 +210,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   let selectedPath: IndexPath | undefined;
+  // The selected array item (a pricing card etc.), when a card — not its component — is the active
+  // selection. `selectedPath` still points at the owning component (so the inspector shows its
+  // props with the item expanded); this just adds the item-level chrome and drag.
+  let selectedItem: ItemSelection | undefined;
   // The content leaf the last click landed on (e.g. `items.2.title`), relative to the selected
   // block — the props panel focuses that field. Cleared on any selection that isn't a content hit.
   let focusedContentPath: string | undefined;
@@ -231,7 +238,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     // `canvas` is assigned below (mountCanvas); the store only calls it after mount.
     getCanvas: () => canvas,
     select: (path) => select(path),
-    getSelectedPath: () => selectedPath,
+    // While an item is selected the block highlight is suppressed (the item has its own box), so a
+    // re-serialize after an edit doesn't draw a stray outline around the whole component.
+    getSelectedPath: () => (selectedItem ? undefined : selectedPath),
     onChange,
     markDirty: () => chrome.markDirty(),
   });
@@ -517,6 +526,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   function renderToolbar(): void {
     const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
     if (
+      selectedItem ||
       !node ||
       !selectedPath ||
       selectedPath.length === 0 ||
@@ -556,8 +566,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           })
         }
         onSaveAsComponent={saveable ? openSaveComponent : undefined}
-        onDragStart={(event) => drag.beginDrag(event)}
-        onDragEnd={() => drag.endDrag()}
       />,
       toolbarHost,
     );
@@ -578,6 +586,19 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showContentHover(
       anchor && anchor !== contentElement() ? anchor : undefined,
     );
+    // Deepest-first: an array-item card hovers as itself (outline + item chip), above its component.
+    const hoverItem = itemAt(t);
+    if (hoverItem) {
+      if (selectedItem && sameItem(selectedItem, hoverItem)) {
+        overlays.clearHover();
+        return;
+      }
+      const itemEl = itemElement(hoverItem);
+      if (itemEl) {
+        overlays.showHover(itemEl, itemLabel(hoverItem));
+        return;
+      }
+    }
     const offset = offsetFromElement(t);
     const path = offset === undefined ? [] : nodeAtOffset(docs.doc, offset);
     const node = offset === undefined ? undefined : selectableNode(path);
@@ -602,9 +623,20 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // The block's name tag, anchored just above the selection's top-left so it labels the
   // selection without ever overlapping the content inside it.
   function renderSelectionLabel(): void {
+    // An item's chip replaces the block chip and is its own drag handle (reorders the array).
+    if (selectedItem && !proseSession.isActive()) {
+      const itemEl = itemElement(selectedItem);
+      if (itemEl) {
+        overlays.showSelectionLabel(itemEl, itemLabel(selectedItem), (event) =>
+          drag.beginItemDrag(event),
+        );
+        return;
+      }
+    }
     const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
     const el = selectedPath ? elementAtPath(selectedPath) : null;
     if (
+      selectedItem ||
       !node ||
       !selectedPath ||
       selectedPath.length === 0 ||
@@ -615,7 +647,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       return;
     }
     const label = "name" in node && node.name ? String(node.name) : node.type;
-    overlays.showSelectionLabel(el, label);
+    // The chip is the drag handle: grabbing it lifts the block to move it (D22 drag-to-arrange).
+    overlays.showSelectionLabel(el, label, (event) => drag.beginDrag(event));
   }
 
   // The DOM element of the anchored content leaf, scoped to the selected block so an identical
@@ -636,7 +669,101 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showContentSelection(contentElement() ?? undefined);
   }
 
+  // Array items — a card derived from an object-array prop, selectable and draggable on the canvas
+  // (deepest-first: a card sits below its component). Detection is `data-nocms-item`, tagged by the
+  // content-anchor pass; the item reorders within its own array prop, not the document tree.
+  function itemAt(el: Element): ItemSelection | undefined {
+    const itemEl = el.closest<HTMLElement>("[data-nocms-item]");
+    const raw = itemEl?.dataset.nocmsItem;
+    const parsed = raw ? parseItemPath(raw) : undefined;
+    if (!itemEl || !raw || !parsed) return undefined;
+    const compEl = itemEl.closest("[data-mdx-pos]");
+    const offset = compEl ? Number(compEl.getAttribute("data-mdx-pos")) : Number.NaN;
+    if (Number.isNaN(offset)) return undefined;
+    const chain = nodeAtOffset(docs.doc, offset);
+    const compNode = chain.findLast(
+      (n) => isJsxElement(n) && n.position?.start.offset === offset,
+    );
+    const component = compNode ? indexPathOf(chain, compNode) : undefined;
+    if (!component) return undefined;
+    return { component, key: parsed.key, index: parsed.index, path: raw };
+  }
+
+  function itemElement(item: ItemSelection): Element | null {
+    return (
+      elementAtPath(item.component)?.querySelector(
+        `[data-nocms-item="${item.path}"]`,
+      ) ?? null
+    );
+  }
+
+  // The item's array, resolving the schema default when the prop isn't stored on the node — a
+  // section often renders its seed array (e.g. Pricing's tiers) with no attribute written yet, so
+  // reading only stored attributes would miss it (and a reorder would silently no-op).
+  function resolvedArray(item: ItemSelection): unknown[] | undefined {
+    const node = nodeAtIndexPath(docs.doc, item.component);
+    if (!node || !isJsxElement(node) || !node.name) return undefined;
+    const stored = getStructuredProp(node, item.key);
+    if (Array.isArray(stored)) return stored;
+    const def = components[node.name];
+    const control = def ? controlsOf(def).find((c) => c.key === item.key) : undefined;
+    return Array.isArray(control?.default) ? control.default : undefined;
+  }
+
+  // The chip text for an item: its first non-empty text field (a tier's name), else a positional
+  // fallback — legible without the component declaring a label field.
+  function itemLabel(item: ItemSelection): string {
+    const val = resolvedArray(item)?.[item.index];
+    if (val && typeof val === "object") {
+      for (const v of Object.values(val as Record<string, unknown>)) {
+        if (typeof v === "string" && v.trim()) return v.trim().slice(0, 28);
+      }
+    }
+    return `${item.key} ${item.index + 1}`;
+  }
+
+  const sameItem = (a: ItemSelection, b: ItemSelection): boolean =>
+    a.path === b.path && a.component.join() === b.component.join();
+
+  function renderItemSelection(): void {
+    if (!selectedItem || proseSession.isActive()) {
+      overlays.showItemSelection(undefined);
+      return;
+    }
+    overlays.showItemSelection(itemElement(selectedItem) ?? undefined);
+  }
+
+  function selectItem(item: ItemSelection): void {
+    selectedItem = item;
+    selectedPath = item.component; // the inspector shows the owning component...
+    focusedContentPath = item.path; // ...with this item's row expanded
+    focusNonce += 1;
+    canvas.highlight(undefined);
+    paint();
+    renderToolbar();
+    renderSelectionLabel();
+    renderItemSelection();
+    renderContentSelection();
+  }
+
+  // Reorder an item within its array prop — the same write the props panel's up/down buttons make,
+  // driven from a canvas drag. The moved item stays selected at its new index.
+  const reorderItems = async (item: ItemSelection, to: number): Promise<void> => {
+    const node = nodeAtIndexPath(docs.doc, item.component);
+    const arr = resolvedArray(item);
+    if (!node || !isJsxElement(node) || !arr) return;
+    setStructuredProp(node, item.key, reorderArray(arr, item.index, to));
+    // `commit` (not `handleEdit`) re-parses the document so its source offsets re-sync with the
+    // re-rendered canvas. Item *and* block selection resolve a clicked DOM offset against this tree;
+    // a stale one (handleEdit leaves the mutated tree's offsets untouched) breaks all selection
+    // after the first reorder. It block-selects the component, so re-select the moved item.
+    await docs.commit(docs.serialize(), item.component);
+    selectItem({ ...item, index: to, path: `${item.key}.${to}` });
+  };
+
   function select(path: IndexPath | undefined, focus?: string): void {
+    selectedItem = undefined;
+    overlays.showItemSelection(undefined);
     selectedPath = path;
     // Cleared unless this selection came from clicking tagged content, so a stale field focus
     // never lingers onto the next block.
@@ -654,6 +781,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   ): Promise<void> => {
     if (proseSession.isActive()) await proseSession.commit();
     if (contentEditor.isActive()) await contentEditor.commit();
+    // Deepest-first: a click inside an array-item card selects that item, not the whole component.
+    const item = selection ? itemAt(selection.element) : undefined;
+    if (item) {
+      selectItem(item);
+      return;
+    }
     const node = selection ? selectableNode(selection.path) : undefined;
     const anchor = selection?.element.closest("[data-nocms-path]");
     const focus = anchor?.getAttribute("data-nocms-path") ?? undefined;
@@ -761,8 +894,26 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       docs.redo();
       return;
     }
-    if (event.key === "Escape" && overlay) {
-      closeOverlay();
+    if (event.key === "Escape") {
+      if (overlay) {
+        closeOverlay();
+        return;
+      }
+      if (proseSession.isActive() || contentEditor.isActive() || drag.isDragging())
+        return;
+      // Zoom out the selection one level — easier than clicking past the deepest thing under the
+      // cursor: a card → its component → the parent container → … → nothing.
+      if (selectedItem) {
+        event.preventDefault();
+        select(selectedItem.component);
+        return;
+      }
+      if (selectedPath && selectedPath.length > 0) {
+        event.preventDefault();
+        const parent = selectedPath.slice(0, -1);
+        select(parent.length > 0 ? parent : undefined);
+        return;
+      }
       return;
     }
     if (proseSession.isActive()) return;
@@ -790,10 +941,19 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     onPainted: (content, doc) => {
       anchorComponents(content, doc, components);
-      // The repaint replaced the anchored node; re-pin the content box to the fresh one.
+      // The repaint replaced the anchored nodes; re-pin the content box and any item chrome to the
+      // fresh ones (the item's card is re-tagged by anchorComponents above).
       renderContentSelection();
+      renderItemSelection();
+      renderSelectionLabel();
     },
-    suppressWhen: (el) => proseSession.containsEl(el) || contentEditor.containsEl(el),
+    // The selection chip lives in the overlay layer (a child of the canvas) and is the drag
+    // handle; a click on it must not reach the canvas, which would read it as empty space and
+    // deselect the block being grabbed.
+    suppressWhen: (el) =>
+      proseSession.containsEl(el) ||
+      contentEditor.containsEl(el) ||
+      overlays.labelHost.contains(el),
   });
   surface.append(toolbarHost, formatHost);
 
@@ -805,9 +965,23 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     getDoc: () => docs.doc,
     selectedPath: () => selectedPath,
     elementAtPath,
+    isContainer: (name) => Boolean(components[name]?.slots?.length),
     reorder: async (from, parent, to) => {
       const next = moveNode(docs.doc, from, parent, to);
       await docs.commit(serializeMdx(next), [...parent, to]);
+    },
+    selectedItem: () => selectedItem,
+    itemElement,
+    reorderItems,
+    restore: () => {
+      if (selectedItem) {
+        renderItemSelection();
+        renderSelectionLabel();
+        return;
+      }
+      canvas.highlight(selectedPath);
+      renderToolbar();
+      renderSelectionLabel();
     },
   });
 
@@ -847,8 +1021,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.clearHover();
     overlays.showContentHover(undefined);
   });
-  surface.addEventListener("dragover", (event) => drag.onDragOver(event));
-  surface.addEventListener("drop", (event) => void drag.onDrop(event));
   // Shortcuts are global (selection lives on the page, not in a focused frame); isTextEntry
   // keeps them from firing while typing in a field or the prose view.
   document.addEventListener("keydown", handleShortcuts);
@@ -859,6 +1031,15 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const reposition = (): void => {
     if (proseSession.isActive()) {
       proseSession.reposition();
+      return;
+    }
+    // A lift hides the toolbar/chip/highlight and the drag controller owns the overlays; a reflow
+    // mid-drag must not re-pin them and fight the gesture.
+    if (drag.isDragging()) return;
+    if (selectedItem) {
+      canvas.highlight(undefined);
+      renderItemSelection();
+      renderSelectionLabel();
       return;
     }
     canvas.highlight(selectedPath);

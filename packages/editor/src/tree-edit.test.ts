@@ -93,6 +93,25 @@ describe("tree-edit transforms (D15)", () => {
     );
   });
 
+  // Regression: the source precedes the destination container at the same level, so removing it
+  // shifts the container's index. Resolving the destination only after removal would silently miss.
+  test("moveNode into a container that sits after the source", () => {
+    const doc = parseMdx(`<Button label="A" />\n\n<Section>\n  Intro\n</Section>\n`);
+    expect(topLevel(doc)).toEqual(["Button", "Section"]);
+    const next = moveNode(doc, [0], [1], 0);
+    expect(topLevel(next)).toEqual(["Section"]);
+    const section = (next as { children: Nodes[] }).children[0] as {
+      children: Nodes[];
+    };
+    expect(section.children.some((c) => "name" in c && c.name === "Button")).toBe(true);
+  });
+
+  test("dropping a node into itself or its own descendant is rejected", () => {
+    const doc = parseMdx(SRC);
+    expect(moveNode(doc, [0], [0], 0)).toBe(doc);
+    expect(moveNode(doc, [0], [0, 0], 0)).toBe(doc);
+  });
+
   test("an unresolvable address returns the tree unchanged", () => {
     const doc = parseMdx(SRC);
     expect(removeAt(doc, [99])).toBe(doc);

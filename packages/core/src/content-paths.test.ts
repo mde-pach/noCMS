@@ -1,6 +1,7 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { enumerateContentPaths } from "./content-paths";
+import { enumerateContentPaths, enumerateItemPaths } from "./content-paths";
+import { deriveControls } from "./controls";
 
 // Mirrors a real section schema (cf. components' Features): array of objects holding display
 // text, a number, and a picklist. Only the display-text leaves should be anchored.
@@ -72,5 +73,36 @@ describe("enumerateContentPaths", () => {
     );
     expect(byPath["items.0.title"]).toBe("Card");
     expect(byPath.title).toBe("Heading");
+  });
+});
+
+describe("enumerateItemPaths", () => {
+  const controls = deriveControls(SectionSchema);
+
+  it("emits one item per object-array element, keyed by array + index", () => {
+    const value = {
+      title: "x",
+      columns: 3,
+      variant: "page",
+      items: [{ title: "A" }, { title: "B" }, { title: "C" }],
+    };
+    expect(enumerateItemPaths(controls, value)).toEqual([
+      { path: "items.0", key: "items", index: 0 },
+      { path: "items.1", key: "items", index: 1 },
+      { path: "items.2", key: "items", index: 2 },
+    ]);
+  });
+
+  it("ignores string arrays and scalar props — only object arrays are items", () => {
+    const withTags = deriveControls(
+      v.object({ title: v.string(), tags: v.array(v.string()) }),
+    );
+    const out = enumerateItemPaths(withTags, { title: "x", tags: ["a", "b"] });
+    expect(out).toEqual([]);
+  });
+
+  it("returns nothing for an empty array", () => {
+    const value = { title: "x", columns: 2, variant: "page", items: [] };
+    expect(enumerateItemPaths(controls, value)).toEqual([]);
   });
 });

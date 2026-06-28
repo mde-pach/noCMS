@@ -6,7 +6,6 @@ import {
   ArrowDown,
   ArrowUp,
   DuplicateIcon,
-  GripIcon,
   SectionIcon,
   SettingsIcon,
   TrashIcon,
@@ -24,9 +23,6 @@ export interface SelectionToolbarProps {
   /** promote the selected block into a reusable saved component; absent when the block
    *  can't be saved (e.g. plain prose with no controls). */
   onSaveAsComponent?: () => void;
-  /** native HTML5 drag-reorder; the shell resolves the drop to a `moveNode`. */
-  onDragStart: (event: DragEvent) => void;
-  onDragEnd: (event: DragEvent) => void;
 }
 
 const act = (fn: () => void) => (event: MouseEvent) => {
@@ -44,23 +40,9 @@ export function SelectionToolbar({
   onDelete,
   onSettings,
   onSaveAsComponent,
-  onDragStart,
-  onDragEnd,
 }: SelectionToolbarProps): VNode {
   return (
     <div class="nocms-toolbar" role="toolbar" aria-label={`${label} actions`}>
-      <button
-        type="button"
-        class="nc-tool-drag"
-        draggable
-        title="Drag to reorder"
-        aria-label="Drag to reorder"
-        onClick={(event) => event.stopPropagation()}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-      >
-        <GripIcon size={12} />
-      </button>
       <button
         type="button"
         class="nocms-tool-up"

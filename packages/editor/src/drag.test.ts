@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { type BlockBox, destinationIndex, dropGapAt } from "./drag.js";
+import {
+  type BlockBox,
+  type Box,
+  type DropZone,
+  destinationIndex,
+  dropGapAt,
+  resolveDrop,
+} from "./drag.js";
 
 const boxes: BlockBox[] = [
   { index: 0, top: 0, bottom: 100 },
@@ -45,5 +52,88 @@ describe("destinationIndex", () => {
   test("dropping back into its own slot is a no-op", () => {
     expect(destinationIndex(1, 1)).toBeUndefined();
     expect(destinationIndex(1, 2)).toBeUndefined();
+  });
+});
+
+const box = (left: number, top: number, right: number, bottom: number): Box => ({
+  left,
+  top,
+  right,
+  bottom,
+});
+
+describe("resolveDrop", () => {
+  // A column Section ([0]) of two cards nested in the document root, plus a trailing top-level block.
+  const root: DropZone = {
+    path: [],
+    axis: "vertical",
+    box: box(0, 0, 200, 400),
+    children: [
+      { index: 0, box: box(0, 0, 200, 200) },
+      { index: 1, box: box(0, 200, 200, 260) },
+    ],
+  };
+  const section: DropZone = {
+    path: [0],
+    axis: "vertical",
+    box: box(0, 0, 200, 200),
+    children: [
+      { index: 0, box: box(10, 10, 190, 90) },
+      { index: 1, box: box(10, 100, 190, 180) },
+    ],
+  };
+
+  test("the deepest container under the point wins", () => {
+    const target = resolveDrop([root, section], 100, 120, [9]);
+    expect(target?.parentPath).toEqual([0]);
+    // y=120 clears card 0's midpoint (50) but not card 1's (140) -> gap 1.
+    expect(target?.index).toBe(1);
+    expect(target?.line.orientation).toBe("horizontal");
+  });
+
+  test("a point only the root covers lands at top level", () => {
+    const target = resolveDrop([root, section], 100, 230, [9]);
+    expect(target?.parentPath).toEqual([]);
+    expect(target?.index).toBe(1);
+  });
+
+  test("the dragged node's own subtree is never a target", () => {
+    // Dragging the Section itself: the point is inside it, but it (and its cards) are excluded,
+    // so the drop falls back to the root.
+    const target = resolveDrop([root, section], 100, 50, [0]);
+    expect(target?.parentPath).toEqual([]);
+  });
+
+  test("a point over no container resolves to nothing", () => {
+    expect(resolveDrop([section], 500, 500, [9])).toBeUndefined();
+  });
+
+  test("a horizontal container draws a vertical line between columns", () => {
+    const row: DropZone = {
+      path: [1],
+      axis: "horizontal",
+      box: box(0, 0, 300, 100),
+      children: [
+        { index: 0, box: box(0, 0, 100, 100) },
+        { index: 1, box: box(100, 0, 200, 100) },
+        { index: 2, box: box(200, 0, 300, 100) },
+      ],
+    };
+    const target = resolveDrop([row], 150, 50, [9]);
+    expect(target?.index).toBe(1);
+    expect(target?.line.orientation).toBe("vertical");
+    expect(target?.line.x).toBe(100);
+  });
+
+  test("an empty container accepts at index 0 with a centered line", () => {
+    const empty: DropZone = {
+      path: [2],
+      axis: "vertical",
+      box: box(0, 0, 100, 80),
+      children: [],
+    };
+    const target = resolveDrop([empty], 50, 40, [9]);
+    expect(target?.index).toBe(0);
+    expect(target?.line.y).toBe(40);
   });
 });

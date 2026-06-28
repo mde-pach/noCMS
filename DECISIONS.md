@@ -1156,6 +1156,93 @@ missing *UX layer* — how a non-developer actually sets layout up. Full detail 
   free drop onto pixels. One renderer, one tree (#1): the inspector and DnD are host-side UI over the
   existing canvas, committing as normal tree edits.
 
-- **Sequencing (build pending).** ① the `layout` inspector over today's Stack/Grid; ② Frame
+- **Sequencing.** ① the `layout` inspector over today's Stack/Grid; ② Frame
   unification + per-child Fill/Hug/Fixed; ③ smart responsive + per-breakpoint override; ④
   drag-to-arrange. Each step is independently shippable on the existing schema→control→panel seam.
+
+- **Step ④ drag-to-arrange → BUILT.** The gesture moved off native HTML5 drag (whose drag image
+  is a fixed OS snapshot you can't style or update mid-drag) to **pointer events**, so the lifted
+  block is a styled clone that rides the cursor while the original dims in place. Three parts: the
+  **chip is the handle** (the selection name-tag, replacing the toolbar grip); a pure
+  **`resolveDrop`** (`drag.ts`) that picks the deepest droppable container under the point —
+  cross-container, excluding the dragged subtree — and the axis-aware gap within it (vertical line
+  between row/grid columns, horizontal between stacked children); and the controller
+  (`drag-controller.ts`) that snapshots every container once at lift (so a scroll/auto-scroll never
+  reflows the geometry), draws a container ring + insertion line, and commits one `moveNode`. A drop
+  resolves only to "container + index", never free pixels (#1, D15). Deepest-container targeting is
+  the v1 policy; edge-zones (treat a child's edge as a sibling drop in the parent) are a later swap
+  behind the same resolver seam. Required fixing `moveNode` to resolve the destination container by
+  reference before removing the source — a source preceding the destination under a shared ancestor
+  was silently shifting the destination's index.
+
+### D23 — Adopt Tailwind v4 as the styling engine + per-element class-derived controls → **RESOLVED (direction; build pending).**
+Replaces the hand-rolled inline-`style`-object styling with Tailwind v4 as the production-grade,
+widely-adopted styling system, and makes **per-element editing of Tailwind utilities the primary
+editor affordance** (the original goal), with Tailwind-as-engine the enabling substrate. Reframes
+the styling approach under invariant #1 and amends invariant #5; extends D9.
+
+- **Why this is viable on v4 specifically (it was not on v3).** v4's `@theme` directive *generates
+  CSS custom properties* (`--color-primary`, spacing scale, …) and every utility resolves to
+  `var(--…)`. So token theming stays a **CSS-variable swap with no rebuild** (#3), and the flat
+  token file stays canonical — it **generates the `@theme` block** the same way it already generates
+  DTCG (#5 amended: tokens → DTCG **and** `@theme`, never the reverse). Roles/ramps become theme
+  keys: `color.primary` → `--color-primary` → `bg-primary`; "edit one role, everything rebinds"
+  survives. Verified against Tailwind v4 docs (`@theme` → CSS vars; `@tailwindcss/browser@4` JIT).
+
+- **Two engines, one config — the load-bearing constraint.** The editor previews with the in-browser
+  JIT engine (`@tailwindcss/browser@4`, explicitly dev-only); publish runs the Tailwind CLI in the
+  Action (tier ②/③) emitting a static stylesheet. *Preview = publish* (#1) now depends on both being
+  **version-pinned and fed the same generated `@theme`**. Guard it with: lockfile pin, a single
+  token→`@theme` generator shared by both moments, and a parity test diffing editor-CSS vs build-CSS
+  for a fixture page. This is the property that silently breaks the core guarantee if it drifts.
+
+- **Scope: A + B, with B the goal.** **A** — curated components use utilities instead of inline-style
+  objects (ecosystem leverage, contributor familiarity, static cached published CSS). **B** — the
+  editor edits an element's utility classes directly via structured controls (pick a spacing step, a
+  color role, a radius), reading the class string off the rendered tree and writing it back. B is the
+  point; A is what makes B sit on a real system instead of a bespoke one.
+
+- **B extends D9, does not contradict it.** Schema-introspection stays the source for **component
+  prop** controls. Class-derived controls are a *different layer* — per-element **style overrides** on
+  the rendered DOM, not props. Constrain B to the token-backed scales (theme keys), not Tailwind's
+  open-ended grammar: surface arbitrary values (`p-[13px]`) and exotic variants as a raw escape hatch,
+  never as the primary control vocabulary, so the editor stays a design-system tool, not a CSS console.
+
+- **Leverage, don't hand-write the parser.** Class↔structure round-tripping has existing libraries —
+  e.g. `@xengine/tailwindcss-class-parser` (class→AST→class), `@toddledev/tailwind-parser`,
+  `tailwindcss-parser`. **Onlook** (Apache-2.0) is the closest whole-feature prior art — a visual
+  editor that reads/writes Tailwind classes on elements — to study for approach (it's a whole app,
+  not a library to import). Any dependency must be permissive OSS (MIT/Apache-2.0/BSD-class); MIT is
+  not required. Vet a chosen lib's license + v4 support before adopting.
+
+- **Migration & risk surface (build pending).** Rewrite the ~20 curated components to utilities; keep
+  the sandbox render-proxy's static HTML templates and plugin-contributed class strings **scannable at
+  publish** (safelist or scan rendered output) — a sandboxed plugin emitting a novel utility at runtime
+  is the one spot where "browser engine renders it, publish scanner missed it" can break #1. Sequencing:
+  ① token→`@theme` generator + two-engine wiring + parity test; ② migrate curated components to
+  utilities; ③ per-element class inspector (B) over the parser lib; ④ plugin/sandbox scan hardening.
+
+### D24 — Array-prop items are first-class canvas objects (select + drag a card) → **RESOLVED.**
+A component that maps an object-array prop to repeated UI (Pricing `tiers`, Features `items`, Navbar
+`links`) rendered as one opaque block: you could only edit the array in the props panel. Now each
+rendered card is a selectable, draggable **item** that maps back to its array element, so the canvas
+edits the array directly. Reaffirms invariants #1 and #10; builds on the content-anchor pass and D22.
+
+- **Detection reuses the anchor pass, no component cooperation.** The content-anchor pass already
+  tags each text leaf with `data-nocms-path="tiers.1.name"`; the card is the **nearest common
+  ancestor** of an item's leaves, tagged `data-nocms-item="tiers.1"` in the same pass
+  (`content-anchors.ts` + `core.enumerateItemPaths`, object arrays only). The renderer and the
+  component stay untouched — items are derived from output structure, never declared.
+
+- **A selection tier between component and leaf.** Selection is now component → item → text leaf;
+  deepest-first, so a click on a card selects the item (its own outline + chip), a click on the
+  component's padding selects the component, a double-click edits text. The item chip is its own drag
+  handle, and selecting an item expands its row in the inspector — canvas and panel stay one source.
+
+- **Item drag is a second mode of the one controller, not a second renderer.** `createDragController`
+  carries a `DragSession`: a *block* drag commits a `moveNode` (cross-container); an *item* drag is
+  scoped to its own array (one zone, sibling cards) and commits a single prop write —
+  `setStructuredProp` of the reordered array, the same write the props panel's up/down buttons make,
+  resolving the schema **default** array when the prop isn't stored yet (else a seed array would
+  no-op). v1 reorders within the array only; cross-array / extract-to-block is deferred. An item with
+  no text leaves can't be located this way and falls back to selecting its component.

@@ -71,6 +71,17 @@ typed-slot seam). No free drop onto pixels — a drag only ever resolves to "bef
 in slot S". This is the gesture layer over the same uniform tree; it commits as a normal tree edit
 (one undo step).
 
+**Built.** The handle is the selection chip; grabbing it lifts a styled clone of the block that
+rides the cursor (pointer events, not native drag) while the original dims in place. Targeting is
+cross-container: a pure `resolveDrop` (`packages/editor/src/drag.ts`) picks the deepest droppable
+container under the pointer — any node whose registry def declares `slots`, plus the root —
+excluding the dragged node's own subtree, then the gap within it. The indicator is a container ring
+plus an axis-aware insertion line (vertical between row/grid columns, horizontal between stacked
+children, the axis read from the container's computed layout). Containers are measured once at lift
+in content coordinates, so a scroll (including drag auto-scroll) never invalidates the geometry. v1
+targets the deepest container; edge-zones (a child's edge reading as a sibling drop in the parent)
+are a later policy swap behind the same resolver.
+
 ## The seam (no new machinery)
 
 ```

@@ -8,6 +8,20 @@
 
 import { render } from "preact";
 import { boundingRect } from "./canvas.js";
+import { GripIcon } from "./icons.js";
+
+/** The drop affordance the drag controller hands here to draw: a container to ring and an
+ *  insertion line segment (horizontal for a column container, vertical for a row), both already
+ *  resolved into the surface's content coordinate space. */
+export interface DropIndicator {
+  line: {
+    orientation: "vertical" | "horizontal";
+    x: number;
+    y: number;
+    length: number;
+  };
+  container: { left: number; top: number; right: number; bottom: number };
+}
 
 export interface OverlayLayer {
   /** the absolutely-positioned hosts; appended to the surface, removed on dispose. */
@@ -21,16 +35,24 @@ export interface OverlayLayer {
   /** outline + label box over a hovered element; `undefined` clears it. */
   showHover(el: Element | undefined, label: string | undefined): void;
   clearHover(): void;
-  /** the selected block's name tag, pinned just above its top-left; `undefined` clears it. */
-  showSelectionLabel(el: Element | undefined, label: string | undefined): void;
+  /** the selected block's name tag, pinned just above its top-left; `undefined` clears it. When
+   *  `onGrab` is given the tag becomes the drag handle (a grip glyph + a pointer-down that starts
+   *  the move). */
+  showSelectionLabel(
+    el: Element | undefined,
+    label: string | undefined,
+    onGrab?: (event: PointerEvent) => void,
+  ): void;
   /** a filled box over the content element a click anchored to (the leaf being edited),
    *  drawn inside the block's selection outline; `undefined` clears it. */
   showContentSelection(el: Element | undefined): void;
   /** a faint tint over the content leaf under the cursor — the hover affordance that signals
    *  "this text is editable"; `undefined` clears it. */
   showContentHover(el: Element | undefined): void;
-  /** the drop-indicator line at surface-y `y`; `undefined` clears it. */
-  showDropLine(y: number | undefined): void;
+  /** the drop affordance — a container ring + an axis-aware insertion line; `undefined` clears it. */
+  showDropIndicator(indicator: DropIndicator | undefined): void;
+  /** the selection outline over an array item's card (a pricing tier etc.); `undefined` clears it. */
+  showItemSelection(el: Element | undefined): void;
   dispose(): void;
 }
 
@@ -40,7 +62,15 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   const dropHost = document.createElement("div");
   const contentHost = document.createElement("div");
   const contentHoverHost = document.createElement("div");
-  surface.append(hoverHost, labelHost, dropHost, contentHost, contentHoverHost);
+  const itemHost = document.createElement("div");
+  surface.append(
+    hoverHost,
+    labelHost,
+    dropHost,
+    contentHost,
+    contentHoverHost,
+    itemHost,
+  );
 
   const surfaceTop = (el: Element): number =>
     boundingRect(el).top - surface.getBoundingClientRect().top + surface.scrollTop;
@@ -50,12 +80,43 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   // The name tag both hover and selection show: pinned above the element's top-left, with a small
   // gap (handled in CSS) so it never sits on the border or over the content. They share one tag so
   // the affordance reads the same; a `--hover` modifier only softens the hover one.
-  const nameTag = (el: Element, label: string, hover: boolean) => {
-    const top = surfaceTop(el);
+  const nameTag = (
+    el: Element,
+    label: string,
+    hover: boolean,
+    onGrab?: (event: PointerEvent) => void,
+  ) => {
+    const rect = boundingRect(el);
     const left = surfaceLeft(el);
-    const cls = hover ? "nc-name-tag nc-name-tag--hover" : "nc-name-tag";
+    const anchorTop = surfaceTop(el);
+    // Flip the tag below its element when there isn't room above it in the viewport — the element is
+    // at/under the top, where a tag pinned above would be clipped or sit under the editor's top bar.
+    const chromeTop =
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--nocms-chrome-top",
+        ),
+      ) || 0;
+    const below = rect.top - chromeTop < 26;
+    const top = below ? anchorTop + rect.height : Math.max(anchorTop, 0);
+    const cls = [
+      "nc-name-tag",
+      hover ? "nc-name-tag--hover" : "",
+      onGrab ? "nc-name-tag--grab" : "",
+      below ? "nc-name-tag--below" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     return (
-      <div class={cls} style={`top:${Math.max(top, 0)}px;left:${left}px`}>
+      <div
+        class={cls}
+        style={`top:${top}px;left:${left}px`}
+        role={onGrab ? "button" : undefined}
+        tabIndex={onGrab ? 0 : undefined}
+        title={onGrab ? "Drag to move" : undefined}
+        onPointerDown={onGrab}
+      >
+        {onGrab ? <GripIcon size={9} class="nc-name-tag-grip" /> : null}
         {label}
       </div>
     );
@@ -86,12 +147,13 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   function showSelectionLabel(
     el: Element | undefined,
     label: string | undefined,
+    onGrab?: (event: PointerEvent) => void,
   ): void {
     if (!el || !label) {
       render(null, labelHost);
       return;
     }
-    render(nameTag(el, label, false), labelHost);
+    render(nameTag(el, label, false, onGrab), labelHost);
   }
 
   // The content selection box and the lighter hover tint share geometry; only the class differs.
@@ -117,12 +179,46 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   const showContentHover = (el: Element | undefined): void =>
     contentBox(contentHoverHost, "nocms-content-hover", el);
 
-  function showDropLine(y: number | undefined): void {
-    if (y === undefined) {
+  function showItemSelection(el: Element | undefined): void {
+    if (!el) {
+      render(null, itemHost);
+      return;
+    }
+    const top = surfaceTop(el);
+    const left = surfaceLeft(el);
+    const rect = boundingRect(el);
+    render(
+      <div
+        class="nocms-item-sel"
+        style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
+      />,
+      itemHost,
+    );
+  }
+
+  function showDropIndicator(indicator: DropIndicator | undefined): void {
+    if (!indicator) {
       render(null, dropHost);
       return;
     }
-    render(<div class="nocms-drop-line" style={`top:${y}px`} />, dropHost);
+    const { line, container } = indicator;
+    const lineStyle =
+      line.orientation === "horizontal"
+        ? `left:${line.x}px;top:${line.y}px;width:${line.length}px;height:2px`
+        : `left:${line.x}px;top:${line.y}px;width:2px;height:${line.length}px`;
+    render(
+      <>
+        <div
+          class="nocms-drop-zone"
+          style={`left:${container.left}px;top:${container.top}px;width:${container.right - container.left}px;height:${container.bottom - container.top}px`}
+        />
+        <div
+          class={`nocms-drop-line${line.orientation === "vertical" ? " nocms-drop-line--v" : ""}`}
+          style={lineStyle}
+        />
+      </>,
+      dropHost,
+    );
   }
 
   return {
@@ -137,7 +233,8 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     showSelectionLabel,
     showContentSelection,
     showContentHover,
-    showDropLine,
+    showDropIndicator,
+    showItemSelection,
     // contentHoverHost stays closure-private; only dispose touches it.
     dispose() {
       render(null, hoverHost);
@@ -145,11 +242,13 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
       render(null, dropHost);
       render(null, contentHost);
       render(null, contentHoverHost);
+      render(null, itemHost);
       hoverHost.remove();
       labelHost.remove();
       dropHost.remove();
       contentHost.remove();
       contentHoverHost.remove();
+      itemHost.remove();
     },
   };
 }

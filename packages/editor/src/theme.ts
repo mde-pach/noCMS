@@ -238,18 +238,21 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 }
 
 /* ---------- canvas (the live page is the surface) ---------- */
-.nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; z-index: 5; }
+/* The editor's overlay affordances sit in a band above all site content (a sticky navbar is
+   z-index 10) but below the editor chrome (1000+), so a selection box or name tag near the top of
+   the page is never hidden behind the page's own sticky header. */
+.nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; z-index: 41; }
 /* The exact content leaf a click anchored to (e.g. one feature title): a filled tint inside the
    block outline, so it reads as "this text edits over there" without hiding the text. */
 .nocms-content-sel {
-  position: absolute; pointer-events: none; z-index: 6; border-radius: 3px;
+  position: absolute; pointer-events: none; z-index: 42; border-radius: 3px;
   background: color-mix(in srgb, var(--nc-accent) 14%, transparent);
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 55%, transparent); outline-offset: 1px;
 }
 /* Hover affordance on an editable content leaf: a faint tint (below the selection box) that
    signals the text is clickable; the pointer cursor reinforces it. */
 .nocms-content-hover {
-  position: absolute; pointer-events: none; z-index: 4; border-radius: 3px;
+  position: absolute; pointer-events: none; z-index: 40; border-radius: 3px;
   background: color-mix(in srgb, var(--nc-accent) 7%, transparent);
 }
 .nocms-canvas [data-nocms-path] { cursor: pointer; }
@@ -260,18 +263,30 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
   cursor: text; caret-color: var(--nc-accent);
 }
 .nocms-hover {
-  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 41;
 }
 /* the block name tag shown above a hovered or selected block — same tag for both, lifted off the
    top edge by a small gap so it never sits on the border or over the content. */
 .nc-name-tag {
-  position: absolute; z-index: 7; transform: translateY(calc(-100% - 5px));
+  position: absolute; z-index: 45; transform: translateY(calc(-100% - 5px));
   background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
   font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
   border-radius: 6px; pointer-events: none; white-space: nowrap;
   box-shadow: 0 2px 6px rgba(26,25,22,0.18);
 }
+/* Flipped below its element (set by the shell when there's no room above): the tag hangs under the
+   top edge instead of over it, so an element at the top of the page still shows its tag. */
+.nc-name-tag--below { transform: translateY(5px); }
 .nc-name-tag--hover { opacity: 0.9; }
+/* The selected block's tag doubles as the drag handle: it accepts the pointer (the rest of the
+   tag layer stays click-through), shows a grab cursor, and carries a grip glyph. touch-action:none
+   lets a touch-drag start without the page scrolling. */
+.nc-name-tag--grab {
+  pointer-events: auto; cursor: grab; touch-action: none;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.nc-name-tag--grab:active { cursor: grabbing; }
+.nc-name-tag-grip { opacity: 0.7; margin-left: -1px; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
 /* Editing a single inline component (a Badge) in place: the editor flows inline inside the
    component's own box rather than breaking to its own block line. */
@@ -293,20 +308,39 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 .nocms-prose-atom-expr, .nocms-prose-atom-unknown { font-family: var(--nc-font-mono); font-size: 0.9em; }
 
 /* drag-reorder: the lifted block + the drop-indicator line */
-.nocms-dragging {
-  outline: 2px solid var(--nc-accent); outline-offset: 2px;
-  box-shadow: 0 18px 44px rgba(26,25,22,0.24) !important;
-  opacity: 0.95; transform: scale(1.015); transform-origin: center;
-  position: relative; z-index: 6; cursor: grabbing;
-  transition: transform .12s ease, box-shadow .12s ease;
+/* The detached preview: a clone of the lifted block that rides the cursor (position/size set
+   inline), scaled down with a shadow so it reads as picked up. Inert — the pointer is tracked on
+   the document, not this element. */
+.nocms-drag-ghost {
+  position: fixed; z-index: 2000; pointer-events: none; margin: 0;
+  transform: scale(0.92); transform-origin: top left; opacity: 0.92;
+  border-radius: 8px; overflow: hidden; box-shadow: 0 22px 50px rgba(26,25,22,0.28);
 }
+/* The original block stays in place (so the drop geometry never reflows) but dims to read as
+   "this is the thing being moved". */
+.nocms-drag-source { opacity: 0.4; transition: opacity .1s ease; }
+/* The container a drop would land in: a soft accent ring + faint fill behind the insertion line. */
+.nocms-drop-zone {
+  position: absolute; z-index: 43; pointer-events: none; border-radius: 6px;
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 55%, transparent); outline-offset: -1px;
+  background: color-mix(in srgb, var(--nc-accent) 8%, transparent);
+}
+/* The insertion line — horizontal between stacked children, vertical between row/grid columns
+   (orientation and geometry are set inline). The dot caps the leading end. */
 .nocms-drop-line {
-  position: absolute; left: 0; right: 0; height: 2px; background: var(--nc-accent);
-  z-index: 8; pointer-events: none; border-radius: 2px;
+  position: absolute; background: var(--nc-accent);
+  z-index: 44; pointer-events: none; border-radius: 2px;
 }
 .nocms-drop-line::before {
   content: ""; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--nc-accent);
+}
+/* Selection outline over an array item (a pricing tier card, a nav link) — the same accent as the
+   block selection but inset and rounded, so a selected card reads as a first-class object. */
+.nocms-item-sel {
+  position: absolute; z-index: 42; pointer-events: none; border-radius: 6px;
+  outline: 2px solid var(--nc-accent); outline-offset: -2px;
+  background: color-mix(in srgb, var(--nc-accent) 6%, transparent);
 }
 
 /* ---------- right rail (fixed, docks in from the right) ---------- */
@@ -407,7 +441,6 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 .nocms-toolbar button:disabled { opacity: 0.3; cursor: default; }
 .nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: #3a3833; margin: 0 3px; }
-.nc-tool-drag { cursor: grab; }
 
 /* ---------- overlays / modal ---------- */
 .nc-scrim { position: fixed; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 1002; overflow-y: auto; }
