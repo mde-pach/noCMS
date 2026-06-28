@@ -4,13 +4,7 @@ import { render } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import pocTokens from "../../poc.tokens?raw";
 import { applyClass } from "./catalog";
-import {
-  defaultFacetIds,
-  deriveScales,
-  FACET_BY_ID,
-  FACETS,
-  flattenForPreview,
-} from "./facets";
+import { defaultFacetIds, deriveScales, FACETS, flattenForPreview } from "./facets";
 import { Inspector } from "./inspector";
 import {
   previewOrder,
@@ -207,18 +201,16 @@ function App() {
   const [hoveredId, setHoveredId] = useState<string | undefined>();
   const [viewport, setViewport] = useState<ViewportKey>("base");
   const [state, setState] = useState<StateKey>("default");
-  const [added, setAdded] = useState<Record<string, string[]>>({});
   const [interactive, setInteractive] = useState(false);
 
   const selected = find(tree, selectedId) ?? tree;
   const order = previewOrder(viewport, state);
+  // The element's own properties get the curated, hand-polished controls (the guided default);
+  // everything else is reachable through the engine-derived feature palette.
   const shownIds = useMemo(() => {
     const def = defaultFacetIds(selected.defaultClasses, scales);
-    const extra = added[selectedId] ?? [];
-    return FACETS.map((f) => f.id).filter(
-      (id) => def.includes(id) || extra.includes(id),
-    );
-  }, [selected.defaultClasses, added, selectedId]);
+    return FACETS.map((f) => f.id).filter((id) => def.includes(id));
+  }, [selected.defaultClasses]);
 
   return (
     <div
@@ -299,19 +291,20 @@ function App() {
         viewport={viewport}
         state={state}
         onChange={(next) => setTree((t) => withClasses(t, selectedId, next))}
-        onApplyClass={(cls, root) => {
+        onApplyClass={(cls, featureId) => {
           setTree((t) => {
             const node = find(t, selectedId);
             return withClasses(
               t,
               selectedId,
-              applyClass(node?.classes ?? "", cls, root, variantOf(viewport, state)),
+              applyClass(
+                node?.classes ?? "",
+                cls,
+                featureId,
+                variantOf(viewport, state),
+              ),
             );
           });
-          // If a curated facet owns this property, surface its rich control too.
-          if (FACET_BY_ID.has(root)) {
-            setAdded((a) => ({ ...a, [selectedId]: [...(a[selectedId] ?? []), root] }));
-          }
         }}
         onViewport={setViewport}
         onState={setState}

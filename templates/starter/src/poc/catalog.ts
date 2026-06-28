@@ -1,49 +1,40 @@
 import rawCatalog from "virtual:tw-catalog";
-import type { CatalogProperty } from "../../vite-plugin-tw-catalog";
+import type { Control, Feature, FeatureOption } from "../../vite-plugin-tw-catalog";
 
-// The full, engine-derived Tailwind surface for this theme. Coverage is whatever the engine can
-// generate — we never hand-maintain the list (see vite-plugin-tw-catalog).
+// The full Tailwind surface, reshaped into CSS *features* with typed controls — never raw class
+// names. Coverage is the engine's; the user only ever sees design controls and human values.
 export const CATALOG = rawCatalog;
+export type { Control, Feature, FeatureOption };
 
-// class → property root, so applying a class can drop whatever else targets the same CSS property.
-const rootOfClass = new Map<string, string>();
-for (const p of CATALOG.properties) for (const c of p.classes) rootOfClass.set(c, p.id);
-
-export const GROUPS = [...new Set(CATALOG.properties.map((p) => p.group))].sort();
-
-interface Entry {
-  cls: string;
-  label: string;
-  group: string;
-  root: string;
-}
-const INDEX: Entry[] = CATALOG.properties.flatMap((p) =>
-  p.classes.map((cls) => ({ cls, label: p.label, group: p.group, root: p.id })),
-);
-
-export interface SearchHit extends Entry {}
-
-/** Match a query against class name or property label; the whole surface is searchable. */
-export function search(query: string, group: string | null, limit = 80): SearchHit[] {
-  const q = query.trim().toLowerCase();
-  if (!q && !group) return [];
-  const out: SearchHit[] = [];
-  for (const e of INDEX) {
-    if (group && e.group !== group) continue;
-    if (q && !e.cls.includes(q) && !e.label.toLowerCase().includes(q)) continue;
-    out.push(e);
-    if (out.length >= limit) break;
-  }
-  return out;
-}
+// class → feature id (CSS property), so applying one option drops whatever else drives that feature.
+const featureOfClass = new Map<string, string>();
+for (const f of CATALOG.features)
+  for (const o of f.options) featureOfClass.set(o.cls, f.id);
 
 export function groupCounts(): { group: string; count: number }[] {
   const counts = new Map<string, number>();
-  for (const p of CATALOG.properties)
-    counts.set(p.group, (counts.get(p.group) ?? 0) + p.classes.length);
+  for (const f of CATALOG.features) counts.set(f.group, (counts.get(f.group) ?? 0) + 1);
   return [...counts]
     .map(([group, count]) => ({ group, count }))
     .sort((a, b) => a.group.localeCompare(b.group));
+}
+
+/** Find features by their human label (e.g. "border", "rotate", "shadow") — not by class name. */
+export function searchFeatures(
+  query: string,
+  group: string | null,
+  limit = 24,
+): Feature[] {
+  const q = query.trim().toLowerCase();
+  if (!q && !group) return [];
+  const out: Feature[] = [];
+  for (const f of CATALOG.features) {
+    if (group && f.group !== group) continue;
+    if (q && !f.label.toLowerCase().includes(q) && !f.id.includes(q)) continue;
+    out.push(f);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 const splitVariant = (cls: string) => {
@@ -53,11 +44,24 @@ const splitVariant = (cls: string) => {
     : { variant: cls.slice(0, i + 1), util: cls.slice(i + 1) };
 };
 
-/** Add `cls` in the active variant, dropping any class that targets the same property (same root). */
+/** The class currently driving `featureId` on `className`, in the active variant (for highlighting). */
+export function currentClass(
+  className: string,
+  featureId: string,
+  variant = "",
+): string | undefined {
+  for (const cls of className.split(/\s+/).filter(Boolean)) {
+    const { variant: v, util } = splitVariant(cls);
+    if (v === variant && featureOfClass.get(util) === featureId) return util;
+  }
+  return undefined;
+}
+
+/** Set or clear one feature in the active variant (empty `cls` clears it); other classes untouched. */
 export function applyClass(
   className: string,
   cls: string,
-  root: string,
+  featureId: string,
   variant = "",
 ): string {
   const kept = className
@@ -66,10 +70,8 @@ export function applyClass(
     .filter((c) => {
       const { variant: v, util } = splitVariant(c);
       if (v !== variant) return true;
-      return rootOfClass.get(util) !== root;
+      return featureOfClass.get(util) !== featureId;
     });
-  kept.push(`${variant}${cls}`);
+  if (cls) kept.push(`${variant}${cls}`);
   return kept.join(" ");
 }
-
-export type { CatalogProperty };

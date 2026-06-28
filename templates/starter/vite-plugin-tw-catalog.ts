@@ -4,17 +4,19 @@ import { fileURLToPath } from "node:url";
 import { __unstable__loadDesignSystem } from "@tailwindcss/node";
 import type { Plugin } from "vite";
 
-// The complete Tailwind capability surface, derived from the engine — not a hand-written list.
-// `getClassList()` enumerates every utility the design system can generate for our `@theme`;
-// `parseCandidate()` + `candidatesToCss()` give each class its root and real CSS property, so the
-// catalog groups and dedupes by what a class actually *does*. Coverage is the engine's, always.
+// noCMS controls and Tailwind utilities are the *same controls at two levels*: Tailwind speaks a
+// naming convention (`border-b-gray-950`), noCMS speaks UI (a Border control with side, width,
+// colour). So the catalog's unit is a CSS *feature* presented as a typed control — never a class
+// name. We still get complete coverage from the engine, but reshaped into design controls:
+// `getClassList()` → every class; `candidatesToCss()` → its real CSS property + value; group by
+// property; infer the control from the values; label by the value, not the utility.
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const VIRTUAL = "virtual:tw-catalog";
 
 const NS: Record<string, string> = { space: "spacing", text: "text" };
 function themeFromTokens(tokensText: string): string {
-  const decls = tokensText
+  return tokensText
     .trim()
     .split("\n")
     .filter((l) => l.includes(": "))
@@ -22,14 +24,11 @@ function themeFromTokens(tokensText: string): string {
       const [name, val] = l.split(": ");
       const [head, ...rest] = (name ?? "").split(".");
       return `  --${(head && NS[head]) || head}-${rest.join("-")}: ${val};`;
-    });
-  return decls.join("\n");
+    })
+    .join("\n");
 }
 
-// Map a CSS property to a user-facing intent bucket. Coarse and finite (by property, not by class),
-// and anything unrecognised lands in "Other" — still listed, still usable. Curation never gates.
-function bucketOf(cssProp: string): string {
-  const p = cssProp;
+function bucketOf(p: string): string {
   if (
     /color$/.test(p) ||
     p === "fill" ||
@@ -87,20 +86,13 @@ function bucketOf(cssProp: string): string {
       "flex",
       "order",
       "grid",
-      "justify-content",
-      "justify-items",
-      "justify-self",
-      "align-content",
-      "align-items",
-      "align-self",
-      "place-content",
-      "place-items",
-      "place-self",
+      "justify",
+      "align",
+      "place",
     ].some((x) => p.startsWith(x))
   )
     return "Arrange / layout";
-  if (p.startsWith("border") || p.startsWith("outline") || p === "border-radius")
-    return "Borders & corners";
+  if (p.startsWith("border") || p.startsWith("outline")) return "Borders & corners";
   if (
     [
       "box-shadow",
@@ -142,17 +134,76 @@ function bucketOf(cssProp: string): string {
 const humanize = (s: string) =>
   s ? s.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase()) : "";
 
-export interface CatalogProperty {
+export type Control = "color" | "length" | "angle" | "number" | "enum";
+
+const isColor = (v: string) =>
+  /^#|^rgb|^hsl|^oklch|^oklab|^color\(|^var\(--color|^currentcolor|^transparent$/i.test(
+    v.trim(),
+  );
+const isAngle = (v: string) => /^-?[\d.]+(deg|turn|grad|rad)$/.test(v.trim());
+const isLength = (v: string) =>
+  /^-?[\d.]+(px|rem|em|%|vh|vw|vmin|vmax|ch|pt)$/.test(v.trim()) ||
+  v.trim() === "0" ||
+  /^calc\(/.test(v.trim());
+const isNumber = (v: string) => /^-?[\d.]+$/.test(v.trim());
+
+// Global/keyword values (none, auto, inherit…) are valid options but shouldn't decide the control
+// type — classify by the meaningful values so one stray `rotate: none` doesn't demote an angle.
+const GLOBAL = new Set([
+  "none",
+  "auto",
+  "inherit",
+  "initial",
+  "unset",
+  "revert",
+  "normal",
+]);
+
+function inferControl(values: string[]): Control {
+  if (values.some(isColor)) return "color";
+  const meaningful = values.filter((v) => v && !GLOBAL.has(v.trim()));
+  if (!meaningful.length) return "enum";
+  if (meaningful.every(isAngle)) return "angle";
+  if (meaningful.every((v) => isLength(v) || isNumber(v)) && meaningful.some(isLength))
+    return "length";
+  if (meaningful.every(isNumber)) return "number";
+  return "enum";
+}
+
+// Each value is labelled by its own type, so a feature can mix `6deg` → "6°" with `none` → "None".
+function valueLabel(value: string): string {
+  const v = value.trim();
+  if (isAngle(v)) return v.replace(/deg$/, "°");
+  if (isColor(v) || isLength(v) || isNumber(v)) return v;
+  return humanize(v);
+}
+
+/** First real declaration (skips Tailwind's `--tw-*` vars) → the property this class is "about". */
+function primaryDecl(css: string): { prop: string; value: string } | undefined {
+  const re = /([a-z-]+)\s*:\s*([^;{}]+);/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(css))) {
+    const prop = m[1] ?? "";
+    if (!prop.startsWith("--")) return { prop, value: (m[2] ?? "").trim() };
+  }
+  return undefined;
+}
+
+export interface FeatureOption {
+  cls: string;
+  value: string;
+  label: string;
+}
+export interface Feature {
   id: string;
   label: string;
-  cssProp: string;
   group: string;
-  kind: string;
-  classes: string[];
+  control: Control;
+  options: FeatureOption[];
 }
 export interface Catalog {
   total: number;
-  properties: CatalogProperty[];
+  features: Feature[];
 }
 
 async function build(tokensText: string): Promise<Catalog> {
@@ -160,41 +211,50 @@ async function build(tokensText: string): Promise<Catalog> {
     `@import "tailwindcss";\n@theme {\n${themeFromTokens(tokensText)}\n}\n`,
     { base: here },
   );
-  const list = ds.getClassList();
-  const byRoot = new Map<string, { root: string; kind: string; classes: string[] }>();
-  for (const entry of list) {
-    const cls = Array.isArray(entry) ? entry[0] : (entry as string);
-    if (cls.startsWith("-")) continue; // negatives add noise; skip for the POC
-    const parsed = ds.parseCandidate(cls);
-    const cand = parsed?.[0];
-    if (!cand || !("root" in cand)) continue;
-    const root = cand.root as string;
-    let g = byRoot.get(root);
-    if (!g) {
-      g = { root, kind: cand.kind as string, classes: [] };
-      byRoot.set(root, g);
+  const classes = ds
+    .getClassList()
+    .map((e: unknown) => (Array.isArray(e) ? (e[0] as string) : (e as string)))
+    .filter((c) => !c.startsWith("-"));
+  const cssList = ds.candidatesToCss(classes) as (string | null)[];
+
+  const byProp = new Map<
+    string,
+    { prop: string; opts: { cls: string; value: string }[] }
+  >();
+  for (let i = 0; i < classes.length; i++) {
+    const css = cssList[i];
+    if (!css) continue;
+    const decl = primaryDecl(css);
+    if (!decl || !decl.value) continue;
+    let f = byProp.get(decl.prop);
+    if (!f) {
+      f = { prop: decl.prop, opts: [] };
+      byProp.set(decl.prop, f);
     }
-    g.classes.push(cls);
+    f.opts.push({ cls: classes[i] as string, value: decl.value });
   }
 
-  const properties: CatalogProperty[] = [];
-  for (const g of byRoot.values()) {
-    let cssProp = "";
-    try {
-      const css = ds.candidatesToCss([g.classes[0] as string])[0] as string | null;
-      cssProp = css?.match(/\n\s*(-?[a-z-]+):/)?.[1] ?? "";
-    } catch {}
-    properties.push({
-      id: g.root,
-      label: humanize(cssProp || g.root),
-      cssProp,
-      group: bucketOf(cssProp),
-      kind: g.kind,
-      classes: g.classes.sort(),
+  const features: Feature[] = [];
+  for (const f of byProp.values()) {
+    const control = inferControl(f.opts.map((o) => o.value));
+    // Drop near-duplicate values (e.g. a token and a palette entry resolving alike) for tidiness.
+    const seen = new Set<string>();
+    const options: FeatureOption[] = [];
+    for (const o of f.opts) {
+      if (seen.has(o.value)) continue;
+      seen.add(o.value);
+      options.push({ cls: o.cls, value: o.value, label: valueLabel(o.value) });
+    }
+    features.push({
+      id: f.prop,
+      label: humanize(f.prop),
+      group: bucketOf(f.prop),
+      control,
+      options,
     });
   }
-  properties.sort((a, b) => a.label.localeCompare(b.label));
-  return { total: list.length, properties };
+  features.sort((a, b) => a.label.localeCompare(b.label));
+  return { total: classes.length, features };
 }
 
 export function twCatalogPlugin(): Plugin {
@@ -211,7 +271,7 @@ export function twCatalogPlugin(): Plugin {
         cache = build(tokens).then((cat) => {
           // biome-ignore lint/suspicious/noConsole: dev-time visibility into catalog size
           console.log(
-            `[tw-catalog] ${cat.total} classes → ${cat.properties.length} properties`,
+            `[tw-catalog] ${cat.total} classes → ${cat.features.length} features`,
           );
           return `export default ${JSON.stringify(cat)};`;
         });

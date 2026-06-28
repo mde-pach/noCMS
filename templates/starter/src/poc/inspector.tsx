@@ -78,7 +78,7 @@ export function Inspector(props: InspectorProps) {
         </section>
       ))}
 
-      <Palette onApply={props.onApplyClass} />
+      <Palette className={className} variant={variant} onApply={props.onApplyClass} />
       <Inspect className={className} />
     </aside>
   );
