@@ -1,5 +1,11 @@
 import { useMemo, useState } from "preact/hooks";
-import { applyClass, currentClass, FEATURE, featureIdOf, scaleKeys } from "./catalog";
+import {
+  currentClass,
+  FEATURE,
+  featureIdOf,
+  scaleKeys,
+  searchFeatures,
+} from "./catalog";
 import { ColorConfigurator } from "./configurator";
 
 const ACCENT = "#3b5bdb";
@@ -520,16 +526,11 @@ export function CapabilityBrowser({
 }) {
   const ctx: Ctx = { className, variant, onApply };
   const relevant = useMemo(() => relevantFor(tag), [tag]);
-  const [extra, setExtra] = useState<string[]>([]);
   const [q, setQ] = useState("");
-  const shown = [...new Set([...relevant, ...extra])]
-    .map((id) => CAP.get(id))
-    .filter(Boolean) as Capability[];
-  const matches = q
-    ? CAPABILITIES.filter(
-        (c) => c.label.toLowerCase().includes(q.toLowerCase()) && !shown.includes(c),
-      )
-    : [];
+  const shown = relevant.map((id) => CAP.get(id)).filter(Boolean) as Capability[];
+  // Search reaches *every* property the engine knows — each rendered as a real control. So nothing
+  // is left behind: curated capabilities are the guided surface, search is the guaranteed path.
+  const matches = useMemo(() => searchFeatures(q, null, 16), [q]);
 
   return (
     <div>
@@ -539,27 +540,65 @@ export function CapabilityBrowser({
       <input
         value={q}
         onInput={(e) => setQ((e.target as HTMLInputElement).value)}
-        placeholder="Search a property…"
+        placeholder={`Search any of ${FEATURE.size} properties…`}
         style={search}
       />
-      {matches.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-          {matches.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
-                setExtra((x) => [...x, c.id]);
-                setQ("");
-              }}
-              style={addChip}
-            >
-              + {c.label}
-            </button>
+      {q && (
+        <div style={{ marginTop: 8 }}>
+          {matches.length === 0 && (
+            <div style={{ fontSize: 11.5, color: "#999" }}>No matching property.</div>
+          )}
+          {matches.map((f) => (
+            <GenericControl key={f.id} feature={f.id} ctx={ctx} />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// The universal path: any feature → the right widget for its type, so every one of the engine's
+// properties is reachable and editable, not just the curated ones.
+function GenericControl({ feature, ctx }: { feature: string; ctx: Ctx }) {
+  const f = FEATURE.get(feature);
+  if (!f) return null;
+  if (f.control === "color") return <SwatchList feature={feature} ctx={ctx} />;
+  if (f.control === "enum")
+    return f.options.length > 5 ? (
+      <Dropdown feature={feature} ctx={ctx} />
+    ) : (
+      <Segmented feature={feature} ctx={ctx} />
+    );
+  return <Slider feature={feature} ctx={ctx} />;
+}
+
+function SwatchList({ feature, ctx }: { feature: string; ctx: Ctx }) {
+  const f = FEATURE.get(feature);
+  if (!f) return null;
+  const cur = currentClass(ctx.className, feature, ctx.variant);
+  return (
+    <Row label={f.label} stack>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {f.options.slice(0, 40).map((o) => (
+          <button
+            key={o.cls}
+            type="button"
+            title={o.value}
+            onClick={() => ctx.onApply(cur === o.cls ? "" : o.cls, feature)}
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 5,
+              padding: 0,
+              cursor: "pointer",
+              background: o.value,
+              outline:
+                cur === o.cls ? `2px solid ${ACCENT}` : "1px solid rgba(0,0,0,0.14)",
+            }}
+          />
+        ))}
+      </div>
+    </Row>
   );
 }
 
@@ -655,13 +694,4 @@ const search = {
   border: "1px dashed #ccd",
   marginTop: 4,
   color: "#555",
-} as const;
-const addChip = {
-  fontSize: 12,
-  padding: "3px 8px",
-  borderRadius: 999,
-  border: `1px solid ${ACCENT}`,
-  background: "#fff",
-  color: ACCENT,
-  cursor: "pointer",
 } as const;
