@@ -14,6 +14,7 @@ export interface OverlayLayer {
   hoverHost: HTMLElement;
   labelHost: HTMLElement;
   dropHost: HTMLElement;
+  contentHost: HTMLElement;
   /** top/left of `el` in the surface's coordinate space — for positioning floating chrome. */
   surfaceTop(el: Element): number;
   surfaceLeft(el: Element): number;
@@ -22,6 +23,9 @@ export interface OverlayLayer {
   clearHover(): void;
   /** the selected block's name tag, pinned just above its top-left; `undefined` clears it. */
   showSelectionLabel(el: Element | undefined, label: string | undefined): void;
+  /** a filled box over the content element a click anchored to (the leaf being edited),
+   *  drawn inside the block's selection outline; `undefined` clears it. */
+  showContentSelection(el: Element | undefined): void;
   /** the drop-indicator line at surface-y `y`; `undefined` clears it. */
   showDropLine(y: number | undefined): void;
   dispose(): void;
@@ -31,7 +35,8 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   const hoverHost = document.createElement("div");
   const labelHost = document.createElement("div");
   const dropHost = document.createElement("div");
-  surface.append(hoverHost, labelHost, dropHost);
+  const contentHost = document.createElement("div");
+  surface.append(hoverHost, labelHost, dropHost, contentHost);
 
   const surfaceTop = (el: Element): number =>
     boundingRect(el).top - surface.getBoundingClientRect().top + surface.scrollTop;
@@ -85,6 +90,23 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     render(nameTag(el, label, false), labelHost);
   }
 
+  function showContentSelection(el: Element | undefined): void {
+    if (!el) {
+      render(null, contentHost);
+      return;
+    }
+    const top = surfaceTop(el);
+    const left = surfaceLeft(el);
+    const rect = boundingRect(el);
+    render(
+      <div
+        class="nocms-content-sel"
+        style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
+      />,
+      contentHost,
+    );
+  }
+
   function showDropLine(y: number | undefined): void {
     if (y === undefined) {
       render(null, dropHost);
@@ -97,19 +119,23 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     hoverHost,
     labelHost,
     dropHost,
+    contentHost,
     surfaceTop,
     surfaceLeft,
     showHover,
     clearHover,
     showSelectionLabel,
+    showContentSelection,
     showDropLine,
     dispose() {
       render(null, hoverHost);
       render(null, labelHost);
       render(null, dropHost);
+      render(null, contentHost);
       hoverHost.remove();
       labelHost.remove();
       dropHost.remove();
+      contentHost.remove();
     },
   };
 }

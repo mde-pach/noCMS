@@ -3,7 +3,7 @@
 import { type ControlDescriptor, deriveControls } from "@nocms/core";
 import { render } from "preact";
 import * as v from "valibot";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { getProp, isJsxElement, type JsxElement } from "./jsx-attributes.js";
 import { parseMdx } from "./mdx-document.js";
 import { PropsPanel } from "./props-panel.js";
@@ -56,6 +56,12 @@ beforeEach(() => {
     />,
     container,
   );
+});
+
+afterEach(() => {
+  // Focus persists on the document across renders, so leftover state would leak between tests.
+  (document.activeElement as HTMLElement | null)?.blur();
+  document.body.innerHTML = "";
 });
 
 describe("PropsPanel", () => {
@@ -113,6 +119,83 @@ describe("PropsPanel", () => {
       expect(
         segOption(container, "variant", "primary").getAttribute("aria-pressed"),
       ).toBe("false");
+    });
+  });
+});
+
+describe("PropsPanel content focus", () => {
+  const renderWith = (focus?: { path: string; nonce: number }) => {
+    const el = buttonElement(`<Button label="Go" variant="primary" />\n`);
+    render(
+      <PropsPanel
+        element={el}
+        component="Button"
+        controls={controls}
+        focus={focus}
+        onChange={vi.fn()}
+      />,
+      container,
+    );
+    return el;
+  };
+
+  test("focuses and selects the field matching the focus path", () => {
+    renderWith({ path: "label", nonce: 1 });
+    const input = field(container, "label");
+    expect(document.activeElement).toBe(input);
+  });
+
+  test("re-focuses the same field when only the nonce changes", () => {
+    renderWith({ path: "label", nonce: 1 });
+    const input = field(container, "label");
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+    // A second click on the same content: same path, fresh nonce — focus must return.
+    render(
+      <PropsPanel
+        element={element}
+        component="Button"
+        controls={controls}
+        focus={{ path: "label", nonce: 2 }}
+        onChange={vi.fn()}
+      />,
+      container,
+    );
+    expect(document.activeElement).toBe(field(container, "label"));
+  });
+
+  test("a non-matching focus path leaves focus untouched", () => {
+    renderWith({ path: "nope", nonce: 1 });
+    expect((document.activeElement as HTMLElement).tagName).not.toBe("INPUT");
+  });
+});
+
+describe("PropsPanel array focus", () => {
+  const listControls = deriveControls(
+    v.object({
+      items: v.optional(v.array(v.object({ title: v.string() }))),
+    }),
+  );
+
+  test("auto-expands the targeted array item and focuses its nested field", async () => {
+    const el = buttonElement(
+      `<Cards items={[{"title":"A"},{"title":"B"},{"title":"C"}]} />\n`,
+    );
+    render(
+      <PropsPanel
+        element={el}
+        component="Cards"
+        controls={listControls}
+        focus={{ path: "items.2.title", nonce: 1 }}
+        onChange={vi.fn()}
+      />,
+      container,
+    );
+    // The item expands in an effect, then its field focuses — both after commit.
+    await vi.waitFor(() => {
+      const active = document.activeElement as HTMLInputElement;
+      expect(active.tagName).toBe("INPUT");
+      expect(active.value).toBe("C");
     });
   });
 });

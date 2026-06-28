@@ -33,17 +33,24 @@ import {
  *  `undefined` clears the value (the attribute, or the object key). */
 type CommitValue = (next: unknown) => void;
 
-/** Focus (and select) a leaf input when this control's absolute path becomes the focus target —
- *  the seam that turns a content click on the canvas into a focused field. Keyed on `active` so an
- *  unrelated re-render (typing, a sibling edit) never steals focus back. */
-function useFocusOnMatch(active: boolean) {
+/** A content click: which leaf to focus, and a per-click nonce so re-clicking the *same* leaf
+ *  re-fires focus (its path alone is unchanged). */
+export interface ContentFocus {
+  path: string;
+  nonce: number;
+}
+
+/** Focus (and select) a leaf input when this control is the focus target. Keyed on `nonce`, not a
+ *  boolean: typing/sibling edits re-render without changing the nonce, so focus is never stolen
+ *  back, yet every fresh click — even on the already-focused leaf — refocuses. */
+function useFocusOnMatch(active: boolean, nonce: number | undefined) {
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     if (!active || !ref.current) return;
     ref.current.focus();
     ref.current.select?.();
     ref.current.scrollIntoView({ block: "nearest" });
-  }, [active]);
+  }, [active, nonce]);
   return ref;
 }
 
@@ -111,8 +118,8 @@ interface ControlViewProps {
   commit: CommitValue;
   /** absolute dotted path of this control's value within the block's props, e.g. `items.2.title` */
   path: string;
-  /** the content leaf to focus, when one is set (matched against `path` at the leaves) */
-  focusPath?: string;
+  /** the content leaf to focus (matched against `path` at the leaves), with its per-click nonce */
+  focus?: ContentFocus;
   /** present only for a top-level image attribute the host can open its media picker for. */
   onPickImage?: () => void;
 }
@@ -123,12 +130,12 @@ function ControlView({
   value,
   commit,
   path,
-  focusPath,
+  focus,
   onPickImage,
 }: ControlViewProps): VNode {
   const id = `nocms-field-${control.key}`;
   const { kind } = control;
-  const focusRef = useFocusOnMatch(focusPath !== undefined && path === focusPath);
+  const focusRef = useFocusOnMatch(path === focus?.path, focus?.nonce);
 
   if (kind === "group")
     return (
@@ -137,7 +144,7 @@ function ControlView({
         value={value}
         commit={commit}
         path={path}
-        focusPath={focusPath}
+        focus={focus}
       />
     );
   if (kind === "list")
@@ -147,7 +154,7 @@ function ControlView({
         value={value}
         commit={commit}
         path={path}
-        focusPath={focusPath}
+        focus={focus}
       />
     );
 
@@ -398,13 +405,13 @@ function GroupView({
   value,
   commit,
   path,
-  focusPath,
+  focus,
 }: {
   control: ControlDescriptor;
   value: unknown;
   commit: CommitValue;
   path: string;
-  focusPath?: string;
+  focus?: ContentFocus;
 }): VNode {
   const object =
     value && typeof value === "object" && !Array.isArray(value)
@@ -420,14 +427,14 @@ function GroupView({
           value={object[child.key]}
           commit={(next) => commit({ ...object, [child.key]: next })}
           path={`${path}.${child.key}`}
-          focusPath={focusPath}
+          focus={focus}
         />
       ))}
     </div>
   );
 }
 
-/** The list item index `focusPath` points into, e.g. path `items`, focus `items.2.title` → 2. */
+/** The list item index `focus` points into, e.g. path `items`, focus `items.2.title` → 2. */
 function focusedIndex(path: string, focusPath: string | undefined): number | null {
   if (!focusPath?.startsWith(`${path}.`)) return null;
   const index = Number(focusPath.slice(path.length + 1).split(".")[0]);
@@ -439,20 +446,22 @@ function ListView({
   value,
   commit,
   path,
-  focusPath,
+  focus,
 }: {
   control: ControlDescriptor;
   value: unknown;
   commit: CommitValue;
   path: string;
-  focusPath?: string;
+  focus?: ContentFocus;
 }): VNode {
   const [open, setOpen] = useState<number | null>(null);
-  // A content click into one item opens it so its fields (and the focus target) are visible.
-  const target = focusedIndex(path, focusPath);
+  // A content click into one item opens it so its fields (and the focus target) are visible. Keyed
+  // on path+nonce so re-clicking the same item after collapsing it re-opens it.
+  const target = focusedIndex(path, focus?.path);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: nonce re-opens after a manual collapse.
   useEffect(() => {
     if (target !== null) setOpen(target);
-  }, [target]);
+  }, [target, focus?.nonce]);
   const items = Array.isArray(value) ? (value as unknown[]) : [];
   const itemControl = control.children?.[0];
   const fields = itemControl?.children ?? [];
@@ -550,7 +559,7 @@ function ListView({
                           })
                         }
                         path={`${path}.${index}.${field.key}`}
-                        focusPath={focusPath}
+                        focus={focus}
                       />
                     ))
                   ) : itemControl ? (
@@ -559,7 +568,7 @@ function ListView({
                       value={item}
                       commit={(next) => writeItem(index, next)}
                       path={`${path}.${index}`}
-                      focusPath={focusPath}
+                      focus={focus}
                     />
                   ) : null}
                 </div>
@@ -629,13 +638,13 @@ function AlignMatrix({
 function TopField({
   control,
   element,
-  focusPath,
+  focus,
   onChange,
   onPickImage,
 }: {
   control: ControlDescriptor;
   element: JsxElement;
-  focusPath?: string;
+  focus?: ContentFocus;
   onChange: () => void;
   onPickImage?: (key: string) => void;
 }): VNode {
@@ -654,7 +663,7 @@ function TopField({
           onChange();
         }}
         path={control.key}
-        focusPath={focusPath}
+        focus={focus}
       />
     );
   }
@@ -668,7 +677,7 @@ function TopField({
         onChange();
       }}
       path={control.key}
-      focusPath={focusPath}
+      focus={focus}
       onPickImage={onPickImage ? () => onPickImage(control.key) : undefined}
     />
   );
@@ -692,8 +701,8 @@ export interface PropsPanelProps {
   meta?: string;
   /** controls derived from the block's valibot schema via `deriveControls` */
   controls: ControlDescriptor[];
-  /** the content leaf a canvas click landed on (`items.2.title`), to auto-expand + focus */
-  focusPath?: string;
+  /** the content leaf a canvas click landed on (`items.2.title`) + nonce, to auto-expand + focus */
+  focus?: ContentFocus;
   /** fired after every edit; the shell re-serializes the doc and re-renders the canvas */
   onChange: () => void;
   /** open the media picker for an image control */
@@ -705,7 +714,7 @@ export function PropsPanel({
   component,
   meta = "SECTION",
   controls,
-  focusPath,
+  focus,
   onChange,
   onPickImage,
 }: PropsPanelProps): VNode {
@@ -740,7 +749,7 @@ export function PropsPanel({
             key={control.key}
             control={control}
             element={element}
-            focusPath={focusPath}
+            focus={focus}
             onChange={handleChange}
             onPickImage={onPickImage}
           />
@@ -762,7 +771,7 @@ export function PropsPanel({
                     key={control.key}
                     control={control}
                     element={element}
-                    focusPath={focusPath}
+                    focus={focus}
                     onChange={handleChange}
                     onPickImage={onPickImage}
                   />

@@ -12,12 +12,13 @@ import { PageRail } from "./rail.js";
 
 export interface InspectorProps {
   /** the selected block with editable controls, or null when none/empty/unselected.
-   *  `focusPath` is the content leaf a click landed on (e.g. `items.2.title`), to auto-focus. */
+   *  `focus` is the content leaf a click landed on (e.g. `items.2.title`) plus a per-click nonce,
+   *  so re-clicking the same leaf re-focuses its field. */
   selected: {
     element: JsxElement;
     name: string;
     controls: ControlDescriptor[];
-    focusPath?: string;
+    focus?: { path: string; nonce: number };
   } | null;
   /** true when a block is selected but exposes no editable props. */
   selectedEmpty: boolean;
@@ -42,7 +43,7 @@ export function Inspector(props: InspectorProps): VNode {
         component={props.selected.name}
         meta="SECTION · CORE"
         controls={props.selected.controls}
-        focusPath={props.selected.focusPath}
+        focus={props.selected.focus}
         onChange={props.onEdit}
         onPickImage={props.onPickImage}
       />

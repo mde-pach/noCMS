@@ -239,6 +239,13 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 
 /* ---------- canvas (the live page is the surface) ---------- */
 .nocms-overlay { outline: 2px solid var(--nc-accent); outline-offset: -1px; pointer-events: none; z-index: 5; }
+/* The exact content leaf a click anchored to (e.g. one feature title): a filled tint inside the
+   block outline, so it reads as "this text edits over there" without hiding the text. */
+.nocms-content-sel {
+  position: absolute; pointer-events: none; z-index: 6; border-radius: 3px;
+  background: color-mix(in srgb, var(--nc-accent) 14%, transparent);
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 55%, transparent); outline-offset: 1px;
+}
 .nocms-hover {
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }

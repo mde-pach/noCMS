@@ -209,6 +209,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // The content leaf the last click landed on (e.g. `items.2.title`), relative to the selected
   // block — the props panel focuses that field. Cleared on any selection that isn't a content hit.
   let focusedContentPath: string | undefined;
+  // Bumped on every content click so re-clicking the *same* leaf (its path unchanged) still
+  // re-fires the field focus — the panel keys its focus effect on this, not on the path alone.
+  let focusNonce = 0;
 
   // The top-bar state (breakpoint, appearance, dirty, publish) — its own concern; mutations
   // repaint the chrome tree. The actions it triggers (reset, open navigator/publish) are wired
@@ -268,7 +271,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       element: JsxElement;
       name: string;
       controls: ControlDescriptor[];
-      focusPath?: string;
+      focus?: { path: string; nonce: number };
     } | null = null;
     if (node && isJsxElement(node) && node.name) {
       const def = components[node.name];
@@ -278,7 +281,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           element: node,
           name: node.name,
           controls,
-          focusPath: focusedContentPath,
+          focus: focusedContentPath
+            ? { path: focusedContentPath, nonce: focusNonce }
+            : undefined,
         };
     }
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
@@ -604,15 +609,35 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showSelectionLabel(el, label);
   }
 
+  // The DOM element of the anchored content leaf, scoped to the selected block so an identical
+  // path in another block can't match. Re-resolved each call because a repaint replaces the node.
+  function contentElement(): Element | null {
+    if (!focusedContentPath || !selectedPath) return null;
+    const blockEl = elementAtPath(selectedPath);
+    return blockEl?.querySelector(`[data-nocms-path="${focusedContentPath}"]`) ?? null;
+  }
+
+  function renderContentSelection(): void {
+    // `focusedContentPath` is checked first so this is safe to call from the canvas's first paint,
+    // before `proseSession` exists: with nothing anchored the prose check is never evaluated.
+    if (!focusedContentPath || proseSession.isActive()) {
+      overlays.showContentSelection(undefined);
+      return;
+    }
+    overlays.showContentSelection(contentElement() ?? undefined);
+  }
+
   function select(path: IndexPath | undefined, focus?: string): void {
     selectedPath = path;
     // Cleared unless this selection came from clicking tagged content, so a stale field focus
     // never lingers onto the next block.
     focusedContentPath = focus;
+    if (focus) focusNonce += 1;
     canvas.highlight(path);
     paint();
     renderToolbar();
     renderSelectionLabel();
+    renderContentSelection();
   }
 
   const handleSelect = async (
@@ -692,7 +717,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     components: componentMap,
     data,
     onSelect: handleSelect,
-    onPainted: (content, doc) => anchorComponents(content, doc, components),
+    onPainted: (content, doc) => {
+      anchorComponents(content, doc, components);
+      // The repaint replaced the anchored node; re-pin the content box to the fresh one.
+      renderContentSelection();
+    },
     suppressWhen: (el) => proseSession.containsEl(el),
   });
   surface.append(toolbarHost, formatHost);
@@ -719,7 +748,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     docs,
     onChange,
     markDirty: () => chrome.markDirty(),
-    onStart: () => renderToolbar(),
+    onStart: () => {
+      renderToolbar();
+      renderContentSelection();
+    },
   });
 
   surface.addEventListener("dblclick", handleActivate);
@@ -743,6 +775,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     canvas.highlight(selectedPath);
     renderToolbar();
     renderSelectionLabel();
+    renderContentSelection();
   };
   let trackRaf: number | undefined;
   function trackOverlays(ms: number): void {
