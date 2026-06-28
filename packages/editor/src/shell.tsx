@@ -29,7 +29,6 @@ import {
   mountCanvas,
   offsetFromElement,
 } from "./canvas.js";
-import { InsertSheet } from "./catalog.js";
 import type { BreakpointId } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
 import { createDocumentStore } from "./document-store.js";
@@ -43,8 +42,8 @@ import {
   setProp,
 } from "./jsx-attributes.js";
 import { serializeMdx } from "./mdx-document.js";
-import { MediaPicker } from "./media.js";
-import { Navigator, type NavSection } from "./navigator.js";
+import { Modal, type OverlayKind, type SaveDialogData } from "./modals.js";
+import type { NavSection } from "./navigator.js";
 import { createOverlayLayer } from "./overlays.js";
 import {
   type IndexPath,
@@ -58,7 +57,6 @@ import { createProseController } from "./prose-controller.js";
 import { isProseEditable } from "./prose-edit.js";
 import { PublishPopover } from "./publish.js";
 import { PageRail } from "./rail.js";
-import { SaveComponentDialog } from "./save-component.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
@@ -159,8 +157,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const initialTokensSrc = options.tokens;
 
   // --- modal + rail state (chrome/top-bar state lives in the chrome controller) -----------
-  let overlay: "catalog" | "publish" | "navigator" | "media" | "save-component" | null =
-    null;
+  let overlay: OverlayKind | null = null;
   let mediaTarget: { element: JsxElement; key: string } | undefined;
   let saveTarget: { node: JsxElement; path: IndexPath; container: boolean } | undefined;
   let brandExpanded = false;
@@ -337,106 +334,65 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     });
   }
 
-  function mediaItems() {
-    return [
-      {
-        url: "https://placehold.co/400x300/B0542F/ffffff?text=hero",
-        name: "hero-cover.jpg",
-      },
-      { url: "https://placehold.co/400x300/5B6B4A/ffffff?text=team", name: "team.jpg" },
-      {
-        url: "https://placehold.co/400x300/3D5A98/ffffff?text=office",
-        name: "office.jpg",
-      },
-      {
-        url: "https://placehold.co/400x300/BC9A4A/ffffff?text=product",
-        name: "product.jpg",
-      },
-      {
-        url: "https://placehold.co/400x300/1A1916/ffffff?text=banner",
-        name: "banner.jpg",
-      },
-    ];
+  // The save-as-component dialog's data, computed from the selection (controls + current values +
+  // a live preview snapshot); null unless that dialog is open.
+  function saveDialogData(): SaveDialogData | null {
+    if (overlay !== "save-component" || !saveTarget) return null;
+    const base = saveTarget.node.name ?? "";
+    const def = components[base];
+    const controls = def ? controlsOf(def) : [];
+    const values: Record<string, PropValue> = {};
+    for (const control of controls) {
+      const value = getProp(saveTarget.node, control.key) ?? control.default;
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        values[control.key] = value;
+      }
+    }
+    return {
+      base,
+      controls,
+      values,
+      previewHtml: elementAtPath(saveTarget.path)?.outerHTML,
+      container: saveTarget.container,
+    };
   }
 
   function renderOverlays(): void {
-    if (overlay === "catalog") {
-      render(
-        <InsertSheet
-          manifests={registryManifest(components)}
-          onInsert={(manifest) => void handleInsert(manifest)}
-          onClose={closeOverlay}
-        />,
-        modalHost,
-      );
-    } else if (overlay === "navigator") {
-      render(
-        <Navigator
-          pageName={options.pageName ?? "Home"}
-          pages={["Home", "About", "Work", "Journal", "Contact"]}
-          sections={sectionOutline()}
-          onSelectSection={(index) => {
-            select([index]);
-            closeOverlay();
-          }}
-          onClose={closeOverlay}
-        />,
-        modalHost,
-      );
-    } else if (overlay === "media") {
-      render(
-        <MediaPicker
-          items={mediaItems()}
-          onInsert={(url) => void chooseMedia(url)}
-          onClose={closeOverlay}
-        />,
-        modalHost,
-      );
-    } else if (overlay === "save-component" && saveTarget) {
-      const base = saveTarget.node.name ?? "";
-      const def = components[base];
-      const controls = def ? controlsOf(def) : [];
-      const values: Record<string, PropValue> = {};
-      for (const control of controls) {
-        const value = getProp(saveTarget.node, control.key) ?? control.default;
-        if (
-          typeof value === "string" ||
-          typeof value === "number" ||
-          typeof value === "boolean"
-        ) {
-          values[control.key] = value;
+    render(
+      <Modal
+        overlay={overlay}
+        pageName={options.pageName ?? "Home"}
+        manifests={registryManifest(components)}
+        sections={sectionOutline()}
+        saveDialog={saveDialogData()}
+        onInsert={(manifest) => void handleInsert(manifest)}
+        onSelectSection={(index) => {
+          select([index]);
+          closeOverlay();
+        }}
+        onPickMedia={(url) => void chooseMedia(url)}
+        onSaveComponent={(name, exposed, slot) =>
+          void saveAsComponent(name, exposed, slot)
         }
-      }
-      const el = elementAtPath(saveTarget.path);
-      render(
-        <SaveComponentDialog
-          base={base}
-          controls={controls}
-          values={values}
-          previewHtml={el?.outerHTML}
-          container={saveTarget.container}
-          onSave={(name, exposed, slot) => void saveAsComponent(name, exposed, slot)}
-          onClose={closeOverlay}
-        />,
-        modalHost,
-      );
-    } else {
-      render(null, modalHost);
-    }
-
-    if (overlay === "publish") {
-      render(
+        onClose={closeOverlay}
+      />,
+      modalHost,
+    );
+    render(
+      overlay === "publish" ? (
         <PublishPopover
           changes={chrome.changeset()}
           lastDeploy="2d ago"
           onPublish={runPublish}
           onClose={closeOverlay}
-        />,
-        popoverHost,
-      );
-    } else {
-      render(null, popoverHost);
-    }
+        />
+      ) : null,
+      popoverHost,
+    );
   }
 
   // --- publish + reset (chrome state lives in the chrome controller) ----------------------
