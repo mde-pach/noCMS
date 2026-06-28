@@ -15,7 +15,7 @@ import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { Nodes, Parent } from "mdast";
-import { render } from "preact";
+import { render, type VNode } from "preact";
 import {
   type CanvasHandle,
   type CanvasSelection,
@@ -36,6 +36,7 @@ import {
   isJsxElement,
   type JsxElement,
   type PropValue,
+  removeProp,
   setProp,
 } from "./jsx-attributes.js";
 import { serializeMdx } from "./mdx-document.js";
@@ -99,6 +100,21 @@ export interface EditorOptions {
   siteHost?: string;
   /** the page label shown in the top-bar pill. */
   pageName?: string;
+  /** Renders an extra "Style" section in the inspector for the selected element. The editor stays
+   *  styling-agnostic (invariant #2): the site supplies the panel and owns its styling system; the
+   *  editor only exposes the selected element's `class` through `getClass`/`setClass` and slots the
+   *  returned view into the rail. Returns null to show nothing for this element. */
+  renderStyleSection?: (ctx: StyleSectionContext) => VNode | null;
+}
+
+/** What the host's Style section receives: the selected element, its tag/component name, and a
+ *  read/write pair for its `class` attribute that goes through the normal edit (serialize + repaint)
+ *  path — the host never touches the mdast. */
+export interface StyleSectionContext {
+  element: JsxElement;
+  name: string;
+  getClass: () => string;
+  setClass: (cls: string) => void;
 }
 
 export interface EditorHandle {
@@ -287,9 +303,23 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
             : undefined,
         };
     }
+    const styleSection =
+      node && isJsxElement(node) && node.name && options.renderStyleSection
+        ? options.renderStyleSection({
+            element: node,
+            name: node.name,
+            getClass: () => String(getProp(node, "class") ?? ""),
+            setClass: (cls) => {
+              if (cls) setProp(node, "class", cls);
+              else removeProp(node, "class");
+              void handleEdit();
+            },
+          })
+        : null;
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     return {
       selected,
+      styleSection,
       selectedEmpty: node !== undefined && selected === null,
       onEdit: handleEdit,
       onPickImage: (key) => node && openMedia(node as JsxElement, key),

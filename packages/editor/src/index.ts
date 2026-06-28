@@ -73,6 +73,7 @@ export {
   type EditorHandle,
   type EditorOptions,
   mountEditor,
+  type StyleSectionContext,
 } from "./shell.js";
 export { SignInGate, type SignInGateProps } from "./sign-in.js";
 export { EDITOR_CSS, FONTS_HREF } from "./theme.js";

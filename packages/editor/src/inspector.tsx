@@ -20,6 +20,8 @@ export interface InspectorProps {
     controls: ControlDescriptor[];
     focus?: { path: string; nonce: number };
   } | null;
+  /** the site-supplied Style panel for the selected element, or null when none/unselected. */
+  styleSection: VNode | null;
   /** true when a block is selected but exposes no editable props. */
   selectedEmpty: boolean;
   onEdit: () => void;
@@ -38,19 +40,26 @@ export interface InspectorProps {
 export function Inspector(props: InspectorProps): VNode {
   if (props.selected) {
     return (
-      <PropsPanel
-        element={props.selected.element}
-        component={props.selected.name}
-        meta="SECTION · CORE"
-        controls={props.selected.controls}
-        focus={props.selected.focus}
-        onChange={props.onEdit}
-        onPickImage={props.onPickImage}
-      />
+      <>
+        <PropsPanel
+          element={props.selected.element}
+          component={props.selected.name}
+          meta="SECTION · CORE"
+          controls={props.selected.controls}
+          focus={props.selected.focus}
+          onChange={props.onEdit}
+          onPickImage={props.onPickImage}
+        />
+        {props.styleSection}
+      </>
     );
   }
   if (props.selectedEmpty) {
-    return <p class="nocms-empty">No editable properties for this block.</p>;
+    return (
+      props.styleSection ?? (
+        <p class="nocms-empty">No editable properties for this block.</p>
+      )
+    );
   }
   return (
     <PageRail

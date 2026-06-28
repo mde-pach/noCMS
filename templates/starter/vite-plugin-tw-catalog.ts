@@ -383,7 +383,9 @@ export function twCatalogPlugin(): Plugin {
     load(id) {
       if (id !== `\0${VIRTUAL}`) return;
       if (!cache) {
-        const tokens = readFileSync(path.resolve(here, "poc.tokens"), "utf8");
+        // The site's real theme, so the Style panel offers exactly the utilities the site's tokens
+        // generate (bg-brand-500, p-md, …) — the same @theme the build and preview compile against.
+        const tokens = readFileSync(path.resolve(here, "theme.tokens"), "utf8");
         cache = buildCatalog(tokens).then((cat) => {
           console.log(
             `[tw-catalog] ${cat.total} classes → ${cat.features.length} features`,
