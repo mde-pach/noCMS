@@ -32,10 +32,11 @@ import {
 } from "./canvas.js";
 import type { BreakpointId } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
+import { EditorChrome } from "./chrome-view.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
-import { Inspector } from "./inspector.js";
+import type { InspectorProps } from "./inspector.js";
 import {
   getProp,
   isJsxElement,
@@ -44,7 +45,7 @@ import {
   setProp,
 } from "./jsx-attributes.js";
 import { serializeMdx } from "./mdx-document.js";
-import { Modal, type OverlayKind, type SaveDialogData } from "./modals.js";
+import type { ModalProps, OverlayKind, SaveDialogData } from "./modals.js";
 import type { NavSection } from "./navigator.js";
 import { createOverlayLayer } from "./overlays.js";
 import {
@@ -56,7 +57,6 @@ import {
 } from "./position.js";
 import { createProseController } from "./prose-controller.js";
 import { isProseEditable } from "./prose-edit.js";
-import { PublishPopover } from "./publish.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
@@ -194,24 +194,16 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const surface = target as HTMLElement;
   surface.classList.add("nocms-canvas");
 
+  // The fixed chrome is one declarative tree painted into `chromeRoot` (top bar + rail + modal +
+  // popover). The toolbar/format hosts are the positioned, geometry-tracked overlays in the
+  // content surface, so they stay separate.
   const chromeRoot = document.createElement("div");
   chromeRoot.className = "nocms-editor";
-  const chromeHost = document.createElement("div");
   const toolbarHost = document.createElement("div");
   toolbarHost.className = "nocms-toolbar-host";
   const formatHost = document.createElement("div");
   formatHost.className = "nocms-toolbar-host";
-  // The positioned visual layer (hover outline, selection name tag, drop line) in the surface's
-  // coordinate space; the shell hands it elements to draw and owns the rest of the interaction.
   const overlays = createOverlayLayer(surface);
-  const panelRegion = document.createElement("div");
-  panelRegion.className = "nocms-editor-panel";
-  const railHost = document.createElement("div");
-  const modalHost = document.createElement("div");
-  const popoverHost = document.createElement("div");
-
-  panelRegion.append(railHost);
-  chromeRoot.append(chromeHost, panelRegion, modalHost, popoverHost);
   document.body.append(chromeRoot);
 
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
@@ -223,18 +215,14 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   let selectedPath: IndexPath | undefined;
 
-  // The top bar and its state (breakpoint, appearance, dirty, publish) — its own concern; the
-  // shell only supplies the actions it can't own (reset, open navigator/publish, re-pin overlays).
+  // The top-bar state (breakpoint, appearance, dirty, publish) — its own concern; mutations
+  // repaint the chrome tree. The actions it triggers (reset, open navigator/publish) are wired
+  // into the chrome view by `paint`.
   const chrome = createChromeController({
-    host: chromeHost,
     surface,
-    siteHost: options.siteHost ?? "nocms.github.io",
-    pageName: options.pageName ?? "Home",
     breakpointWidth: BREAKPOINT_WIDTH,
     onBreakpointChange: () => trackOverlays(360),
-    onTogglePublish: () => togglePublish(),
-    onReset: () => void resetEdits(),
-    onMenu: () => openNavigator(),
+    repaint: () => paint(),
   });
 
   // The document model + history + every tree command live in the store; the shell reads
@@ -259,7 +247,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
 
-  // --- rail / overlay renderers (the top bar is the chrome controller's) -----------------
+  // --- chrome paint (one declarative tree; see chrome-view) ------------------------------
   const brandPanel = (): ReturnType<typeof TokensPanel> | null => {
     if (tokens.length === 0) return null;
     return (
@@ -270,13 +258,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           themeStyle.textContent = css;
           onTokensChange?.(flat);
           chrome.markDirty();
-          renderRail();
+          paint();
         }}
       />
     );
   };
 
-  function renderRail(): void {
+  function inspectorProps(): InspectorProps {
     const node =
       selectedPath && selectedPath.length > 0
         ? nodeAtIndexPath(docs.doc, selectedPath)
@@ -292,26 +280,68 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       if (controls.length > 0) selected = { element: node, name: node.name, controls };
     }
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
+    return {
+      selected,
+      selectedEmpty: node !== undefined && selected === null,
+      onEdit: handleEdit,
+      onPickImage: (key) => node && openMedia(node as JsxElement, key),
+      pageName: options.pageName ?? "Home",
+      title: fm.title,
+      description: fm.description,
+      onTitle: (v) => editFrontmatter("title", v),
+      onDescription: (v) => editFrontmatter("description", v),
+      brandExpanded,
+      onToggleBrand: () => {
+        brandExpanded = !brandExpanded;
+        paint();
+      },
+      brandPanel: brandPanel(),
+      onAddSection: openCatalog,
+    };
+  }
+
+  function modalProps(): ModalProps {
+    return {
+      overlay,
+      pageName: options.pageName ?? "Home",
+      manifests: registryManifest(components),
+      sections: sectionOutline(),
+      saveDialog: saveDialogData(),
+      onInsert: (manifest) => void handleInsert(manifest),
+      onSelectSection: (index) => {
+        select([index]);
+        closeOverlay();
+      },
+      onPickMedia: (url) => void chooseMedia(url),
+      onSaveComponent: (name, exposed, slot) =>
+        void saveAsComponent(name, exposed, slot),
+      onClose: closeOverlay,
+    };
+  }
+
+  function paint(): void {
+    const c = chrome.snapshot();
     render(
-      <Inspector
-        selected={selected}
-        selectedEmpty={node !== undefined && selected === null}
-        onEdit={handleEdit}
-        onPickImage={(key) => node && openMedia(node as JsxElement, key)}
+      <EditorChrome
+        siteHost={options.siteHost ?? "nocms.github.io"}
         pageName={options.pageName ?? "Home"}
-        title={fm.title}
-        description={fm.description}
-        onTitle={(v) => editFrontmatter("title", v)}
-        onDescription={(v) => editFrontmatter("description", v)}
-        brandExpanded={brandExpanded}
-        onToggleBrand={() => {
-          brandExpanded = !brandExpanded;
-          renderRail();
-        }}
-        brandPanel={brandPanel()}
-        onAddSection={openCatalog}
+        breakpoint={c.breakpoint}
+        appearance={c.appearance}
+        dirty={c.dirty}
+        publishStatus={c.publishStatus}
+        onBreakpoint={chrome.setBreakpoint}
+        onAppearance={chrome.toggleAppearance}
+        onReset={() => void resetEdits()}
+        onTogglePublish={togglePublish}
+        onMenu={openNavigator}
+        inspector={inspectorProps()}
+        modal={modalProps()}
+        publishOpen={overlay === "publish"}
+        publishChanges={chrome.changeset()}
+        onPublishConfirm={runPublish}
+        onClosePublish={closeOverlay}
       />,
-      railHost,
+      chromeRoot,
     );
   }
 
@@ -351,50 +381,16 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     };
   }
 
-  function renderOverlays(): void {
-    render(
-      <Modal
-        overlay={overlay}
-        pageName={options.pageName ?? "Home"}
-        manifests={registryManifest(components)}
-        sections={sectionOutline()}
-        saveDialog={saveDialogData()}
-        onInsert={(manifest) => void handleInsert(manifest)}
-        onSelectSection={(index) => {
-          select([index]);
-          closeOverlay();
-        }}
-        onPickMedia={(url) => void chooseMedia(url)}
-        onSaveComponent={(name, exposed, slot) =>
-          void saveAsComponent(name, exposed, slot)
-        }
-        onClose={closeOverlay}
-      />,
-      modalHost,
-    );
-    render(
-      overlay === "publish" ? (
-        <PublishPopover
-          changes={chrome.changeset()}
-          lastDeploy="2d ago"
-          onPublish={runPublish}
-          onClose={closeOverlay}
-        />
-      ) : null,
-      popoverHost,
-    );
-  }
-
   // --- publish + reset (chrome state lives in the chrome controller) ----------------------
   // The top-bar "Publish" opens this popover; its confirm runs the (stubbed) publish.
   const togglePublish = (): void => {
     overlay = overlay === "publish" ? null : "publish";
-    renderOverlays();
+    paint();
   };
 
   const runPublish = (): void => {
     overlay = null;
-    renderOverlays();
+    paint();
     chrome.beginPublish();
   };
 
@@ -406,28 +402,27 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
     await docs.commit(initialMdx, undefined);
     chrome.reset();
-    renderRail();
   }
 
   const openCatalog = (): void => {
     overlay = "catalog";
-    renderOverlays();
+    paint();
   };
   const openNavigator = (): void => {
     overlay = "navigator";
-    renderOverlays();
+    paint();
   };
   const openMedia = (element: JsxElement, key: string): void => {
     mediaTarget = { element, key };
     overlay = "media";
-    renderOverlays();
+    paint();
   };
   const chooseMedia = async (url: string): Promise<void> => {
     if (mediaTarget) {
       setProp(mediaTarget.element, mediaTarget.key, url);
       mediaTarget = undefined;
       overlay = null;
-      renderOverlays();
+      paint();
       await handleEdit();
     }
   };
@@ -435,7 +430,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlay = null;
     mediaTarget = undefined;
     saveTarget = undefined;
-    renderOverlays();
+    paint();
   };
 
   const openSaveComponent = (): void => {
@@ -449,7 +444,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       container: childrenOf(node).length > 0,
     };
     overlay = "save-component";
-    renderOverlays();
+    paint();
   };
 
   // Build a saved component from the selection: capture the base's current prop values, bake the
@@ -488,7 +483,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
     overlay = null;
     saveTarget = undefined;
-    renderOverlays();
+    paint();
     await docs.commit(docs.serialize(), path);
     // The instance has now rendered; snapshot it so the catalog card shows the real component.
     const rendered = elementAtPath(path);
@@ -508,7 +503,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const handleInsert = async (manifest: ComponentManifest): Promise<void> => {
     if (proseSession.isActive()) await proseSession.commit();
     overlay = null;
-    renderOverlays();
+    paint();
     await docs.insertManifest(manifest, selectedPath);
   };
 
@@ -546,7 +541,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         onMoveDown={() => void moveSelected(1)}
         onDuplicate={() => void duplicateSelected()}
         onDelete={() => void deleteSelected()}
-        onSettings={() => panelRegion.scrollTo({ top: 0 })}
+        onSettings={() =>
+          (
+            document.querySelector(".nocms-editor-panel") as HTMLElement | null
+          )?.scrollTo({
+            top: 0,
+          })
+        }
         onSaveAsComponent={saveable ? openSaveComponent : undefined}
         onDragStart={(event) => drag.beginDrag(event)}
         onDragEnd={() => drag.endDrag()}
@@ -606,7 +607,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   function select(path: IndexPath | undefined): void {
     selectedPath = path;
     canvas.highlight(path);
-    renderRail();
+    paint();
     renderToolbar();
     renderSelectionLabel();
   }
@@ -752,9 +753,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   window.addEventListener("resize", reposition);
   window.addEventListener("scroll", reposition, { passive: true });
 
-  chrome.render();
-  renderRail();
-  renderOverlays();
+  paint();
 
   // Play the enter transition after the chrome has painted: the bar slides down, the rail in,
   // and the page offsets to make room — over the live page, never a reload.
@@ -778,11 +777,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
       drag.endDrag();
       canvas.dispose();
-      render(null, railHost);
+      render(null, chromeRoot);
       render(null, toolbarHost);
       render(null, formatHost);
-      render(null, modalHost);
-      render(null, popoverHost);
       overlays.dispose();
       document.documentElement.classList.remove("nocms-editing");
       document.documentElement.style.removeProperty("--nocms-page-width");
