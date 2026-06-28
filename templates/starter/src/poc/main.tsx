@@ -3,9 +3,22 @@ import type { JSX } from "preact";
 import { render } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import pocTokens from "../../poc.tokens?raw";
-import { defaultFacetIds, deriveScales, FACETS, flattenForPreview } from "./facets";
+import { applyClass } from "./catalog";
+import {
+  defaultFacetIds,
+  deriveScales,
+  FACET_BY_ID,
+  FACETS,
+  flattenForPreview,
+} from "./facets";
 import { Inspector } from "./inspector";
-import { previewOrder, type StateKey, type ViewportKey, viewportWidth } from "./modes";
+import {
+  previewOrder,
+  type StateKey,
+  type ViewportKey,
+  variantOf,
+  viewportWidth,
+} from "./modes";
 import { toTailwindTheme } from "./theme";
 
 const ACCENT = "#3b5bdb";
@@ -286,9 +299,20 @@ function App() {
         viewport={viewport}
         state={state}
         onChange={(next) => setTree((t) => withClasses(t, selectedId, next))}
-        onAdd={(id) =>
-          setAdded((a) => ({ ...a, [selectedId]: [...(a[selectedId] ?? []), id] }))
-        }
+        onApplyClass={(cls, root) => {
+          setTree((t) => {
+            const node = find(t, selectedId);
+            return withClasses(
+              t,
+              selectedId,
+              applyClass(node?.classes ?? "", cls, root, variantOf(viewport, state)),
+            );
+          });
+          // If a curated facet owns this property, surface its rich control too.
+          if (FACET_BY_ID.has(root)) {
+            setAdded((a) => ({ ...a, [selectedId]: [...(a[selectedId] ?? []), root] }));
+          }
+        }}
         onViewport={setViewport}
         onState={setState}
       />

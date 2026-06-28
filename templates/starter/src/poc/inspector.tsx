@@ -11,6 +11,7 @@ import {
   type Scales,
 } from "./facets";
 import { STATES, type StateKey, VIEWPORTS, type ViewportKey, variantOf } from "./modes";
+import { Palette } from "./palette";
 
 const GROUPS = ["Color", "Spacing", "Border", "Type", "Effects", "Motion"] as const;
 const ACCENT = "#3b5bdb";
@@ -24,7 +25,7 @@ interface InspectorProps {
   viewport: ViewportKey;
   state: StateKey;
   onChange: (next: string) => void;
-  onAdd: (facetId: string) => void;
+  onApplyClass: (cls: string, root: string) => void;
   onViewport: (v: ViewportKey) => void;
   onState: (s: StateKey) => void;
 }
@@ -77,7 +78,7 @@ export function Inspector(props: InspectorProps) {
         </section>
       ))}
 
-      <AddProperty shownIds={shownIds} onAdd={props.onAdd} />
+      <Palette onApply={props.onApplyClass} />
       <Inspect className={className} />
     </aside>
   );
@@ -334,52 +335,6 @@ function CustomLength({
   );
 }
 
-function AddProperty({
-  shownIds,
-  onAdd,
-}: {
-  shownIds: string[];
-  onAdd: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const available = FACETS.filter((f) => !shownIds.includes(f.id));
-  if (available.length === 0) return null;
-  return (
-    <div style={{ marginTop: 4 }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} style={addBtn}>
-        {open ? "× Close" : "+ Add a style property"}
-      </button>
-      {open && (
-        <div style={addMenu}>
-          {GROUPS.filter((g) => available.some((f) => f.group === g)).map((group) => (
-            <div key={group} style={{ marginBottom: 8 }}>
-              <div style={groupLabel}>{group}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {available
-                  .filter((f) => f.group === group)
-                  .map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      title={f.hint}
-                      onClick={() => {
-                        onAdd(f.id);
-                        setOpen(false);
-                      }}
-                      style={addItem}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function Inspect({ className }: { className: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -502,32 +457,6 @@ const chipBtn = (on: boolean) =>
     fontWeight: on ? 600 : 400,
     cursor: "pointer",
   }) as const;
-const addBtn = {
-  fontSize: 12,
-  padding: "7px 10px",
-  borderRadius: 6,
-  border: `1px dashed ${ACCENT}`,
-  background: "#fff",
-  color: ACCENT,
-  cursor: "pointer",
-  width: "100%",
-} as const;
-const addMenu = {
-  marginTop: 8,
-  padding: 10,
-  border: "1px solid #eee",
-  borderRadius: 8,
-  background: "#fbfbfd",
-} as const;
-const addItem = {
-  fontSize: 12,
-  padding: "4px 8px",
-  borderRadius: 6,
-  border: "1px solid #e0e0e6",
-  background: "#fff",
-  color: "#333",
-  cursor: "pointer",
-} as const;
 const inspectToggle = {
   fontSize: 11,
   color: "#999",

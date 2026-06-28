@@ -5,6 +5,7 @@ import mdx from "@mdx-js/rollup";
 import preact from "@preact/preset-vite";
 import remarkFrontmatter from "remark-frontmatter";
 import { defineConfig, type Plugin } from "vite";
+import { twCatalogPlugin } from "./vite-plugin-tw-catalog";
 
 // `content/*.mdx?raw` must yield the file's *text* — the editor edits MDX source, not a compiled
 // component. Vite's built-in `?raw` doesn't help: the `@mdx-js/rollup` plugin strips the query
@@ -72,6 +73,7 @@ export default defineConfig(({ command }) => {
       ],
     },
     plugins: [
+      twCatalogPlugin(),
       rawMdxPlugin(),
       {
         enforce: "pre",
