@@ -22,5 +22,8 @@ export declare const FeaturesSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type FeaturesProps = v.InferInput<typeof FeaturesSchema>;
-export declare function Features({ title, subtitle, columns, items, background, }: FeaturesProps): import("preact").JSX.Element;
+export type FeaturesProps = v.InferInput<typeof FeaturesSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Features({ title, subtitle, columns, items, background, class: cls, className, }: FeaturesProps): import("preact").JSX.Element;

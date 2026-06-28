@@ -1,17 +1,25 @@
 import { type LocaleLink, type LocaleManifest, localeLinks } from "@nocms/core";
 import { useEffect, useState } from "preact/hooks";
 import * as v from "valibot";
+import { cx } from "../cx";
 import { readSiteRuntime } from "../site-runtime";
 
 export const LanguageSwitcherSchema = v.object({
   label: v.optional(v.string(), "Language"),
 });
 
-export type LanguageSwitcherProps = v.InferInput<typeof LanguageSwitcherSchema>;
+export type LanguageSwitcherProps = v.InferInput<typeof LanguageSwitcherSchema> & {
+  class?: string;
+  className?: string;
+};
 
 // An island because it reads the live URL and fetches the ② i18n artifact at view time; it
 // renders nothing until the manifest places the current route in a translation group.
-export function LanguageSwitcher({ label = "Language" }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  label = "Language",
+  class: cls,
+  className,
+}: LanguageSwitcherProps) {
   const [links, setLinks] = useState<LocaleLink[]>([]);
 
   useEffect(() => {
@@ -34,17 +42,16 @@ export function LanguageSwitcher({ label = "Language" }: LanguageSwitcherProps) 
   if (links.length < 2) return null;
   return (
     <nav
-      class="language-switcher"
+      class={cx("inline-flex gap-2 items-center", className, cls)}
       aria-label={label}
-      style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}
     >
       {links.map((link) =>
         link.current ? (
-          <span key={link.locale} aria-current="true" style={{ fontWeight: 600 }}>
+          <span key={link.locale} aria-current="true" class="font-semibold">
             {link.locale}
           </span>
         ) : (
-          <a key={link.locale} href={link.href} style={{ color: "var(--color-text)" }}>
+          <a key={link.locale} href={link.href} class="text-text">
             {link.locale}
           </a>
         ),

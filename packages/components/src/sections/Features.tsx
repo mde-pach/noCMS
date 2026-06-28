@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Card } from "../primitives/Card";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
@@ -39,7 +40,10 @@ export const FeaturesSchema = v.object({
   background: surfaceField("page"),
 });
 
-export type FeaturesProps = v.InferInput<typeof FeaturesSchema>;
+export type FeaturesProps = v.InferInput<typeof FeaturesSchema> & {
+  class?: string;
+  className?: string;
+};
 
 export function Features({
   title = "Everything you need, nothing you don't",
@@ -47,52 +51,28 @@ export function Features({
   columns = 3,
   items = SEED_ITEMS,
   background = "page",
+  class: cls,
+  className,
 }: FeaturesProps) {
   return (
-    <Band background={background}>
+    <Band background={background} class={cls} className={className}>
       <Container width="wide">
-        <div style={{ marginBottom: "var(--space-lg)", textAlign: "center" }}>
-          {title ? (
-            <h2 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>{title}</h2>
-          ) : null}
+        <div class="mb-lg text-center">
+          {title ? <h2 class="m-0 font-heading">{title}</h2> : null}
           {subtitle ? (
-            <p
-              style={{
-                margin: "var(--space-sm) auto 0",
-                maxWidth: "40rem",
-                color: mutedInk,
-              }}
-            >
-              {subtitle}
-            </p>
+            <p class={cx("mt-sm mb-0 mx-auto max-w-[40rem]", mutedInk)}>{subtitle}</p>
           ) : null}
         </div>
         <Grid columns={columns} gap="md">
           {items.map((item) => (
             <Card key={item.title}>
               {item.icon ? (
-                <div
-                  aria-hidden="true"
-                  style={{
-                    fontSize: "1.6rem",
-                    color: "var(--color-brand-500)",
-                    marginBottom: "var(--space-sm)",
-                  }}
-                >
+                <div aria-hidden="true" class="text-[1.6rem] text-brand-500 mb-sm">
                   {item.icon}
                 </div>
               ) : null}
-              <h3
-                style={{
-                  margin: "0 0 var(--space-sm)",
-                  fontFamily: "var(--font-heading)",
-                }}
-              >
-                {item.title}
-              </h3>
-              {item.body ? (
-                <p style={{ margin: 0, color: mutedInk }}>{item.body}</p>
-              ) : null}
+              <h3 class="m-0 mb-sm font-heading">{item.title}</h3>
+              {item.body ? <p class={cx("m-0", mutedInk)}>{item.body}</p> : null}
             </Card>
           ))}
         </Grid>

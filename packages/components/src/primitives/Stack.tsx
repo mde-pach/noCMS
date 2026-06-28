@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 // `children` is a slot declared on the registry entry, not a prop control, so it's absent here.
 export const StackSchema = v.object({
@@ -9,19 +10,27 @@ export const StackSchema = v.object({
 
 export type StackProps = v.InferInput<typeof StackSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-export function Stack({ gap = "md", align = "stretch", children }: StackProps) {
+// Raw `align-items` keywords (not the `flex-*` forms) to match the pre-Tailwind values exactly.
+const ALIGN = {
+  start: "items-[start]",
+  center: "items-[center]",
+  end: "items-[end]",
+  stretch: "items-[stretch]",
+} as const;
+
+export function Stack({
+  gap = "md",
+  align = "stretch",
+  children,
+  class: cls,
+  className,
+}: StackProps) {
   return (
-    <div
-      class="stack"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: `var(--space-${gap})`,
-        alignItems: align,
-      }}
-    >
+    <div class={cx("flex flex-col", `gap-${gap}`, ALIGN[align], className, cls)}>
       {children}
     </div>
   );

@@ -6,5 +6,8 @@ export declare const SelectSchema: v.ObjectSchema<{
     readonly options: v.StringSchema<undefined>;
     readonly required: v.OptionalSchema<v.BooleanSchema<undefined>, false>;
 }, undefined>;
-export type SelectProps = v.InferInput<typeof SelectSchema>;
-export declare function Select({ name, label, options, required }: SelectProps): import("preact").JSX.Element;
+export type SelectProps = v.InferInput<typeof SelectSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Select({ name, label, options, required, class: cls, className, }: SelectProps): import("preact").JSX.Element;

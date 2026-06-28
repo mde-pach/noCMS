@@ -18,5 +18,8 @@ export declare const NavbarSchema: v.ObjectSchema<{
     }>]>, string>;
     readonly sticky: v.OptionalSchema<v.BooleanSchema<undefined>, true>;
 }, undefined>;
-export type NavbarProps = v.InferInput<typeof NavbarSchema>;
-export declare function Navbar({ brand, brandMark, tagline, links, ctaLabel, ctaHref, sticky, }: NavbarProps): import("preact").JSX.Element;
+export type NavbarProps = v.InferInput<typeof NavbarSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Navbar({ brand, brandMark, tagline, links, ctaLabel, ctaHref, sticky, class: cls, className, }: NavbarProps): import("preact").JSX.Element;

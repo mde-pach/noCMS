@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
@@ -46,82 +47,51 @@ export const PricingSchema = v.object({
   background: surfaceField("subtle"),
 });
 
-export type PricingProps = v.InferInput<typeof PricingSchema>;
+export type PricingProps = v.InferInput<typeof PricingSchema> & {
+  class?: string;
+  className?: string;
+};
 
 export function Pricing({
   title = "Free, because there's nothing to bill for",
   subtitle = "You host on your own GitHub. We don't run your infra.",
   tiers = SEED_TIERS,
   background = "subtle",
+  class: cls,
+  className,
 }: PricingProps) {
   return (
-    <Band background={background}>
+    <Band background={background} class={cls} className={className}>
       <Container width="wide">
-        <div style={{ marginBottom: "var(--space-lg)", textAlign: "center" }}>
-          {title ? (
-            <h2 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>{title}</h2>
-          ) : null}
+        <div class="mb-lg text-center">
+          {title ? <h2 class="m-0 font-heading">{title}</h2> : null}
           {subtitle ? (
-            <p
-              style={{
-                margin: "var(--space-sm) auto 0",
-                maxWidth: "40rem",
-                color: mutedInk,
-              }}
-            >
-              {subtitle}
-            </p>
+            <p class={cx("mt-sm mb-0 mx-auto max-w-[40rem]", mutedInk)}>{subtitle}</p>
           ) : null}
         </div>
         <Grid columns={tiers.length} gap="md">
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--space-md)",
-                padding: "var(--space-lg)",
-                borderRadius: "var(--radius-md)",
-                background: "var(--color-bg)",
-                border: tier.highlighted
-                  ? "1px solid var(--color-brand-500)"
+              class={cx(
+                "flex flex-col gap-md p-lg rounded-md bg-bg",
+                tier.highlighted
+                  ? "border border-brand-500 shadow-[0_1px_0_var(--color-brand-500),0_12px_30px_-18px_var(--color-brand-500)]"
                   : hairline,
-                boxShadow: tier.highlighted
-                  ? "0 1px 0 var(--color-brand-500), 0 12px 30px -18px var(--color-brand-500)"
-                  : undefined,
-              }}
+              )}
             >
               <div>
-                <h3 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>
-                  {tier.name}
-                </h3>
-                <div style={{ marginTop: "var(--space-sm)" }}>
-                  <span style={{ fontSize: "2rem", fontWeight: 700 }}>
-                    {tier.price}
-                  </span>
-                  {tier.period ? (
-                    <span style={{ color: mutedInk }}> / {tier.period}</span>
-                  ) : null}
+                <h3 class="m-0 font-heading">{tier.name}</h3>
+                <div class="mt-sm">
+                  <span class="text-[2rem] font-bold">{tier.price}</span>
+                  {tier.period ? <span class={mutedInk}> / {tier.period}</span> : null}
                 </div>
               </div>
               {tier.features?.length ? (
-                <ul
-                  style={{
-                    listStyle: "none",
-                    margin: 0,
-                    padding: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-sm)",
-                  }}
-                >
+                <ul class="list-none m-0 p-0 flex flex-col gap-sm">
                   {tier.features.map((feature) => (
-                    <li key={feature} style={{ display: "flex", gap: "0.5em" }}>
-                      <span
-                        aria-hidden="true"
-                        style={{ color: "var(--color-brand-500)" }}
-                      >
+                    <li key={feature} class="flex gap-[0.5em]">
+                      <span aria-hidden="true" class="text-brand-500">
                         ✓
                       </span>
                       <span>{feature}</span>
@@ -129,7 +99,7 @@ export function Pricing({
                   ))}
                 </ul>
               ) : null}
-              <div style={{ marginTop: "auto" }}>
+              <div class="mt-auto">
                 <Button
                   label={tier.ctaLabel ?? "Choose plan"}
                   href={tier.ctaHref ?? "#"}

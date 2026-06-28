@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import * as v from "valibot";
+import { cx } from "../cx";
 import { readSiteRuntime } from "../site-runtime";
 
 // A minimal structural shape (not the full `@nocms/derive` `JsonFeedItem`) so the reader
@@ -16,11 +17,19 @@ export const LatestPostsSchema = v.object({
   title: v.optional(v.string(), "Latest"),
 });
 
-export type LatestPostsProps = v.InferInput<typeof LatestPostsSchema>;
+export type LatestPostsProps = v.InferInput<typeof LatestPostsSchema> & {
+  class?: string;
+  className?: string;
+};
 
 // An island because it fetches the ② feed artifact at view time; it renders nothing until a
 // feed is present.
-export function LatestPosts({ limit = 5, title = "Latest" }: LatestPostsProps) {
+export function LatestPosts({
+  limit = 5,
+  title = "Latest",
+  class: cls,
+  className,
+}: LatestPostsProps) {
   const [items, setItems] = useState<FeedItem[]>([]);
 
   useEffect(() => {
@@ -40,32 +49,20 @@ export function LatestPosts({ limit = 5, title = "Latest" }: LatestPostsProps) {
 
   if (!items.length) return null;
   return (
-    <section class="latest-posts">
-      {title ? <h2 style={{ fontFamily: "var(--font-heading)" }}>{title}</h2> : null}
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          display: "grid",
-          gap: "var(--space-md)",
-        }}
-      >
+    <section class={cx(className, cls)}>
+      {title ? <h2 class="font-heading">{title}</h2> : null}
+      <ul class="list-none p-0 grid gap-md">
         {items.map((item) => (
           <li key={item.url}>
-            <a href={item.url} style={{ fontWeight: 600, color: "var(--color-text)" }}>
+            <a href={item.url} class="font-semibold text-text">
               {item.title}
             </a>
             {item.date_published ? (
-              <time
-                dateTime={item.date_published}
-                style={{ opacity: 0.6, marginLeft: "0.5rem" }}
-              >
+              <time dateTime={item.date_published} class="opacity-60 ml-2">
                 {item.date_published.slice(0, 10)}
               </time>
             ) : null}
-            {item.summary ? (
-              <p style={{ margin: "0.25rem 0 0" }}>{item.summary}</p>
-            ) : null}
+            {item.summary ? <p class="mt-1 mx-0 mb-0">{item.summary}</p> : null}
           </li>
         ))}
       </ul>

@@ -51,8 +51,8 @@ describe("savedBlockFromDefinition", () => {
     expect(html).toContain("Hello");
     expect(html).toContain('href="/x"');
     // The locked variant wins; a passed-in variant cannot override it.
-    expect(html).toContain("btn-primary");
-    expect(html).not.toContain("btn-secondary");
+    expect(html).toContain("bg-brand-500"); // primary
+    expect(html).not.toContain("border-text/22"); // not the secondary outline
   });
 
   test("falls back to the seeded defaults when an exposed prop is absent", () => {
@@ -126,9 +126,9 @@ describe("composedBlockFromDefinition (compose + slots)", () => {
     );
     expect(html).toContain("Welcome");
     expect(html).toContain("Go");
-    expect(html).toContain("btn-primary");
+    expect(html).toContain("bg-brand-500"); // the button (primary)
     expect(html).toContain("body text");
-    expect(html).toContain("card");
+    expect(html).toContain("border-text/12"); // the card outline
   });
 
   test("surfaces only the exposed controls and declares its slot in the manifest", () => {

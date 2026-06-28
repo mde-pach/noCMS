@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const InputSchema = v.object({
   name: v.string(),
@@ -11,13 +12,12 @@ export const InputSchema = v.object({
   required: v.optional(v.boolean(), false),
 });
 
-export type InputProps = v.InferInput<typeof InputSchema>;
+export type InputProps = v.InferInput<typeof InputSchema> & {
+  class?: string;
+  className?: string;
+};
 
-const FIELD = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-sm)",
-} as const;
+const FIELD = "flex flex-col gap-sm";
 
 export function Input({
   name,
@@ -25,18 +25,13 @@ export function Input({
   type = "text",
   placeholder,
   required = false,
+  class: cls,
+  className,
 }: InputProps) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is the nested input.
-    <label class="field" style={FIELD}>
-      {label ? <span class="field-label">{label}</span> : null}
-      <input
-        class="field-input"
-        name={name}
-        type={type}
-        placeholder={placeholder}
-        required={required}
-      />
+    <label class={cx(FIELD, className, cls)}>
+      {label ? <span>{label}</span> : null}
+      <input name={name} type={type} placeholder={placeholder} required={required} />
     </label>
   );
 }

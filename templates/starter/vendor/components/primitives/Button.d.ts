@@ -6,5 +6,8 @@ export declare const ButtonSchema: v.ObjectSchema<{
     }>]>, "#">;
     readonly variant: v.OptionalSchema<v.PicklistSchema<["primary", "secondary"], undefined>, "primary">;
 }, undefined>;
-export type ButtonProps = v.InferInput<typeof ButtonSchema>;
-export declare function Button({ label, href, variant }: ButtonProps): import("preact").JSX.Element;
+export type ButtonProps = v.InferInput<typeof ButtonSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Button({ label, href, variant, class: cls, className, }: ButtonProps): import("preact").JSX.Element;

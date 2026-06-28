@@ -8,5 +8,8 @@ export declare const ImageSchema: v.ObjectSchema<{
     readonly height: v.OptionalSchema<v.NumberSchema<undefined>, undefined>;
     readonly rounded: v.OptionalSchema<v.BooleanSchema<undefined>, false>;
 }, undefined>;
-export type ImageProps = v.InferInput<typeof ImageSchema>;
-export declare function Image({ src, alt, width, height, rounded }: ImageProps): import("preact").JSX.Element;
+export type ImageProps = v.InferInput<typeof ImageSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Image({ src, alt, width, height, rounded, class: cls, className, }: ImageProps): import("preact").JSX.Element;

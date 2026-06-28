@@ -22,5 +22,8 @@ export declare const TestimonialsSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type TestimonialsProps = v.InferInput<typeof TestimonialsSchema>;
-export declare function Testimonials({ title, quotes, background, }: TestimonialsProps): import("preact").JSX.Element;
+export type TestimonialsProps = v.InferInput<typeof TestimonialsSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Testimonials({ title, quotes, background, class: cls, className, }: TestimonialsProps): import("preact").JSX.Element;

@@ -6,5 +6,8 @@ export declare const TextareaSchema: v.ObjectSchema<{
     readonly rows: v.OptionalSchema<v.SchemaWithPipe<readonly [v.NumberSchema<undefined>, v.MinValueAction<number, 2, undefined>, v.MaxValueAction<number, 20, undefined>]>, 4>;
     readonly required: v.OptionalSchema<v.BooleanSchema<undefined>, false>;
 }, undefined>;
-export type TextareaProps = v.InferInput<typeof TextareaSchema>;
-export declare function Textarea({ name, label, placeholder, rows, required, }: TextareaProps): import("preact").JSX.Element;
+export type TextareaProps = v.InferInput<typeof TextareaSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Textarea({ name, label, placeholder, rows, required, class: cls, className, }: TextareaProps): import("preact").JSX.Element;

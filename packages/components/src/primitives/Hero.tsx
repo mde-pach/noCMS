@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const HeroSchema = v.object({
   title: v.string(),
@@ -8,13 +9,15 @@ export const HeroSchema = v.object({
 
 export type HeroProps = v.InferInput<typeof HeroSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-export function Hero({ title, subtitle, children }: HeroProps) {
+export function Hero({ title, subtitle, children, class: cls, className }: HeroProps) {
   return (
-    <section style={{ padding: "var(--space-lg) 0" }}>
-      <h1 style={{ fontFamily: "var(--font-heading)" }}>{title}</h1>
-      {subtitle ? <p style={{ opacity: 0.8 }}>{subtitle}</p> : null}
+    <section class={cx("py-lg", className, cls)}>
+      <h1 class="font-heading">{title}</h1>
+      {subtitle ? <p class="opacity-80">{subtitle}</p> : null}
       {children}
     </section>
   );

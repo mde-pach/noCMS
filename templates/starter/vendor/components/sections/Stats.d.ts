@@ -14,5 +14,8 @@ export declare const StatsSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type StatsProps = v.InferInput<typeof StatsSchema>;
-export declare function Stats({ title, stats, background }: StatsProps): import("preact").JSX.Element;
+export type StatsProps = v.InferInput<typeof StatsSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Stats({ title, stats, background, class: cls, className, }: StatsProps): import("preact").JSX.Element;

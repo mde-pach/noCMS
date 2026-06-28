@@ -1,6 +1,7 @@
 import { type ComponentPack, type ComponentRegistry } from "./packs";
 export declare const core: ComponentPack;
 export declare const registry: ComponentRegistry;
+export { cx } from "./cx";
 export { type BlockDef, block, type ComponentManifest, type ComponentPack, type ComponentRegistry, controlsOf, createRegistry, definePack, manifestOf, type PropPrimitive, registryManifest, } from "./packs";
 export { Badge, type BadgeProps, BadgeSchema } from "./primitives/Badge";
 export { Button, type ButtonProps, ButtonSchema } from "./primitives/Button";

@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const CardSchema = v.object({
   title: v.optional(v.string()),
@@ -8,33 +9,25 @@ export const CardSchema = v.object({
 
 export type CardProps = v.InferInput<typeof CardSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-const STYLE = {
-  display: "block",
-  padding: "var(--space-md)",
-  borderRadius: "var(--radius-md)",
-  border: "1px solid color-mix(in srgb, var(--color-text) 12%, transparent)",
-  color: "inherit",
-  textDecoration: "none",
-} as const;
+const BASE = "block p-md rounded-md border border-text/12 text-inherit no-underline";
+const LINK = "transition hover:-translate-y-[3px] hover:shadow-xl hover:shadow-text/12";
 
-export function Card({ title, href, children }: CardProps) {
+export function Card({ title, href, children, class: cls, className }: CardProps) {
   const inner = (
     <>
-      {title ? (
-        <h3 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>{title}</h3>
-      ) : null}
+      {title ? <h3 class="m-0 font-heading">{title}</h3> : null}
       {children}
     </>
   );
   return href ? (
-    <a class="card" href={href} style={STYLE}>
+    <a class={cx(BASE, LINK, className, cls)} href={href}>
       {inner}
     </a>
   ) : (
-    <div class="card" style={STYLE}>
-      {inner}
-    </div>
+    <div class={cx(BASE, className, cls)}>{inner}</div>
   );
 }

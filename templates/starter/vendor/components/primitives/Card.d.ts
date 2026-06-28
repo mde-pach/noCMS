@@ -8,5 +8,7 @@ export declare const CardSchema: v.ObjectSchema<{
 }, undefined>;
 export type CardProps = v.InferInput<typeof CardSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Card({ title, href, children }: CardProps): import("preact").JSX.Element;
+export declare function Card({ title, href, children, class: cls, className }: CardProps): import("preact").JSX.Element;
