@@ -2,7 +2,21 @@ import type { MdxTextExpression } from "mdast-util-mdx-expression";
 import type { MdxJsxTextElement } from "mdast-util-mdx-jsx";
 import { Schema } from "prosemirror-model";
 
-function labelJsxElement(node: MdxJsxTextElement): string {
+/** The element's text, joined from its descendants — what reads as the editable content
+ *  (e.g. `<Badge>Row</Badge>` → `Row`). Empty for an icon-only or self-closing element. */
+function textContentOf(node: MdxJsxTextElement): string {
+  let out = "";
+  for (const child of node.children) {
+    if (child.type === "text" || child.type === "inlineCode") out += child.value;
+    else if ("children" in child)
+      out += textContentOf(child as unknown as MdxJsxTextElement);
+  }
+  return out;
+}
+
+/** The source-shaped label for a JSX atom with no text content (icon-only / self-closing) —
+ *  the only case where showing the tag is clearer than showing nothing. */
+function tagLabel(node: MdxJsxTextElement): string {
   const name = node.name ?? "";
   const attrs = node.attributes
     .map((attr) => {
@@ -13,8 +27,7 @@ function labelJsxElement(node: MdxJsxTextElement): string {
     })
     .join(" ");
   const open = attrs ? `${name} ${attrs}` : name;
-  const selfClosing = node.children.length === 0;
-  return selfClosing ? `<${open}/>` : `<${open}>…</${node.name ?? ""}>`;
+  return node.children.length === 0 ? `<${open}/>` : `<${open}>…</${name}>`;
 }
 
 function labelExpression(node: MdxTextExpression): string {
@@ -43,15 +56,28 @@ export const proseSchema = new Schema({
       atom: true,
       // The whole source mdast node, carried verbatim so the atom round-trips exactly.
       attrs: { node: {} },
-      toDOM: (n) => [
-        "span",
-        {
+      // Any inline component (Badge, an inline Button, an icon-with-label, …) renders as one
+      // chip. With text content we show that content prefixed by a small name tag, so it reads
+      // as "<Name> Row" — not the raw `<Name …>…</Name>` source, which hid the text behind `…`.
+      // With no text (self-closing / icon-only) the source tag is the clearest label.
+      toDOM: (n) => {
+        const node = n.attrs.node as MdxJsxTextElement;
+        const text = textContentOf(node).trim();
+        const attrs = {
           class: "nocms-prose-atom nocms-prose-atom-jsx",
           "data-mdx-atom": "jsx",
           contenteditable: "false",
-        },
-        labelJsxElement(n.attrs.node as MdxJsxTextElement),
-      ],
+          title: tagLabel(node),
+        };
+        return text
+          ? [
+              "span",
+              attrs,
+              ["span", { class: "nocms-prose-atom-tag" }, node.name ?? ""],
+              text,
+            ]
+          : ["span", attrs, tagLabel(node)];
+      },
     },
     mdxExpression: {
       group: "inline",

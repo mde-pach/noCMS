@@ -268,6 +268,20 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 .nc-name-tag--hover { opacity: 0.9; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
 
+/* Inline MDX atoms inside the prose editor (a Badge, an inline component, an expression): a
+   non-editable chip, so they read as one opaque unit and never look like raw source. */
+.nocms-prose-atom {
+  display: inline-flex; align-items: baseline; gap: 4px; vertical-align: baseline;
+  padding: 1px 6px; border-radius: 6px; white-space: nowrap;
+  background: color-mix(in srgb, var(--nc-accent) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nc-accent) 30%, transparent);
+}
+.nocms-prose-atom-tag {
+  font-family: var(--nc-font-mono); font-size: 9.5px; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--nc-accent); font-weight: 600; opacity: 0.85;
+}
+.nocms-prose-atom-expr, .nocms-prose-atom-unknown { font-family: var(--nc-font-mono); font-size: 0.9em; }
+
 /* drag-reorder: the lifted block + the drop-indicator line */
 .nocms-dragging {
   outline: 2px solid var(--nc-accent); outline-offset: 2px;

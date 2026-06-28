@@ -44,8 +44,40 @@ describe("mountProseEditor", () => {
     const jsxChip = target.querySelector(".nocms-prose-atom-jsx");
     const exprChip = target.querySelector(".nocms-prose-atom-expr");
     expect(jsxChip?.getAttribute("contenteditable")).toBe("false");
-    expect(jsxChip?.textContent).toContain("Badge");
+    // The chip shows the component's actual content ("hi") with a small name tag — not the raw
+    // `<Badge variant="new">…</Badge>` source that hid the text behind `…`.
+    expect(jsxChip?.querySelector(".nocms-prose-atom-tag")?.textContent).toBe("Badge");
+    expect(jsxChip?.textContent).toContain("hi");
+    expect(jsxChip?.textContent).not.toContain("…");
     expect(exprChip?.textContent).toBe("{user.name}");
+  });
+
+  // The fix is generic: it keys on "an inline JSX element with text content", not on Badge.
+  it("shows the content of any inline component, with its name tag", () => {
+    const { target } = mount([
+      {
+        type: "mdxJsxTextElement",
+        name: "Pill",
+        attributes: [],
+        children: [text("Beta")],
+      } as unknown as PhrasingContent,
+    ]);
+    const chip = target.querySelector(".nocms-prose-atom-jsx");
+    expect(chip?.querySelector(".nocms-prose-atom-tag")?.textContent).toBe("Pill");
+    expect(chip?.textContent).toContain("Beta");
+  });
+
+  it("falls back to the source tag for a self-closing (text-less) inline component", () => {
+    const { target } = mount([
+      {
+        type: "mdxJsxTextElement",
+        name: "Icon",
+        attributes: [{ type: "mdxJsxAttribute", name: "name", value: "star" }],
+        children: [],
+      } as unknown as PhrasingContent,
+    ]);
+    const chip = target.querySelector(".nocms-prose-atom-jsx");
+    expect(chip?.textContent).toBe('<Icon name="star"/>');
   });
 
   it("emits bold mdast after selecting all and toggling strong", () => {
