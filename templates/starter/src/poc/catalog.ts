@@ -28,6 +28,8 @@ export const applyClass = (
   featureId: string,
   variant = "",
 ) => core.applyClass(className, cls, featureId, variant, featureOf);
+export const flattenForPreview = (className: string, order: string[]) =>
+  core.flattenForPreview(className, order, featureOf);
 
 /** The value scale of a feature as composable keys (`p-4` → key "4"), for box/side controls that
  * re-use one scale across many target prefixes. */
@@ -42,14 +44,6 @@ export function scaleKeys(
     value: o.value,
     order: o.order,
   }));
-}
-
-export function groupCounts(): { group: string; count: number }[] {
-  const counts = new Map<string, number>();
-  for (const f of CATALOG.features) counts.set(f.group, (counts.get(f.group) ?? 0) + 1);
-  return [...counts]
-    .map(([group, count]) => ({ group, count }))
-    .sort((a, b) => a.group.localeCompare(b.group));
 }
 
 /** Find features by their human label (e.g. "border", "rotate", "shadow") — not by class name. */

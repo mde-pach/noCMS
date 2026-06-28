@@ -5,125 +5,10 @@ import {
   colorFeatureId,
   composeColor,
   currentClass,
-  type Feature,
   parseColorClass,
 } from "./catalog";
 
 const ACCENT = "#3b5bdb";
-
-const numOf = (v: string) => {
-  const n = Number.parseFloat(v);
-  return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n;
-};
-
-// Same generator idea for every other property: one value knob over the feature's scale — a slider
-// for amounts/angles, segmented for a small keyword set — never a wall of class chips.
-export function ValueConfigurator({
-  feature,
-  className,
-  variant,
-  onApply,
-}: {
-  feature: Feature;
-  className: string;
-  variant: string;
-  onApply: (cls: string, id: string) => void;
-}) {
-  const current = currentClass(className, feature.id, variant);
-  const set = (cls: string) => onApply(current === cls ? "" : cls, feature.id);
-
-  if (feature.control === "color") {
-    return (
-      <div style={{ marginBottom: 12 }}>
-        <div style={dim}>{feature.label}</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-          {feature.options.slice(0, 40).map((o) => (
-            <button
-              key={o.cls}
-              type="button"
-              title={o.value}
-              onClick={() => set(o.cls)}
-              style={{
-                ...sw,
-                background: o.value,
-                outline:
-                  current === o.cls
-                    ? `2px solid ${ACCENT}`
-                    : "1px solid rgba(0,0,0,0.14)",
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (feature.control === "enum" || feature.options.length <= 3) {
-    return (
-      <div style={{ marginBottom: 12 }}>
-        <div style={dim}>{feature.label}</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {feature.options.slice(0, 24).map((o) => (
-            <button
-              key={o.cls}
-              type="button"
-              onClick={() => set(o.cls)}
-              style={{ ...seg, ...(current === o.cls ? segOn : {}) }}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // amounts / angles → a single slider over the sorted scale.
-  const opts = [...feature.options].sort((a, b) => numOf(a.value) - numOf(b.value));
-  const idx = opts.findIndex((o) => o.cls === current);
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span style={dim}>{feature.label}</span>
-        <span style={{ fontSize: 11, color: idx >= 0 ? ACCENT : "#bbb" }}>
-          {idx >= 0 ? opts[idx]?.label : "—"}
-        </span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <input
-          type="range"
-          min={0}
-          max={opts.length - 1}
-          value={idx < 0 ? 0 : idx}
-          onInput={(e) =>
-            set(opts[Number((e.target as HTMLInputElement).value)]?.cls ?? "")
-          }
-          style={{ flex: 1 }}
-        />
-        {idx >= 0 && (
-          <button
-            type="button"
-            onClick={() => current && set(current)}
-            style={clearBtn}
-            title="Clear"
-          >
-            ×
-          </button>
-        )}
-      </div>
-      {feature.prefix && (
-        <input
-          placeholder="custom (e.g. 14px, 30deg)"
-          onChange={(e) => {
-            const v = (e.target as HTMLInputElement).value.trim();
-            if (v) onApply(`${feature.prefix}[${v}]`, feature.id);
-          }}
-          style={customInput}
-        />
-      )}
-    </div>
-  );
-}
 
 const keyOf = (f: ColorFamily, s: ColorShade) =>
   s.shade ? `${f.name}-${s.shade}` : f.name;
@@ -180,6 +65,7 @@ export function ColorConfigurator({
           clear
         </button>
       )}
+
       <div style={{ ...subLabel, marginTop: 8 }}>Palette</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
         <Swatches
@@ -275,25 +161,22 @@ function Swatches({
 }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-      {families.map((f) => {
-        const r = repr(f);
-        return (
-          <button
-            key={f.name}
-            type="button"
-            title={title(f.name)}
-            onClick={() => onPick(f)}
-            style={{
-              ...sw,
-              background: r?.value,
-              outline:
-                family?.name === f.name
-                  ? `2px solid ${ACCENT}`
-                  : "1px solid rgba(0,0,0,0.14)",
-            }}
-          />
-        );
-      })}
+      {families.map((f) => (
+        <button
+          key={f.name}
+          type="button"
+          title={title(f.name)}
+          onClick={() => onPick(f)}
+          style={{
+            ...sw,
+            background: repr(f)?.value,
+            outline:
+              family?.name === f.name
+                ? `2px solid ${ACCENT}`
+                : "1px solid rgba(0,0,0,0.14)",
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -329,24 +212,4 @@ const generates = {
   color: "#b0b0b0",
   marginTop: 10,
   fontFamily: "ui-monospace, monospace",
-} as const;
-const seg = {
-  fontSize: 11.5,
-  padding: "3px 8px",
-  borderRadius: 5,
-  border: "1px solid #e0e0e6",
-  background: "#fff",
-  color: "#333",
-  cursor: "pointer",
-} as const;
-const segOn = { background: ACCENT, borderColor: ACCENT, color: "#fff" } as const;
-const customInput = {
-  marginTop: 6,
-  width: "100%",
-  boxSizing: "border-box",
-  fontSize: 11.5,
-  padding: "4px 7px",
-  borderRadius: 5,
-  border: "1px dashed #ccc",
-  color: "#555",
 } as const;

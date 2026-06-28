@@ -251,7 +251,8 @@ function BoxControl({
 
 function ColorControl({ ctx }: { ctx: Ctx }) {
   const [t, setT] = useState(0);
-  const target = COLOR_TARGETS[t] ?? COLOR_TARGETS[0]!;
+  const target = COLOR_TARGETS[t] ?? COLOR_TARGETS[0];
+  if (!target) return null;
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>

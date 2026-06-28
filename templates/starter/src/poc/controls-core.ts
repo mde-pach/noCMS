@@ -41,7 +41,7 @@ export function parseColorClass(
   util: string | undefined,
   prefix: string,
 ): { key: string; opacity: number } | undefined {
-  if (!util || !util.startsWith(prefix)) return undefined;
+  if (!util?.startsWith(prefix)) return undefined;
   const [base, mod] = util.slice(prefix.length).split("/");
   return { key: base ?? "", opacity: mod ? Number(mod) : 100 };
 }
@@ -95,4 +95,27 @@ export function applyClass(
     });
   if (cls) kept.push(`${variant}${cls}`);
   return kept.join(" ");
+}
+
+// Responsive/hover variants key off the real viewport/pointer, which the editor can't fake by
+// resizing a box. For preview we flatten the active mode's variants onto the base cascade — and it
+// must be property-aware: same-property utilities resolve by *stylesheet* order, not class order,
+// so the base utility of a property is dropped before the override is layered on.
+export function flattenForPreview(
+  className: string,
+  order: string[],
+  featureOf: FeatureOf,
+): string {
+  const classes = className.split(/\s+/).filter(Boolean);
+  let result = classes.filter((c) => splitVariant(c).variant === "");
+  for (const prefix of order) {
+    for (const c of classes) {
+      const { variant, util } = splitVariant(c);
+      if (variant !== prefix) continue;
+      const fid = featureOf(util);
+      if (fid) result = result.filter((r) => featureOf(splitVariant(r).util) !== fid);
+      result.push(util);
+    }
+  }
+  return result.join(" ");
 }

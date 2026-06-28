@@ -3,8 +3,7 @@ import type { JSX } from "preact";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 import pocTokens from "../../poc.tokens?raw";
-import { applyClass } from "./catalog";
-import { deriveScales, flattenForPreview } from "./facets";
+import { applyClass, flattenForPreview } from "./catalog";
 import { Inspector } from "./inspector";
 import {
   previewOrder,
@@ -17,7 +16,6 @@ import { toTailwindTheme } from "./theme";
 
 const ACCENT = "#3b5bdb";
 const tokens = parseTokens(pocTokens);
-const scales = deriveScales(tokens);
 
 const vars = document.createElement("style");
 vars.textContent = toCssVariables(tokens);
@@ -147,9 +145,7 @@ function Node({
   // fire natively) and no editor overlay or click-capture.
   return (
     <Tag
-      class={
-        interactive ? node.classes : flattenForPreview(node.classes, order, scales)
-      }
+      class={interactive ? node.classes : flattenForPreview(node.classes, order)}
       style={{
         ...node.style,
         outline: selected

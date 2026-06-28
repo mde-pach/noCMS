@@ -14,6 +14,15 @@ import type { Plugin } from "vite";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const VIRTUAL = "virtual:tw-catalog";
 
+// A minimal view of Tailwind v4's design system (unstable + untyped upstream) — only the methods
+// the catalog uses.
+interface DesignSystem {
+  getClassList(): unknown[];
+  parseCandidate(cls: string): Array<{ kind: string; root?: string }> | null;
+  candidatesToCss(classes: string[]): (string | null)[];
+  resolveThemeValue(key: string): string | undefined;
+}
+
 const NS: Record<string, string> = { space: "spacing", text: "text" };
 function themeFromTokens(tokensText: string): string {
   return tokensText
@@ -191,14 +200,12 @@ function primaryDecl(css: string): { prop: string; value: string } | undefined {
   // Only the utility's own rule body — never the trailing `@property { syntax: … }` blocks, whose
   // `syntax`/`inherits` declarations would otherwise be mistaken for the property.
   const body = css.match(/\{([^{}]*)\}/)?.[1] ?? css;
-  const re = /([a-z-]+)\s*:\s*([^;{}]+);/g;
   const vendor = (p: string) => /^-(webkit|moz|ms|o)-/.test(p);
-  let m: RegExpExecArray | null;
   let first: { prop: string; value: string } | undefined;
-  while ((m = re.exec(body))) {
-    const prop = m[1] ?? "";
+  for (const decl of body.matchAll(/([a-z-]+)\s*:\s*([^;{}]+);/g)) {
+    const prop = decl[1] ?? "";
     if (prop.startsWith("--")) continue;
-    const value = (m[2] ?? "").trim();
+    const value = (decl[2] ?? "").trim();
     first ??= { prop, value };
     // Prefer the real, standard property: skip `var(--tw-*)` scaffolding and `-webkit-`/`-moz-`
     // prefixes (`select-none` writes `-webkit-user-select` before the real `user-select`).
@@ -216,17 +223,15 @@ export interface FeatureOption {
   order: number;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: the design system is an unstable, untyped API
-function orderOf(value: string, ds: any): number {
+function orderOf(value: string, ds: DesignSystem): number {
   const v = value.trim();
   const calc = v.match(/calc\(\s*var\(--spacing\)\s*\*\s*(-?[\d.]+)\s*\)/);
   if (calc?.[1]) return Number(calc[1]);
   const tok = v.match(/^var\((--[a-z0-9-]+)\)$/);
-  if (tok) {
-    try {
-      const n = Number.parseFloat(ds.resolveThemeValue(tok[1]) as string);
-      if (!Number.isNaN(n)) return n;
-    } catch {}
+  if (tok?.[1]) {
+    const resolved = ds.resolveThemeValue(tok[1]);
+    const n = resolved ? Number.parseFloat(resolved) : Number.NaN;
+    if (!Number.isNaN(n)) return n;
   }
   const n = Number.parseFloat(v);
   return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n;
@@ -265,20 +270,14 @@ export interface Catalog {
 // whole `bg-blue-500`/`bg-brand-600/40` space — the generator, not a list of classes.
 // In v4 every colour compiles to `var(--color-…)`, so swatch previews resolve the var to its real
 // value, and "our" colours are detected by family name (from the token file), not by the var shape.
-// biome-ignore lint/suspicious/noExplicitAny: the design system is an unstable, untyped API
 function deriveColors(
   bgOptions: FeatureOption[],
-  ds: any,
+  ds: DesignSystem,
   tokenFamilies: Set<string>,
 ): ColorFamily[] {
   const resolve = (v: string): string => {
     const m = v.match(/var\((--[^,)]+)/);
-    if (!m) return v;
-    try {
-      return (ds.resolveThemeValue(m[1]) as string) ?? v;
-    } catch {
-      return v;
-    }
+    return m?.[1] ? (ds.resolveThemeValue(m[1]) ?? v) : v;
   };
   const fam = new Map<string, ColorFamily>();
   for (const o of bgOptions) {
@@ -306,15 +305,15 @@ export async function buildCatalog(
   tokensText: string,
   base: string = here,
 ): Promise<Catalog> {
-  const ds = await __unstable__loadDesignSystem(
+  const ds = (await __unstable__loadDesignSystem(
     `@import "tailwindcss";\n@theme {\n${themeFromTokens(tokensText)}\n}\n`,
     { base },
-  );
+  )) as unknown as DesignSystem;
   const classes = ds
     .getClassList()
-    .map((e: unknown) => (Array.isArray(e) ? (e[0] as string) : (e as string)))
+    .map((e) => (Array.isArray(e) ? (e[0] as string) : (e as string)))
     .filter((c) => !c.startsWith("-"));
-  const cssList = ds.candidatesToCss(classes) as (string | null)[];
+  const cssList = ds.candidatesToCss(classes);
 
   const byProp = new Map<
     string,
@@ -324,7 +323,7 @@ export async function buildCatalog(
     const css = cssList[i];
     if (!css) continue;
     const decl = primaryDecl(css);
-    if (!decl || !decl.value) continue;
+    if (!decl?.value) continue;
     let f = byProp.get(decl.prop);
     if (!f) {
       f = { prop: decl.prop, opts: [] };
@@ -386,7 +385,6 @@ export function twCatalogPlugin(): Plugin {
       if (!cache) {
         const tokens = readFileSync(path.resolve(here, "poc.tokens"), "utf8");
         cache = buildCatalog(tokens).then((cat) => {
-          // biome-ignore lint/suspicious/noConsole: dev-time visibility into catalog size
           console.log(
             `[tw-catalog] ${cat.total} classes → ${cat.features.length} features`,
           );

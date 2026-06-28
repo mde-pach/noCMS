@@ -30,6 +30,12 @@ beforeAll(async () => {
   byId = new Map(cat.features.map((f) => [f.id, f]));
 }, 30000);
 
+const feat = (id: string): Feature => {
+  const f = byId.get(id);
+  if (!f) throw new Error(`no feature: ${id}`);
+  return f;
+};
+
 const valid = (cls: string) => featureOf(cls) !== undefined;
 const apply = (cn: string, cls: string, fid: string, v = "") =>
   applyClass(cn, cls, fid, v, featureOf);
@@ -114,10 +120,10 @@ describe("apply / current behave as expected", () => {
 
 describe("widget selection and no-property-left-behind", () => {
   it("picks the right widget by feature type", () => {
-    expect(widgetFor(byId.get("background-color")!)).toBe("color");
-    expect(widgetFor(byId.get("cursor")!)).toBe("dropdown"); // many keywords
-    expect(widgetFor(byId.get("flex-wrap")!)).toBe("segmented"); // few keywords
-    expect(widgetFor(byId.get("opacity")!)).toBe("slider"); // number
+    expect(widgetFor(feat("background-color"))).toBe("color");
+    expect(widgetFor(feat("cursor"))).toBe("dropdown"); // many keywords
+    expect(widgetFor(feat("flex-wrap"))).toBe("segmented"); // few keywords
+    expect(widgetFor(feat("opacity"))).toBe("slider"); // number
   });
 
   it("every one of the engine's properties renders a real control (a widget with options)", () => {
@@ -138,19 +144,19 @@ describe("amount controls expose named steps, not the raw numeric scale", () => 
     ).map((o) => (o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls));
 
   it("padding shows the named ramp (sm/md/lg/xl), no numeric values", () => {
-    const keys = keysOf(byId.get("padding")!);
+    const keys = keysOf(feat("padding"));
     expect(keys.every((k) => !/^[\d.]+$/.test(k) && k !== "px")).toBe(true);
     expect(keys).toContain("md");
     expect(keys.length).toBeLessThan(8);
   });
 
   it("purely numeric scales (opacity) keep their values", () => {
-    const f = byId.get("opacity")!;
+    const f = feat("opacity");
     expect(keysOf(f).length).toBe(f.options.length);
   });
 
   it("steps are ordered by size, not by name (xs < sm < md < lg < xl)", () => {
-    const f = byId.get("padding")!;
+    const f = feat("padding");
     const key = (o: { cls: string }) =>
       o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls;
     const ordered = preferNamed(
@@ -167,5 +173,5 @@ describe("amount controls expose named steps, not the raw numeric scale", () => 
 
 function scaleKeyOf(f: FeatureLike): string {
   const mid = f.options[Math.floor(f.options.length / 2)] ?? f.options[0];
-  return mid && mid.cls.startsWith(f.prefix) ? mid.cls.slice(f.prefix.length) : "0";
+  return mid?.cls.startsWith(f.prefix) ? mid.cls.slice(f.prefix.length) : "0";
 }
