@@ -49,7 +49,7 @@ import {
   nodeAtOffset,
 } from "./position.js";
 import { createProseController } from "./prose-controller.js";
-import { isProseEditable } from "./prose-edit.js";
+import { isInlineTextComponent, isProseEditable } from "./prose-edit.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
@@ -658,6 +658,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     select(node ? indexPathOf(selection?.path ?? [], node) : undefined, focus);
   };
 
+  // The rendered element a `data-mdx-pos` carrier wraps: a component sits in a `display:contents`
+  // carrier, so its single child is the real box we mount the inline editor into (keeping the
+  // component's own styling — e.g. the badge pill — around the text being typed).
+  const renderedAt = (offset: number): Element | null => {
+    const carrier = surface.querySelector(`[data-mdx-pos="${offset}"]`);
+    if (!carrier) return null;
+    return getComputedStyle(carrier).display === "contents"
+      ? (carrier.firstElementChild ?? carrier)
+      : carrier;
+  };
+
   const handleActivate = (event: Event): void => {
     if (proseSession.isActive()) return;
     const el = event.target;
@@ -665,6 +676,22 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const offset = offsetFromElement(el);
     if (offset === undefined) return;
     const path = nodeAtOffset(docs.doc, offset);
+
+    // An inline component (a Badge, …) is edited as itself: just its text, in place — not the
+    // paragraph that happens to hold a whole row of them.
+    const inline = nearestOfType(path, ["mdxJsxTextElement"]);
+    if (inline && isInlineTextComponent(inline)) {
+      const inlinePath = indexPathOf(path, inline);
+      const inlineEl =
+        inline.position?.start.offset === undefined
+          ? null
+          : renderedAt(inline.position.start.offset);
+      if (inlinePath && inlineEl) {
+        proseSession.start(inline, inlineEl, inlinePath, true);
+        return;
+      }
+    }
+
     const block = nearestOfType(path, ["paragraph", "heading"]);
     if (!block || !isProseEditable(block)) return;
     const indexPath = indexPathOf(path, block);

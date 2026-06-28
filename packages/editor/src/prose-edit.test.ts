@@ -1,6 +1,17 @@
+import type { Nodes, Parent } from "mdast";
 import { describe, expect, test } from "vitest";
 import { parseMdx } from "./mdx-document.js";
-import { isProseEditable } from "./prose-edit.js";
+import { isInlineTextComponent, isProseEditable } from "./prose-edit.js";
+
+/** Depth-first find of the first node of a given type. */
+function firstOfType(root: Nodes, type: string): Nodes | undefined {
+  if (root.type === type) return root;
+  for (const child of (root as Parent).children ?? []) {
+    const found = firstOfType(child, type);
+    if (found) return found;
+  }
+  return undefined;
+}
 
 describe("isProseEditable", () => {
   test("paragraphs and headings are prose-editable", () => {
@@ -15,5 +26,26 @@ describe("isProseEditable", () => {
     for (const node of doc.children) {
       expect(isProseEditable(node)).toBe(false);
     }
+  });
+});
+
+describe("isInlineTextComponent", () => {
+  test("an inline component with text is editable as itself", () => {
+    // Adjacent inline JSX with no blank line parses as inline elements within one paragraph.
+    const doc = parseMdx(`<Badge variant="new">Row</Badge> <Badge>Col</Badge>\n`);
+    const badge = firstOfType(doc, "mdxJsxTextElement");
+    expect(badge && isInlineTextComponent(badge)).toBe(true);
+  });
+
+  test("a text-less inline component is not (nothing to edit in place)", () => {
+    const doc = parseMdx(`Text <Icon name="star" /> more.\n`);
+    const icon = firstOfType(doc, "mdxJsxTextElement");
+    expect(icon && isInlineTextComponent(icon)).toBe(false);
+  });
+
+  test("a paragraph itself is not an inline component", () => {
+    const doc = parseMdx(`Just prose.\n`);
+    const para = doc.children[0];
+    expect(para && isInlineTextComponent(para)).toBe(false);
   });
 });

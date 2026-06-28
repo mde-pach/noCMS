@@ -16,15 +16,16 @@ import type { DocumentStore } from "./document-store.js";
 import { FormatBar } from "./format-bar.js";
 import type { OverlayLayer } from "./overlays.js";
 import type { IndexPath } from "./position.js";
-import type { ProseBlock } from "./prose-edit.js";
+import type { ProseHost } from "./prose-edit.js";
 
 export interface ProseController {
   isActive(): boolean;
   view(): ProseEditorHandle["view"] | undefined;
   /** true when `el` is inside the live prose widget — the canvas leaves those clicks alone. */
   containsEl(el: Element): boolean;
-  /** begin editing `block`'s text in `el` (at index-path `path`). */
-  start(block: ProseBlock, el: Element, path: IndexPath): void;
+  /** begin editing `host`'s text in `el` (at index-path `path`). `inline` scopes the editor to a
+   *  single inline component (a Badge) so it edits in place rather than as a block. */
+  start(host: ProseHost, el: Element, path: IndexPath, inline?: boolean): void;
   /** end the session, snapshot to history, repaint; resolves to the edited block's path. */
   commit(): Promise<IndexPath | undefined>;
   /** re-pin the format bar after a reflow/scroll while a session is open. */
@@ -45,7 +46,9 @@ export interface ProseControllerDeps {
 
 export function createProseController(deps: ProseControllerDeps): ProseController {
   const { formatHost, overlays, canvas, docs, onChange, markDirty, onStart } = deps;
-  let session: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
+  let session:
+    | { handle: ProseEditorHandle; el: Element; path: IndexPath; inline: boolean }
+    | undefined;
 
   // The format bar floats just above the text being edited; its mark intents route through the
   // same prose marks the keymap uses, so there is one editing model.
@@ -84,20 +87,21 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
     view: () => session?.handle.view,
     containsEl: (el) => session?.el.contains(el) ?? false,
 
-    start(block, el, path) {
+    start(host, el, path, inline = false) {
       canvas.highlight(undefined);
       overlays.clearHover();
+      if (inline) el.classList.add("nocms-prose-inline");
       el.replaceChildren();
       const handle = mountProseEditor(el, {
-        nodes: block.children,
+        nodes: host.children,
         onChange: (nodes: PhrasingContent[]) => {
-          block.children = nodes;
+          host.children = nodes;
           onChange?.(docs.serialize());
           markDirty();
         },
       });
       handle.view.focus();
-      session = { handle, el, path };
+      session = { handle, el, path, inline };
       onStart();
       showFormatBar(el);
     },

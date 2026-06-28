@@ -15,6 +15,8 @@ const Button: ComponentType<Record<string, unknown>> = (props) =>
 const Image: ComponentType<Record<string, unknown>> = () => h("img", { class: "img" });
 const Stack: ComponentType<Record<string, unknown>> = (props) =>
   h("div", { class: "stack" }, props.children as never);
+const Tag: ComponentType<Record<string, unknown>> = (props) =>
+  h("span", { class: "tag" }, props.children as never);
 
 const asComponent = (c: ComponentType<Record<string, unknown>>) =>
   c as unknown as ComponentRegistry[string]["component"];
@@ -27,6 +29,7 @@ const components: ComponentRegistry = {
   },
   Image: { component: asComponent(Image) },
   Stack: { component: asComponent(Stack), slots: ["children"] },
+  Tag: { component: asComponent(Tag), schema: v.object({}) },
 };
 
 // Each test disposes its handle, but a failing assertion can leave chrome on the body; clear it
@@ -191,6 +194,42 @@ describe("mountEditor", () => {
     });
     expect(handle.proseView()).toBeUndefined();
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+
+    handle.dispose();
+  });
+
+  test("double-click an inline component edits just it, not the row of them", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+
+    // Two adjacent inline components parse into one paragraph; editing must scope to the one
+    // clicked, not the whole paragraph as a list.
+    const handle = await mountEditor({
+      target,
+      mdx: `<Tag>Row</Tag> <Tag>Col</Tag>\n`,
+      components,
+      onChange,
+    });
+
+    const tags = target.querySelectorAll(".tag");
+    expect(tags.length).toBe(2);
+    tags[0]?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+
+    // One inline-scoped editor holding only the first tag's text ("Row", not "RowCol") — proof
+    // it scopes to the clicked component, not the paragraph that holds the whole row.
+    const editors = target.querySelectorAll(".ProseMirror");
+    expect(editors.length).toBe(1);
+    expect(target.querySelector(".nocms-prose-inline")).not.toBeNull();
+    const view = handle.proseView();
+    if (!view) throw new Error("no prose view");
+    expect(view.state.doc.textContent).toBe("Row");
+
+    const end = view.state.doc.content.size;
+    view.dispatch(view.state.tr.insertText("s", end, end));
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("<Tag>Rows</Tag>");
+    // The other component is left exactly as authored.
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("<Tag>Col</Tag>");
 
     handle.dispose();
   });

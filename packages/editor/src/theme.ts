@@ -267,6 +267,10 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 }
 .nc-name-tag--hover { opacity: 0.9; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
+/* Editing a single inline component (a Badge) in place: the editor flows inline inside the
+   component's own box rather than breaking to its own block line. */
+.nocms-canvas .nocms-prose-inline .ProseMirror,
+.nocms-canvas .nocms-prose-inline.ProseMirror { display: inline; white-space: pre-wrap; }
 
 /* Inline MDX atoms inside the prose editor (a Badge, an inline component, an expression): a
    non-editable chip, so they read as one opaque unit and never look like raw source. */
