@@ -199,6 +199,9 @@ export interface Feature {
   label: string;
   group: string;
   control: Control;
+  /** The utility prefix (`bg-`, `rotate-`) — drives the arbitrary-value escape `prefix-[value]`;
+   * empty for static/keyword utilities that take no value. */
+  prefix: string;
   options: FeatureOption[];
 }
 export interface ColorShade {
@@ -298,11 +301,14 @@ async function build(tokensText: string): Promise<Catalog> {
       seen.add(o.value);
       options.push({ cls: o.cls, value: o.value, label: valueLabel(o.value) });
     }
+    const cand = ds.parseCandidate(f.opts[0]?.cls ?? "")?.[0];
+    const prefix = cand && cand.kind === "functional" ? `${cand.root}-` : "";
     features.push({
       id: f.prop,
       label: humanize(f.prop),
       group: bucketOf(f.prop),
       control,
+      prefix,
       options,
     });
   }

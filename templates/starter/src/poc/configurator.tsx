@@ -111,6 +111,16 @@ export function ValueConfigurator({
           </button>
         )}
       </div>
+      {feature.prefix && (
+        <input
+          placeholder="custom (e.g. 14px, 30deg)"
+          onChange={(e) => {
+            const v = (e.target as HTMLInputElement).value.trim();
+            if (v) onApply(`${feature.prefix}[${v}]`, feature.id);
+          }}
+          style={customInput}
+        />
+      )}
     </div>
   );
 }
@@ -147,6 +157,8 @@ export function ColorConfigurator({
   const family = selectedKey
     ? COLORS.find((f) => f.shades.some((s) => keyOf(f, s) === selectedKey))
     : undefined;
+  const isArb = !!selectedKey?.startsWith("[");
+  const innerHex = isArb ? (selectedKey as string).slice(1, -1) : "#000000";
   const set = (key: string, op = opacity) =>
     onApply(key ? composeColor(prefix, key, op) : "", featureId);
 
@@ -169,11 +181,39 @@ export function ColorConfigurator({
         </button>
       )}
       <div style={{ ...subLabel, marginTop: 8 }}>Palette</div>
-      <Swatches
-        families={palette}
-        family={family}
-        onPick={(f) => set(keyOf(f, repr(f) as ColorShade))}
-      />
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
+        <Swatches
+          families={palette}
+          family={family}
+          onPick={(f) => set(keyOf(f, repr(f) as ColorShade))}
+        />
+        <label
+          title="Custom colour"
+          style={{
+            ...sw,
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isArb ? innerHex : "#fff",
+            border: "1px dashed #bbb",
+            outline: isArb ? `2px solid ${ACCENT}` : "none",
+            cursor: "pointer",
+          }}
+        >
+          {!isArb && (
+            <span style={{ fontSize: 15, color: "#aaa", lineHeight: 1 }}>+</span>
+          )}
+          <input
+            type="color"
+            value={isArb ? innerHex : "#000000"}
+            onInput={(e) =>
+              onApply(`${prefix}[${(e.target as HTMLInputElement).value}]`, featureId)
+            }
+            style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
+          />
+        </label>
+      </div>
 
       {family && family.shades.length > 1 && (
         <>
@@ -300,3 +340,13 @@ const seg = {
   cursor: "pointer",
 } as const;
 const segOn = { background: ACCENT, borderColor: ACCENT, color: "#fff" } as const;
+const customInput = {
+  marginTop: 6,
+  width: "100%",
+  boxSizing: "border-box",
+  fontSize: 11.5,
+  padding: "4px 7px",
+  borderRadius: 5,
+  border: "1px dashed #ccc",
+  color: "#555",
+} as const;
