@@ -25,12 +25,12 @@
   },
   "devDependencies": {
     "@mdx-js/rollup": "^3.1.0",
-    "@tailwindcss/browser": "^4.3.1",
     "@nocms/core": "workspace:*",
     "@nocms/derive": "workspace:*",
     "@nocms/editor": "workspace:*",
     "@nocms/props-discovery": "workspace:*",
     "@preact/preset-vite": "^2.10.0",
+    "@tailwindcss/browser": "^4.3.1",
     "remark-frontmatter": "^5.0.0",
     "vite": "^6.3.0"
   }
