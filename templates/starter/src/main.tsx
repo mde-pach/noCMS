@@ -8,6 +8,7 @@ import themeTokens from "../theme.tokens?raw";
 import "../styles.css";
 import { CONTENT_SLOT_ID, SiteShell } from "./app";
 import { registry } from "./registry";
+import { ensureTailwindPreview } from "./tailwind-preview";
 
 const BASE = "/";
 
@@ -40,6 +41,7 @@ function mountReader(): void {
   const style = document.createElement("style");
   style.textContent = toCssVariables(parseTokens(themeTokens));
   document.head.appendChild(style);
+  void ensureTailwindPreview(themeTokens);
   injectSiteRuntime();
 
   const app = document.getElementById("app");

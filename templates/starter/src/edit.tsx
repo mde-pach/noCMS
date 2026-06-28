@@ -5,6 +5,7 @@
 import type { ComponentRegistry } from "@nocms/components";
 import { EDITOR_CSS, FONTS_HREF, mountEditor, SignInGate } from "@nocms/editor";
 import { render } from "preact";
+import { ensureTailwindPreview } from "./tailwind-preview";
 
 const SIGNED_IN_KEY = "nocms-dev-signed-in";
 const EDITOR_CSS_ID = "nocms-editor-css";
@@ -38,6 +39,7 @@ export interface EnterEditOptions {
 
 export async function enterEdit(options: EnterEditOptions): Promise<void> {
   ensureChrome();
+  void ensureTailwindPreview(options.tokens);
   if (sessionStorage.getItem(SIGNED_IN_KEY) !== "1") {
     await signIn();
     sessionStorage.setItem(SIGNED_IN_KEY, "1");
