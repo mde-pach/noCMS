@@ -105,7 +105,11 @@ export interface PluginManifest {
 }
 
 export { type ParsedDocument, parseEntry, parseFrontmatter } from "./content";
-export { type ContentPath, enumerateContentPaths } from "./content-paths";
+export {
+  type ContentPath,
+  contentPathsFromControls,
+  enumerateContentPaths,
+} from "./content-paths";
 export {
   type ControlDescriptor,
   type ControlKind,

@@ -49,6 +49,8 @@ export interface CanvasSelection {
   node: Nodes;
   /** root → deepest chain, for choosing selection granularity */
   path: Nodes[];
+  /** the actual clicked element, so the shell can read a `data-nocms-path` content anchor on it */
+  element: Element;
 }
 
 /** The source offset of the nearest annotated element at or above `el`, if any. */
@@ -69,7 +71,7 @@ export function selectionAtElement(
   if (offset === undefined) return undefined;
   const path = nodeAtOffset(doc, offset);
   const node = path.at(-1);
-  return node ? { offset, node, path } : undefined;
+  return node ? { offset, node, path, element: el } : undefined;
 }
 
 export interface CanvasOptions {
@@ -81,6 +83,9 @@ export interface CanvasOptions {
   data?: Record<string, unknown>;
   /** called on every canvas click; `undefined` when the click hits no annotated element */
   onSelect?: (selection: CanvasSelection | undefined) => void;
+  /** called after every render, with the content host and the doc parsed from that same MDX,
+   *  so their offsets match the freshly rendered DOM (the seam the content-anchor pass hooks). */
+  onPainted?: (content: HTMLElement, doc: MdxDocument) => void;
   /**
    * When this returns true for a click target, the canvas leaves the event entirely alone —
    * no `preventDefault`, no `onSelect`. The shell uses it to hand clicks inside a live
@@ -122,6 +127,7 @@ export async function mountCanvas(options: CanvasOptions): Promise<CanvasHandle>
       data: options.data,
     });
     render(tree, content);
+    options.onPainted?.(content, doc);
   }
 
   function clearOverlay(): void {

@@ -3,9 +3,16 @@
 // The component (Features) is untouched and agnostic: it only ever receives plain strings.
 import { Features, FeaturesSchema } from "@nocms/components";
 import { enumerateContentPaths } from "@nocms/core";
-import { sentinelFor } from "@nocms/renderer";
-import { h, render } from "preact";
+import { type ComponentType, h, render } from "preact";
 import * as v from "valibot";
+
+// A unique, transform-stable token per leaf (private-use codepoints have no case mapping, so
+// `.toUpperCase()` leaves them intact). Inlined so this demo stays self-contained.
+const sentinelFor = (index: number): string => `\uE000${index}\uE001`;
+
+// The probe drives the component through the structural `AnyComponent` shape, exactly as the
+// registry does — the demo passes a plain props bag, the same agnostic contract the editor uses.
+const FeaturesBlock = Features as ComponentType<Record<string, unknown>>;
 
 const stage = document.getElementById("stage") as HTMLElement;
 const panel = document.getElementById("panel") as HTMLElement;
@@ -43,11 +50,13 @@ function paint(): void {
   );
 
   const probe = structuredClone(props);
-  paths.forEach((p, i) => setPath(probe, p.path, sentinelFor(i)));
+  paths.forEach((p, i) => {
+    setPath(probe, p.path, sentinelFor(i));
+  });
 
   render(null, stage);
   stage.innerHTML = "";
-  render(h(Features, probe), stage);
+  render(h(FeaturesBlock, probe), stage);
 
   const walker = document.createTreeWalker(stage, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {

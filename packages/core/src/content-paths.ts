@@ -25,7 +25,19 @@ export function enumerateContentPaths(
   schema: GenericSchema,
   value: unknown,
 ): ContentPath[] {
-  return walkControls(deriveControls(schema), value, "");
+  return contentPathsFromControls(deriveControls(schema), value);
+}
+
+/**
+ * Same enumeration keyed on already-derived controls rather than a schema — the path the
+ * editor takes, where a selected block carries `ControlDescriptor[]` (a plugin block has
+ * pre-derived controls and no schema to re-derive from).
+ */
+export function contentPathsFromControls(
+  controls: ControlDescriptor[],
+  value: unknown,
+): ContentPath[] {
+  return walkControls(controls, value, "");
 }
 
 function walkControls(

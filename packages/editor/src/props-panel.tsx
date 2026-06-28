@@ -5,7 +5,7 @@
 
 import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   ArrowDown,
   ArrowUp,
@@ -32,6 +32,20 @@ import {
 /** A plain JS value a control edits, and the callback that writes it back up the tree.
  *  `undefined` clears the value (the attribute, or the object key). */
 type CommitValue = (next: unknown) => void;
+
+/** Focus (and select) a leaf input when this control's absolute path becomes the focus target —
+ *  the seam that turns a content click on the canvas into a focused field. Keyed on `active` so an
+ *  unrelated re-render (typing, a sibling edit) never steals focus back. */
+function useFocusOnMatch(active: boolean) {
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    if (!active || !ref.current) return;
+    ref.current.focus();
+    ref.current.select?.();
+    ref.current.scrollIntoView({ block: "nearest" });
+  }, [active]);
+  return ref;
+}
 
 function MonoLabel({ children }: { children: string }): VNode {
   return <span class="nc-mono nc-label">{children}</span>;
@@ -95,19 +109,47 @@ interface ControlViewProps {
   control: ControlDescriptor;
   value: unknown;
   commit: CommitValue;
+  /** absolute dotted path of this control's value within the block's props, e.g. `items.2.title` */
+  path: string;
+  /** the content leaf to focus, when one is set (matched against `path` at the leaves) */
+  focusPath?: string;
   /** present only for a top-level image attribute the host can open its media picker for. */
   onPickImage?: () => void;
 }
 
 /** Render one control from a plain value. Recurses for `group`/`list`. */
-function ControlView({ control, value, commit, onPickImage }: ControlViewProps): VNode {
+function ControlView({
+  control,
+  value,
+  commit,
+  path,
+  focusPath,
+  onPickImage,
+}: ControlViewProps): VNode {
   const id = `nocms-field-${control.key}`;
   const { kind } = control;
+  const focusRef = useFocusOnMatch(focusPath !== undefined && path === focusPath);
 
   if (kind === "group")
-    return <GroupView control={control} value={value} commit={commit} />;
+    return (
+      <GroupView
+        control={control}
+        value={value}
+        commit={commit}
+        path={path}
+        focusPath={focusPath}
+      />
+    );
   if (kind === "list")
-    return <ListView control={control} value={value} commit={commit} />;
+    return (
+      <ListView
+        control={control}
+        value={value}
+        commit={commit}
+        path={path}
+        focusPath={focusPath}
+      />
+    );
 
   if (kind === "boolean") {
     const on = value === true;
@@ -257,6 +299,7 @@ function ControlView({ control, value, commit, onPickImage }: ControlViewProps):
       <div class="nc-field">
         <MonoLabel>{control.label}</MonoLabel>
         <textarea
+          ref={focusRef}
           id={id}
           name={control.key}
           class="nc-textarea"
@@ -335,6 +378,7 @@ function ControlView({ control, value, commit, onPickImage }: ControlViewProps):
     <div class="nc-field">
       <MonoLabel>{control.label}</MonoLabel>
       <input
+        ref={focusRef}
         id={id}
         name={control.key}
         class="nc-input"
@@ -353,10 +397,14 @@ function GroupView({
   control,
   value,
   commit,
+  path,
+  focusPath,
 }: {
   control: ControlDescriptor;
   value: unknown;
   commit: CommitValue;
+  path: string;
+  focusPath?: string;
 }): VNode {
   const object =
     value && typeof value === "object" && !Array.isArray(value)
@@ -371,22 +419,40 @@ function GroupView({
           control={child}
           value={object[child.key]}
           commit={(next) => commit({ ...object, [child.key]: next })}
+          path={`${path}.${child.key}`}
+          focusPath={focusPath}
         />
       ))}
     </div>
   );
 }
 
+/** The list item index `focusPath` points into, e.g. path `items`, focus `items.2.title` → 2. */
+function focusedIndex(path: string, focusPath: string | undefined): number | null {
+  if (!focusPath?.startsWith(`${path}.`)) return null;
+  const index = Number(focusPath.slice(path.length + 1).split(".")[0]);
+  return Number.isInteger(index) ? index : null;
+}
+
 function ListView({
   control,
   value,
   commit,
+  path,
+  focusPath,
 }: {
   control: ControlDescriptor;
   value: unknown;
   commit: CommitValue;
+  path: string;
+  focusPath?: string;
 }): VNode {
   const [open, setOpen] = useState<number | null>(null);
+  // A content click into one item opens it so its fields (and the focus target) are visible.
+  const target = focusedIndex(path, focusPath);
+  useEffect(() => {
+    if (target !== null) setOpen(target);
+  }, [target]);
   const items = Array.isArray(value) ? (value as unknown[]) : [];
   const itemControl = control.children?.[0];
   const fields = itemControl?.children ?? [];
@@ -483,6 +549,8 @@ function ListView({
                             [field.key]: next,
                           })
                         }
+                        path={`${path}.${index}.${field.key}`}
+                        focusPath={focusPath}
                       />
                     ))
                   ) : itemControl ? (
@@ -490,6 +558,8 @@ function ListView({
                       control={{ ...itemControl, label: "Value" }}
                       value={item}
                       commit={(next) => writeItem(index, next)}
+                      path={`${path}.${index}`}
+                      focusPath={focusPath}
                     />
                   ) : null}
                 </div>
@@ -559,11 +629,13 @@ function AlignMatrix({
 function TopField({
   control,
   element,
+  focusPath,
   onChange,
   onPickImage,
 }: {
   control: ControlDescriptor;
   element: JsxElement;
+  focusPath?: string;
   onChange: () => void;
   onPickImage?: (key: string) => void;
 }): VNode {
@@ -581,6 +653,8 @@ function TopField({
           setStructuredProp(element, control.key, next);
           onChange();
         }}
+        path={control.key}
+        focusPath={focusPath}
       />
     );
   }
@@ -593,6 +667,8 @@ function TopField({
         else setProp(element, control.key, next as PropValue);
         onChange();
       }}
+      path={control.key}
+      focusPath={focusPath}
       onPickImage={onPickImage ? () => onPickImage(control.key) : undefined}
     />
   );
@@ -616,6 +692,8 @@ export interface PropsPanelProps {
   meta?: string;
   /** controls derived from the block's valibot schema via `deriveControls` */
   controls: ControlDescriptor[];
+  /** the content leaf a canvas click landed on (`items.2.title`), to auto-expand + focus */
+  focusPath?: string;
   /** fired after every edit; the shell re-serializes the doc and re-renders the canvas */
   onChange: () => void;
   /** open the media picker for an image control */
@@ -627,6 +705,7 @@ export function PropsPanel({
   component,
   meta = "SECTION",
   controls,
+  focusPath,
   onChange,
   onPickImage,
 }: PropsPanelProps): VNode {
@@ -661,6 +740,7 @@ export function PropsPanel({
             key={control.key}
             control={control}
             element={element}
+            focusPath={focusPath}
             onChange={handleChange}
             onPickImage={onPickImage}
           />
@@ -682,6 +762,7 @@ export function PropsPanel({
                     key={control.key}
                     control={control}
                     element={element}
+                    focusPath={focusPath}
                     onChange={handleChange}
                     onPickImage={onPickImage}
                   />

@@ -25,6 +25,7 @@ import {
 import type { BreakpointId } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
 import { EditorChrome } from "./chrome-view.js";
+import { anchorComponents } from "./content-anchors.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
@@ -205,6 +206,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   let selectedPath: IndexPath | undefined;
+  // The content leaf the last click landed on (e.g. `items.2.title`), relative to the selected
+  // block — the props panel focuses that field. Cleared on any selection that isn't a content hit.
+  let focusedContentPath: string | undefined;
 
   // The top-bar state (breakpoint, appearance, dirty, publish) — its own concern; mutations
   // repaint the chrome tree. The actions it triggers (reset, open navigator/publish) are wired
@@ -264,11 +268,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       element: JsxElement;
       name: string;
       controls: ControlDescriptor[];
+      focusPath?: string;
     } | null = null;
     if (node && isJsxElement(node) && node.name) {
       const def = components[node.name];
       const controls = def ? controlsOf(def) : [];
-      if (controls.length > 0) selected = { element: node, name: node.name, controls };
+      if (controls.length > 0)
+        selected = {
+          element: node,
+          name: node.name,
+          controls,
+          focusPath: focusedContentPath,
+        };
     }
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     return {
@@ -593,8 +604,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showSelectionLabel(el, label);
   }
 
-  function select(path: IndexPath | undefined): void {
+  function select(path: IndexPath | undefined, focus?: string): void {
     selectedPath = path;
+    // Cleared unless this selection came from clicking tagged content, so a stale field focus
+    // never lingers onto the next block.
+    focusedContentPath = focus;
     canvas.highlight(path);
     paint();
     renderToolbar();
@@ -606,7 +620,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   ): Promise<void> => {
     if (proseSession.isActive()) await proseSession.commit();
     const node = selection ? selectableNode(selection.path) : undefined;
-    select(node ? indexPathOf(selection?.path ?? [], node) : undefined);
+    const anchor = selection?.element.closest("[data-nocms-path]");
+    const focus = anchor?.getAttribute("data-nocms-path") ?? undefined;
+    select(node ? indexPathOf(selection?.path ?? [], node) : undefined, focus);
   };
 
   const handleActivate = (event: Event): void => {
@@ -676,6 +692,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     components: componentMap,
     data,
     onSelect: handleSelect,
+    onPainted: (content, doc) => anchorComponents(content, doc, components),
     suppressWhen: (el) => proseSession.containsEl(el),
   });
   surface.append(toolbarHost, formatHost);
