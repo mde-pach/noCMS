@@ -18,7 +18,7 @@ export const FEATURE = new Map(CATALOG.features.map((f) => [f.id, f]));
 
 const featureOf = core.makeFeatureOf(CATALOG.features);
 
-export { composeColor, parseColorClass, widgetFor } from "./controls-core";
+export { composeColor, parseColorClass, preferNamed, widgetFor } from "./controls-core";
 export const featureIdOf = (util: string) => featureOf(util) ?? "";
 export const currentClass = (className: string, featureId: string, variant = "") =>
   core.currentClass(className, featureId, variant, featureOf);
@@ -33,13 +33,14 @@ export const applyClass = (
  * re-use one scale across many target prefixes. */
 export function scaleKeys(
   featureId: string,
-): { key: string; label: string; value: string }[] {
+): { key: string; label: string; value: string; order: number }[] {
   const f = FEATURE.get(featureId);
   if (!f) return [];
   return f.options.map((o) => ({
     key: o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls,
     label: o.label,
     value: o.value,
+    order: o.order,
   }));
 }
 

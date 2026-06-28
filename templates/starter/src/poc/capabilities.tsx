@@ -4,16 +4,13 @@ import {
   currentClass,
   FEATURE,
   featureIdOf,
+  preferNamed,
   scaleKeys,
   searchFeatures,
 } from "./catalog";
 import { ColorConfigurator } from "./configurator";
 
 const ACCENT = "#3b5bdb";
-const numOf = (v: string) => {
-  const n = Number.parseFloat(v);
-  return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n;
-};
 
 interface Ctx {
   className: string;
@@ -35,10 +32,12 @@ function Slider({
   const f = FEATURE.get(feature);
   if (!f) return null;
   const cur = currentClass(ctx.className, feature, ctx.variant);
-  const opts = useMemo(
-    () => [...f.options].sort((a, b) => numOf(a.value) - numOf(b.value)),
-    [feature],
-  );
+  const opts = useMemo(() => {
+    const sorted = [...f.options].sort((a, b) => a.order - b.order);
+    return preferNamed(sorted, (o) =>
+      o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls,
+    );
+  }, [feature]);
   const idx = opts.findIndex((o) => o.cls === cur);
   return (
     <Row label={label ?? f.label} value={idx >= 0 ? opts[idx]?.label : undefined}>
@@ -180,7 +179,11 @@ function BoxControl({
   const slots = kind === "sides" ? SIDES : CORNERS;
   const prefix = targets[sel] ?? "";
   const scale = useMemo(
-    () => scaleKeys(scaleFeature).sort((a, b) => numOf(a.value) - numOf(b.value)),
+    () =>
+      preferNamed(
+        scaleKeys(scaleFeature).sort((a, b) => a.order - b.order),
+        (s) => s.key,
+      ),
     [scaleFeature],
   );
   const curUtil = currentForPrefix(

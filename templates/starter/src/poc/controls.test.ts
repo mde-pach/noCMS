@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { buildCatalog, type Catalog } from "../../vite-plugin-tw-catalog";
+import { buildCatalog, type Catalog, type Feature } from "../../vite-plugin-tw-catalog";
 import { CAPABILITIES, COLOR_TARGETS, relevantFor } from "./capability-map";
 import {
   applyClass,
@@ -10,6 +10,7 @@ import {
   type FeatureLike,
   makeFeatureOf,
   parseColorClass,
+  preferNamed,
   widgetFor,
 } from "./controls-core";
 
@@ -21,7 +22,7 @@ const starter = fileURLToPath(new URL("../..", import.meta.url));
 
 let cat: Catalog;
 let featureOf: (u: string) => string | undefined;
-let byId: Map<string, FeatureLike & { id: string; label: string }>;
+let byId: Map<string, Feature>;
 
 beforeAll(async () => {
   cat = await buildCatalog(readFileSync(`${starter}/poc.tokens`, "utf8"), starter);
@@ -127,6 +128,40 @@ describe("widget selection and no-property-left-behind", () => {
     );
     expect(broken.map((f) => f.id)).toEqual([]);
     expect(cat.features.length).toBeGreaterThan(200);
+  });
+});
+
+describe("amount controls expose named steps, not the raw numeric scale", () => {
+  const keysOf = (f: FeatureLike) =>
+    preferNamed(f.options, (o) =>
+      o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls,
+    ).map((o) => (o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls));
+
+  it("padding shows the named ramp (sm/md/lg/xl), no numeric values", () => {
+    const keys = keysOf(byId.get("padding")!);
+    expect(keys.every((k) => !/^[\d.]+$/.test(k) && k !== "px")).toBe(true);
+    expect(keys).toContain("md");
+    expect(keys.length).toBeLessThan(8);
+  });
+
+  it("purely numeric scales (opacity) keep their values", () => {
+    const f = byId.get("opacity")!;
+    expect(keysOf(f).length).toBe(f.options.length);
+  });
+
+  it("steps are ordered by size, not by name (xs < sm < md < lg < xl)", () => {
+    const f = byId.get("padding")!;
+    const key = (o: { cls: string }) =>
+      o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls;
+    const ordered = preferNamed(
+      [...f.options].sort((a, b) => a.order - b.order),
+      key,
+    ).map(key);
+    const seq = ["xs", "sm", "md", "lg", "xl"]
+      .filter((k) => ordered.includes(k))
+      .map((k) => ordered.indexOf(k));
+    expect(seq).toEqual([...seq].sort((a, b) => a - b));
+    expect(seq.length).toBeGreaterThanOrEqual(4);
   });
 });
 

@@ -211,6 +211,25 @@ export interface FeatureOption {
   cls: string;
   value: string;
   label: string;
+  /** Numeric magnitude for ordering a scale by *size* (xs<sm<md<lg<xl), resolved from the token —
+   * named values compile to `var(--spacing-md)`, which a leading-number sort can't order. */
+  order: number;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: the design system is an unstable, untyped API
+function orderOf(value: string, ds: any): number {
+  const v = value.trim();
+  const calc = v.match(/calc\(\s*var\(--spacing\)\s*\*\s*(-?[\d.]+)\s*\)/);
+  if (calc?.[1]) return Number(calc[1]);
+  const tok = v.match(/^var\((--[a-z0-9-]+)\)$/);
+  if (tok) {
+    try {
+      const n = Number.parseFloat(ds.resolveThemeValue(tok[1]) as string);
+      if (!Number.isNaN(n)) return n;
+    } catch {}
+  }
+  const n = Number.parseFloat(v);
+  return Number.isNaN(n) ? Number.POSITIVE_INFINITY : n;
 }
 export interface Feature {
   id: string;
@@ -323,7 +342,12 @@ export async function buildCatalog(
     for (const o of f.opts) {
       if (seen.has(o.value)) continue;
       seen.add(o.value);
-      options.push({ cls: o.cls, value: o.value, label: valueLabel(o.value) });
+      options.push({
+        cls: o.cls,
+        value: o.value,
+        label: valueLabel(o.value),
+        order: orderOf(o.value, ds),
+      });
     }
     const cand = ds.parseCandidate(f.opts[0]?.cls ?? "")?.[0];
     const prefix = cand && cand.kind === "functional" ? `${cand.root}-` : "";

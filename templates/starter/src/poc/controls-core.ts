@@ -26,6 +26,16 @@ export function splitVariant(cls: string): { variant: string; util: string } {
 
 export const stripModifier = (util: string) => util.split("/")[0] ?? util;
 
+const isNumericKey = (k: string) =>
+  /^[\d.]+$/.test(k) || /^\d+\/\d+$/.test(k) || k === "px";
+
+/** Amount controls expose the design system's *named* steps (sm/md/lg/xl), not the raw numeric
+ * Tailwind scale — unless a property is purely numeric (opacity, rotate…), where we keep it all. */
+export function preferNamed<T>(items: T[], keyOf: (i: T) => string): T[] {
+  const named = items.filter((i) => !isNumericKey(keyOf(i)));
+  return named.length ? named : items;
+}
+
 /** A colour class (`bg-brand-600/40`) → its knob values. */
 export function parseColorClass(
   util: string | undefined,
