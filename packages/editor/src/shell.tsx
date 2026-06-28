@@ -18,6 +18,7 @@ import {
   type SavedDef,
   savedDefToBlock,
 } from "@nocms/components";
+import type { ControlDescriptor } from "@nocms/core";
 import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
@@ -34,6 +35,7 @@ import { createChromeController } from "./chrome-controller.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
+import { Inspector } from "./inspector.js";
 import {
   getProp,
   isJsxElement,
@@ -52,11 +54,9 @@ import {
   nodeAtIndexPath,
   nodeAtOffset,
 } from "./position.js";
-import { PropsPanel } from "./props-panel.js";
 import { createProseController } from "./prose-controller.js";
 import { isProseEditable } from "./prose-edit.js";
 import { PublishPopover } from "./publish.js";
-import { PageRail } from "./rail.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
@@ -277,38 +277,28 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   };
 
   function renderRail(): void {
-    const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
-    if (node && selectedPath && selectedPath.length > 0) {
-      if (isJsxElement(node) && node.name) {
-        const def = components[node.name];
-        const controls = def ? controlsOf(def) : [];
-        if (controls.length > 0) {
-          render(
-            <PropsPanel
-              element={node}
-              component={node.name}
-              meta="SECTION · CORE"
-              controls={controls}
-              onChange={handleEdit}
-              onPickImage={(key) => openMedia(node, key)}
-            />,
-            railHost,
-          );
-          return;
-        }
-      }
-      render(
-        <p class="nocms-empty">No editable properties for this block.</p>,
-        railHost,
-      );
-      return;
+    const node =
+      selectedPath && selectedPath.length > 0
+        ? nodeAtIndexPath(docs.doc, selectedPath)
+        : undefined;
+    let selected: {
+      element: JsxElement;
+      name: string;
+      controls: ControlDescriptor[];
+    } | null = null;
+    if (node && isJsxElement(node) && node.name) {
+      const def = components[node.name];
+      const controls = def ? controlsOf(def) : [];
+      if (controls.length > 0) selected = { element: node, name: node.name, controls };
     }
-
-    const fm = readFrontmatter(docs.doc);
+    const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     render(
-      <PageRail
+      <Inspector
+        selected={selected}
+        selectedEmpty={node !== undefined && selected === null}
+        onEdit={handleEdit}
+        onPickImage={(key) => node && openMedia(node as JsxElement, key)}
         pageName={options.pageName ?? "Home"}
-        route="/"
         title={fm.title}
         description={fm.description}
         onTitle={(v) => editFrontmatter("title", v)}
