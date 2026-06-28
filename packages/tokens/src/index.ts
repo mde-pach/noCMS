@@ -12,4 +12,5 @@ export {
   missingContractTokens,
   RAMPS,
 } from "./roles";
+export { toTailwindTheme } from "./tailwind";
 export type { Token } from "./types";
