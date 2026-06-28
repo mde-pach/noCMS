@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@mdx-js/rollup": "^3.1.0",
+    "@tailwindcss/browser": "^4.3.1",
     "@nocms/core": "workspace:*",
     "@nocms/derive": "workspace:*",
     "@nocms/editor": "workspace:*",
