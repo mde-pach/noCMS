@@ -246,6 +246,13 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
   background: color-mix(in srgb, var(--nc-accent) 14%, transparent);
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 55%, transparent); outline-offset: 1px;
 }
+/* Hover affordance on an editable content leaf: a faint tint (below the selection box) that
+   signals the text is clickable; the pointer cursor reinforces it. */
+.nocms-content-hover {
+  position: absolute; pointer-events: none; z-index: 4; border-radius: 3px;
+  background: color-mix(in srgb, var(--nc-accent) 7%, transparent);
+}
+.nocms-canvas [data-nocms-path] { cursor: pointer; }
 .nocms-hover {
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }

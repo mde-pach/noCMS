@@ -26,6 +26,9 @@ export interface OverlayLayer {
   /** a filled box over the content element a click anchored to (the leaf being edited),
    *  drawn inside the block's selection outline; `undefined` clears it. */
   showContentSelection(el: Element | undefined): void;
+  /** a faint tint over the content leaf under the cursor — the hover affordance that signals
+   *  "this text is editable"; `undefined` clears it. */
+  showContentHover(el: Element | undefined): void;
   /** the drop-indicator line at surface-y `y`; `undefined` clears it. */
   showDropLine(y: number | undefined): void;
   dispose(): void;
@@ -36,7 +39,8 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   const labelHost = document.createElement("div");
   const dropHost = document.createElement("div");
   const contentHost = document.createElement("div");
-  surface.append(hoverHost, labelHost, dropHost, contentHost);
+  const contentHoverHost = document.createElement("div");
+  surface.append(hoverHost, labelHost, dropHost, contentHost, contentHoverHost);
 
   const surfaceTop = (el: Element): number =>
     boundingRect(el).top - surface.getBoundingClientRect().top + surface.scrollTop;
@@ -90,9 +94,10 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     render(nameTag(el, label, false), labelHost);
   }
 
-  function showContentSelection(el: Element | undefined): void {
+  // The content selection box and the lighter hover tint share geometry; only the class differs.
+  function contentBox(host: HTMLElement, cls: string, el: Element | undefined): void {
     if (!el) {
-      render(null, contentHost);
+      render(null, host);
       return;
     }
     const top = surfaceTop(el);
@@ -100,12 +105,17 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     const rect = boundingRect(el);
     render(
       <div
-        class="nocms-content-sel"
+        class={cls}
         style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
       />,
-      contentHost,
+      host,
     );
   }
+
+  const showContentSelection = (el: Element | undefined): void =>
+    contentBox(contentHost, "nocms-content-sel", el);
+  const showContentHover = (el: Element | undefined): void =>
+    contentBox(contentHoverHost, "nocms-content-hover", el);
 
   function showDropLine(y: number | undefined): void {
     if (y === undefined) {
@@ -126,16 +136,20 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     clearHover,
     showSelectionLabel,
     showContentSelection,
+    showContentHover,
     showDropLine,
+    // contentHoverHost stays closure-private; only dispose touches it.
     dispose() {
       render(null, hoverHost);
       render(null, labelHost);
       render(null, dropHost);
       render(null, contentHost);
+      render(null, contentHoverHost);
       hoverHost.remove();
       labelHost.remove();
       dropHost.remove();
       contentHost.remove();
+      contentHoverHost.remove();
     },
   };
 }

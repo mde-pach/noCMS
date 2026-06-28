@@ -565,10 +565,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const handleHover = (event: MouseEvent): void => {
     if (proseSession.isActive() || drag.isDragging()) {
       overlays.clearHover();
+      overlays.showContentHover(undefined);
       return;
     }
     const t = event.target;
     if (!(t instanceof Element)) return;
+    // Content-level hover is independent of the block outline, so an editable leaf still signals
+    // it is clickable while inside the selected block. The already-selected leaf is skipped — its
+    // selection box is the stronger affordance.
+    const anchor = t.closest("[data-nocms-path]");
+    overlays.showContentHover(
+      anchor && anchor !== contentElement() ? anchor : undefined,
+    );
     const offset = offsetFromElement(t);
     const path = offset === undefined ? [] : nodeAtOffset(docs.doc, offset);
     const node = offset === undefined ? undefined : selectableNode(path);
@@ -757,7 +765,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
   surface.addEventListener("mousemove", handleHover);
-  surface.addEventListener("mouseleave", () => overlays.clearHover());
+  surface.addEventListener("mouseleave", () => {
+    overlays.clearHover();
+    overlays.showContentHover(undefined);
+  });
   surface.addEventListener("dragover", (event) => drag.onDragOver(event));
   surface.addEventListener("drop", (event) => void drag.onDrop(event));
   // Shortcuts are global (selection lives on the page, not in a focused frame); isTextEntry
