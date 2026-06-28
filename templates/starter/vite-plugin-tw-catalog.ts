@@ -201,9 +201,62 @@ export interface Feature {
   control: Control;
   options: FeatureOption[];
 }
+export interface ColorShade {
+  shade: string | null;
+  value: string;
+  cls: string;
+}
+export interface ColorFamily {
+  name: string;
+  isToken: boolean;
+  shades: ColorShade[];
+}
 export interface Catalog {
   total: number;
   features: Feature[];
+  colors: ColorFamily[];
+}
+
+// The colour *dimension*: every `bg-*` colour decomposed into family + shade, reusable by every
+// colour property (background, text, border). Two knobs (family, shade) + opacity generate the
+// whole `bg-blue-500`/`bg-brand-600/40` space — the generator, not a list of classes.
+// In v4 every colour compiles to `var(--color-…)`, so swatch previews resolve the var to its real
+// value, and "our" colours are detected by family name (from the token file), not by the var shape.
+// biome-ignore lint/suspicious/noExplicitAny: the design system is an unstable, untyped API
+function deriveColors(
+  bgOptions: FeatureOption[],
+  ds: any,
+  tokenFamilies: Set<string>,
+): ColorFamily[] {
+  const resolve = (v: string): string => {
+    const m = v.match(/var\((--[^,)]+)/);
+    if (!m) return v;
+    try {
+      return (ds.resolveThemeValue(m[1]) as string) ?? v;
+    } catch {
+      return v;
+    }
+  };
+  const fam = new Map<string, ColorFamily>();
+  for (const o of bgOptions) {
+    const key = o.cls.replace(/^bg-/, "");
+    const m = key.match(/^(.*)-(\d+)$/);
+    const base = m ? (m[1] as string) : key;
+    const shade = m ? (m[2] as string) : null;
+    let f = fam.get(base);
+    if (!f) {
+      f = { name: base, isToken: tokenFamilies.has(base), shades: [] };
+      fam.set(base, f);
+    }
+    f.shades.push({ shade, value: resolve(o.value), cls: o.cls });
+  }
+  const families = [...fam.values()];
+  for (const f of families)
+    f.shades.sort((a, b) => Number(a.shade ?? 0) - Number(b.shade ?? 0));
+  families.sort((a, b) =>
+    a.isToken === b.isToken ? a.name.localeCompare(b.name) : a.isToken ? -1 : 1,
+  );
+  return families;
 }
 
 async function build(tokensText: string): Promise<Catalog> {
@@ -254,7 +307,16 @@ async function build(tokensText: string): Promise<Catalog> {
     });
   }
   features.sort((a, b) => a.label.localeCompare(b.label));
-  return { total: classes.length, features };
+  const tokenFamilies = new Set(
+    tokensText
+      .split("\n")
+      .filter((l) => l.startsWith("color."))
+      .map((l) => (l.split(":")[0] ?? "").split(".")[1] ?? "")
+      .filter(Boolean),
+  );
+  const bg = features.find((f) => f.id === "background-color");
+  const colors = bg ? deriveColors(bg.options, ds, tokenFamilies) : [];
+  return { total: classes.length, features, colors };
 }
 
 export function twCatalogPlugin(): Plugin {

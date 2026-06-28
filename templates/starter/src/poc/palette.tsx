@@ -1,18 +1,18 @@
 import { useMemo, useState } from "preact/hooks";
-import {
-  CATALOG,
-  currentClass,
-  type Feature,
-  groupCounts,
-  searchFeatures,
-} from "./catalog";
+import { CATALOG, type Feature, groupCounts, searchFeatures } from "./catalog";
+import { ColorConfigurator, ValueConfigurator } from "./configurator";
 
 const ACCENT = "#3b5bdb";
-const MAX_OPTS = 48;
+const COLOR_GROUP = "Color & fill";
+const COLOR_PROPS = [
+  { prefix: "bg-", label: "Background", fid: "background-color" },
+  { prefix: "text-", label: "Text", fid: "color" },
+  { prefix: "border-", label: "Border", fid: "border-color" },
+];
+const COLOR_FIDS = new Set(COLOR_PROPS.map((p) => p.fid));
 
-// "Add anything": the full Tailwind surface as design controls. You search a *feature* ("border",
-// "rotate", "shadow") and get a control over its values — never a class name. Class strings live
-// only in dev Inspect.
+// "Add anything": the whole Tailwind surface as a clean hierarchy of approaches → configurators.
+// Each property is a generator (a few knobs), never a list of classes.
 export function Palette({
   className,
   variant,
@@ -25,13 +25,28 @@ export function Palette({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<string | null>(null);
+  const [colorProp, setColorProp] = useState("bg-");
   const counts = useMemo(() => groupCounts(), []);
-  const features = useMemo(() => searchFeatures(q, group), [q, group]);
+  const found = useMemo(() => searchFeatures(q, null), [q]);
+  const inGroup = useMemo(
+    () => (group ? CATALOG.features.filter((f) => f.group === group) : []),
+    [group],
+  );
+
+  const cfg = (f: Feature) => (
+    <ValueConfigurator
+      key={f.id}
+      feature={f}
+      className={className}
+      variant={variant}
+      onApply={onApply}
+    />
+  );
 
   return (
     <div style={{ marginTop: 4 }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={addBtn}>
-        {open ? "× Close" : `+ Add anything · ${CATALOG.features.length} controls`}
+        {open ? "× Close" : "+ Add anything"}
       </button>
       {open && (
         <div style={menu}>
@@ -41,100 +56,73 @@ export function Palette({
             placeholder="Search a property — border, shadow, rotate…"
             style={input}
           />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-            {counts.map((c) => (
-              <button
-                key={c.group}
-                type="button"
-                onClick={() => setGroup(group === c.group ? null : c.group)}
-                style={chip(group === c.group)}
-                title={`${c.count} controls`}
-              >
-                {c.group}
-              </button>
-            ))}
-          </div>
-          {q || group ? (
-            <div style={{ maxHeight: 320, overflowY: "auto" }}>
-              {features.length === 0 && <div style={note}>No matching property.</div>}
-              {features.map((f) => (
-                <FeatureControl
-                  key={f.id}
-                  feature={f}
+          {!q && (
+            <div
+              style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}
+            >
+              {counts.map((c) => (
+                <button
+                  key={c.group}
+                  type="button"
+                  onClick={() => setGroup(group === c.group ? null : c.group)}
+                  style={chip(group === c.group)}
+                >
+                  {c.group}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div style={{ maxHeight: 360, overflowY: "auto" }}>
+            {q ? (
+              found.length ? (
+                found.map(cfg)
+              ) : (
+                <div style={note}>No matching property.</div>
+              )
+            ) : group === COLOR_GROUP ? (
+              <>
+                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                  {COLOR_PROPS.map((p) => (
+                    <button
+                      key={p.prefix}
+                      type="button"
+                      onClick={() => setColorProp(p.prefix)}
+                      style={subTab(colorProp === p.prefix)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+                <ColorConfigurator
+                  prefix={colorProp}
+                  label={COLOR_PROPS.find((p) => p.prefix === colorProp)?.label ?? ""}
                   className={className}
                   variant={variant}
                   onApply={onApply}
                 />
-              ))}
-            </div>
-          ) : (
-            <div style={note}>
-              Pick a category or search — every property is a control here.
-            </div>
-          )}
+                <div
+                  style={{
+                    ...note,
+                    marginTop: 10,
+                    borderTop: "1px solid #eee",
+                    paddingTop: 8,
+                  }}
+                >
+                  More colour properties
+                </div>
+                {inGroup.filter((f) => !COLOR_FIDS.has(f.id)).map(cfg)}
+              </>
+            ) : group ? (
+              inGroup.map(cfg)
+            ) : (
+              <div style={note}>
+                Pick a category or search — every property is a control here.
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function FeatureControl({
-  feature,
-  className,
-  variant,
-  onApply,
-}: {
-  feature: Feature;
-  className: string;
-  variant: string;
-  onApply: (cls: string, id: string) => void;
-}) {
-  const current = currentClass(className, feature.id, variant);
-  const opts = feature.options.slice(0, MAX_OPTS);
-  const set = (cls: string) => onApply(current === cls ? "" : cls, feature.id);
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={featLabel}>{feature.label}</div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: feature.control === "color" ? 5 : 4,
-          alignItems: "center",
-        }}
-      >
-        {feature.control === "color"
-          ? opts.map((o) => (
-              <button
-                key={o.cls}
-                type="button"
-                title={o.value}
-                onClick={() => set(o.cls)}
-                style={{
-                  ...swatch,
-                  background: o.value,
-                  outline:
-                    current === o.cls
-                      ? `2px solid ${ACCENT}`
-                      : "1px solid rgba(0,0,0,0.14)",
-                }}
-              />
-            ))
-          : opts.map((o) => (
-              <button
-                key={o.cls}
-                type="button"
-                title={o.value}
-                onClick={() => set(o.cls)}
-                style={{ ...optChip, ...(current === o.cls ? optOn : {}) }}
-              >
-                {o.label}
-              </button>
-            ))}
-        {feature.options.length > MAX_OPTS && (
-          <span style={note}>+{feature.options.length - MAX_OPTS} more — refine</span>
-        )}
-      </div>
     </div>
   );
 }
@@ -176,27 +164,17 @@ const chip = (on: boolean) =>
     color: on ? "#fff" : "#666",
     cursor: "pointer",
   }) as const;
-const featLabel = {
-  fontSize: 12,
-  color: "#555",
-  marginBottom: 5,
-  fontWeight: 500,
-} as const;
-const swatch = {
-  width: 24,
-  height: 24,
-  borderRadius: 6,
-  cursor: "pointer",
-  padding: 0,
-} as const;
-const optChip = {
-  fontSize: 11.5,
-  padding: "3px 8px",
-  borderRadius: 5,
-  border: "1px solid #e0e0e6",
-  background: "#fff",
-  color: "#333",
-  cursor: "pointer",
-} as const;
-const optOn = { background: ACCENT, borderColor: ACCENT, color: "#fff" } as const;
+const subTab = (on: boolean) =>
+  ({
+    flex: 1,
+    fontSize: 12,
+    padding: "5px 8px",
+    borderRadius: 6,
+    border: "1px solid",
+    borderColor: on ? ACCENT : "#dcdce3",
+    background: on ? "#fff" : "transparent",
+    color: on ? ACCENT : "#777",
+    fontWeight: on ? 600 : 400,
+    cursor: "pointer",
+  }) as const;
 const note = { fontSize: 11.5, color: "#999", padding: "2px" } as const;
