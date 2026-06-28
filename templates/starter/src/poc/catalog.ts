@@ -13,6 +13,8 @@ export const CATALOG = rawCatalog;
 export const COLORS = rawCatalog.colors;
 export type { ColorFamily, ColorShade, Control, Feature, FeatureOption };
 
+export const FEATURE = new Map(CATALOG.features.map((f) => [f.id, f]));
+
 // class → feature id (CSS property), so applying one option drops whatever else drives that feature.
 const featureOfClass = new Map<string, string>();
 for (const f of CATALOG.features)
@@ -23,6 +25,23 @@ for (const f of CATALOG.features)
 const stripModifier = (util: string) => util.split("/")[0] ?? util;
 const featureOf = (util: string) =>
   featureOfClass.get(util) ?? featureOfClass.get(stripModifier(util));
+
+/** Public: the feature (CSS property) a class drives — used to dedupe an applied class. */
+export const featureIdOf = (util: string) => featureOf(util) ?? "";
+
+/** The value scale of a feature as composable keys (`p-4` → key "4"), for box/side controls that
+ * re-use one scale across many target prefixes. */
+export function scaleKeys(
+  featureId: string,
+): { key: string; label: string; value: string }[] {
+  const f = FEATURE.get(featureId);
+  if (!f) return [];
+  return f.options.map((o) => ({
+    key: o.cls.startsWith(f.prefix) ? o.cls.slice(f.prefix.length) : o.cls,
+    label: o.label,
+    value: o.value,
+  }));
+}
 
 export function groupCounts(): { group: string; count: number }[] {
   const counts = new Map<string, number>();

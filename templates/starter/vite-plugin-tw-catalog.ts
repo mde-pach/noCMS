@@ -170,10 +170,15 @@ function inferControl(values: string[]): Control {
   return "enum";
 }
 
-// Each value is labelled by its own type, so a feature can mix `6deg` → "6°" with `none` → "None".
+// Each value is labelled by its own type — and token-scale values resolve to a clean step name
+// (`var(--spacing-xl)` → "XL", `calc(var(--spacing) * 4)` → "4") instead of the raw CSS.
 function valueLabel(value: string): string {
   const v = value.trim();
   if (isAngle(v)) return v.replace(/deg$/, "°");
+  const calc = v.match(/calc\(\s*var\(--spacing\)\s*\*\s*(-?[\d.]+)\s*\)/);
+  if (calc?.[1]) return calc[1];
+  const tok = v.match(/^var\(--[a-z]+-([a-z0-9-]+)\)$/);
+  if (tok?.[1]) return /^\d/.test(tok[1]) ? tok[1] : tok[1].toUpperCase();
   if (isColor(v) || isLength(v) || isNumber(v)) return v;
   return humanize(v);
 }

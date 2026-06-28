@@ -1,10 +1,10 @@
 import { parseTokens, toCssVariables } from "@nocms/tokens";
 import type { JSX } from "preact";
 import { render } from "preact";
-import { useMemo, useState } from "preact/hooks";
+import { useState } from "preact/hooks";
 import pocTokens from "../../poc.tokens?raw";
 import { applyClass } from "./catalog";
-import { defaultFacetIds, deriveScales, FACETS, flattenForPreview } from "./facets";
+import { deriveScales, flattenForPreview } from "./facets";
 import { Inspector } from "./inspector";
 import {
   previewOrder,
@@ -205,12 +205,6 @@ function App() {
 
   const selected = find(tree, selectedId) ?? tree;
   const order = previewOrder(viewport, state);
-  // The element's own properties get the curated, hand-polished controls (the guided default);
-  // everything else is reachable through the engine-derived feature palette.
-  const shownIds = useMemo(() => {
-    const def = defaultFacetIds(selected.defaultClasses, scales);
-    return FACETS.map((f) => f.id).filter((id) => def.includes(id));
-  }, [selected.defaultClasses]);
 
   return (
     <div
@@ -284,13 +278,10 @@ function App() {
       </div>
       <Inspector
         label={selected.label}
+        tag={selected.tag}
         className={selected.classes}
-        defaultClasses={selected.defaultClasses}
-        scales={scales}
-        shownIds={shownIds}
         viewport={viewport}
         state={state}
-        onChange={(next) => setTree((t) => withClasses(t, selectedId, next))}
         onApplyClass={(cls, featureId) => {
           setTree((t) => {
             const node = find(t, selectedId);
