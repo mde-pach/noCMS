@@ -1186,13 +1186,18 @@ under `templates/starter/src/poc/` (validated in-browser end to end).
   expose named token steps (sm/md/lg/xl), ordered by size. Off-the-shelf class parsers don't work:
   they're v3-era or bake the default theme; the v4 engine is the only complete, theme-aware source.
 
-- **Build sequence (slice = one committed, gate-clean change).**
-  ① `toTailwindTheme` in `@nocms/tokens` (generated `@theme inline`). **DONE.**
-  ② `@nocms/build`: a Tailwind CSS step post-prerender (scan the prerendered HTML → emit a static
-     stylesheet via `@tailwindcss/node`), appended to the inlined `<style>` in `prerender.document()`.
-  ③ Preview: inject `@tailwindcss/browser` + the generated `@theme` in the starter reader and editor.
-  ④ Migrate `@nocms/components` from inline-style objects to token-bound utilities, forwarding
-     `className`, one component at a time with visual parity.
-  ⑤ Editor Style panel: relocate the styling system (controls-core/capabilities/catalog) into a real
-     home; add the inspector "Style" section editing the selected element's `class` via `setProp`.
-  ⑥ Parity test: build-CLI CSS == browser-engine CSS for a fixture page.
+- **Build sequence (slice = one committed, gate-clean change). All DONE.**
+  ① `toTailwindTheme` in `@nocms/tokens` (generated `@theme inline`).
+  ② `@nocms/build`: a Tailwind CSS step post-prerender (`tailwindCss()` scans the prerendered HTML →
+     compiles via `@tailwindcss/node`), appended to the inlined `<style>` in `prerender.document()`.
+  ③ Preview: `ensureTailwindPreview` injects `@tailwindcss/browser` + the generated `@theme` in the
+     starter reader and the editor entry.
+  ④ Migrated all 26 `@nocms/components` from inline-style objects to token-bound utilities, forwarding
+     `class`/`className` via `cx()`. Hover/focus → Tailwind variants; styles.css base in `@layer base`
+     so utilities outrank bare element defaults.
+  ⑤ Editor Style panel: a generic `renderStyleSection` seam on `mountEditor` (the editor stays
+     styling-agnostic — invariant #2); the starter supplies the capability panel, editing the selected
+     element's `class` via `setProp`. `vendor.ts` embeds the catalog for the published bundle.
+  ⑥ Parity guard: `@nocms/build` test asserts the publish engine emits a rule for every utility *shape*
+     the components produce (a dropped class is how the two moments diverge); the live cross-engine
+     check runs in the editor Playwright sweep.
