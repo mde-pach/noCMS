@@ -1,8 +1,10 @@
 import { useState } from "preact/hooks";
 import {
   applyFacet,
+  customInner,
   FACETS,
   type Facet,
+  isCustomValue,
   type Option,
   optionsOf,
   parseClasses,
@@ -10,7 +12,7 @@ import {
 } from "./facets";
 import { STATES, type StateKey, VIEWPORTS, type ViewportKey, variantOf } from "./modes";
 
-const GROUPS = ["Color", "Spacing", "Border", "Effects", "Type"] as const;
+const GROUPS = ["Color", "Spacing", "Border", "Type", "Effects", "Motion"] as const;
 const ACCENT = "#3b5bdb";
 
 interface InspectorProps {
@@ -139,6 +141,7 @@ function Field({
   onSet,
   onReset,
 }: FieldProps) {
+  const [help, setHelp] = useState(false);
   const overridden = isBase
     ? (current ?? "") !== (baseValue ?? "")
     : current !== undefined;
@@ -147,6 +150,16 @@ function Field({
     <div style={{ marginBottom: 11 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
         <span style={fieldLabel}>{facet.label}</span>
+        {facet.hint && (
+          <button
+            type="button"
+            title="What's this?"
+            onClick={() => setHelp((h) => !h)}
+            style={infoBtn(help)}
+          >
+            i
+          </button>
+        )}
         {overridden && <span title="Overridden" style={dot} />}
         {overridden && (
           <button type="button" onClick={onReset} style={resetBtn}>
@@ -159,17 +172,52 @@ function Field({
           </span>
         )}
       </div>
-      {facet.render === "swatch" ? (
-        <Swatches options={options} current={current} onSet={onSet} />
-      ) : (
-        <Steps options={options} current={current} onSet={onSet} />
+
+      {help && facet.hint && (
+        <div style={helpBox}>
+          <div>{facet.hint}</div>
+          {facet.example && (
+            <div style={{ color: "#777", marginTop: 4 }}>e.g. {facet.example}</div>
+          )}
+          {facet.doc && (
+            <a
+              href={facet.doc}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: ACCENT, fontSize: 11 }}
+            >
+              Tailwind docs ↗
+            </a>
+          )}
+        </div>
       )}
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: facet.render === "swatch" ? 6 : 4,
+          alignItems: "center",
+        }}
+      >
+        {facet.render === "swatch" ? (
+          <Swatches options={options} current={current} onSet={onSet} />
+        ) : (
+          <Steps options={options} current={current} onSet={onSet} />
+        )}
+        {facet.custom === "color" && <CustomColor current={current} onSet={onSet} />}
+        {facet.custom === "length" && (
+          <CustomLength key={current ?? ""} current={current} onSet={onSet} />
+        )}
+      </div>
     </div>
   );
 }
 
 const labelFor = (options: Option[], key: string) =>
-  options.find((o) => o.key === key)?.label ?? key;
+  isCustomValue(key)
+    ? customInner(key)
+    : (options.find((o) => o.key === key)?.label ?? key);
 
 function Swatches({
   options,
@@ -181,7 +229,7 @@ function Swatches({
   onSet: (k: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <>
       {options.map((opt) => (
         <button
           key={opt.key}
@@ -198,7 +246,7 @@ function Swatches({
           }}
         />
       ))}
-    </div>
+    </>
   );
 }
 
@@ -212,7 +260,7 @@ function Steps({
   onSet: (k: string) => void;
 }) {
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+    <>
       {options.map((opt) => {
         const on = current === opt.key;
         return (
@@ -226,7 +274,63 @@ function Steps({
           </button>
         );
       })}
-    </div>
+    </>
+  );
+}
+
+function CustomColor({
+  current,
+  onSet,
+}: {
+  current?: string;
+  onSet: (k: string) => void;
+}) {
+  const active = isCustomValue(current ?? "");
+  return (
+    <label
+      title="Custom colour"
+      style={{
+        ...swatch,
+        position: "relative",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: active ? customInner(current ?? "") : "#fff",
+        border: "1px dashed #bbb",
+        outline: active ? `2px solid ${ACCENT}` : "none",
+        cursor: "pointer",
+      }}
+    >
+      {!active && <span style={{ fontSize: 15, color: "#aaa", lineHeight: 1 }}>+</span>}
+      <input
+        type="color"
+        value={active ? customInner(current ?? "") : "#000000"}
+        onInput={(e) => onSet(`[${(e.target as HTMLInputElement).value}]`)}
+        style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
+      />
+    </label>
+  );
+}
+
+function CustomLength({
+  current,
+  onSet,
+}: {
+  current?: string;
+  onSet: (k: string) => void;
+}) {
+  const active = isCustomValue(current ?? "");
+  const [v, setV] = useState(active ? customInner(current ?? "") : "");
+  const commit = () => onSet(v.trim() ? `[${v.trim()}]` : "");
+  return (
+    <input
+      value={v}
+      placeholder="custom"
+      onInput={(e) => setV((e.target as HTMLInputElement).value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      style={{ ...segment, width: 62, ...(active ? segmentOn : {}) }}
+    />
   );
 }
 
@@ -243,7 +347,7 @@ function AddProperty({
   return (
     <div style={{ marginTop: 4 }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={addBtn}>
-        {open ? "× Close" : "+ Add property"}
+        {open ? "× Close" : "+ Add a style property"}
       </button>
       {open && (
         <div style={addMenu}>
@@ -257,6 +361,7 @@ function AddProperty({
                     <button
                       key={f.id}
                       type="button"
+                      title={f.hint}
                       onClick={() => {
                         onAdd(f.id);
                         setOpen(false);
@@ -288,8 +393,8 @@ function Inspect({ className }: { className: string }) {
 }
 
 const panel: Record<string, string | number> = {
-  width: 290,
-  flex: "0 0 290px",
+  width: 300,
+  flex: "0 0 300px",
   alignSelf: "flex-start",
   position: "sticky",
   top: 24,
@@ -339,6 +444,34 @@ const resetBtn = {
   padding: 0,
   textDecoration: "underline",
 } as const;
+const infoBtn = (on: boolean) =>
+  ({
+    width: 14,
+    height: 14,
+    borderRadius: "50%",
+    border: "1px solid",
+    borderColor: on ? ACCENT : "#cfcfd6",
+    background: on ? ACCENT : "transparent",
+    color: on ? "#fff" : "#9a9aa2",
+    fontSize: 9,
+    fontStyle: "italic",
+    fontFamily: "Georgia, serif",
+    lineHeight: 1,
+    cursor: "pointer",
+    padding: 0,
+  }) as const;
+const helpBox = {
+  fontSize: 11.5,
+  color: "#555",
+  background: "#f6f7fb",
+  borderRadius: 6,
+  padding: "7px 9px",
+  marginBottom: 6,
+  lineHeight: 1.45,
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+} as const;
 const swatch = {
   width: 26,
   height: 26,
@@ -371,7 +504,7 @@ const chipBtn = (on: boolean) =>
   }) as const;
 const addBtn = {
   fontSize: 12,
-  padding: "6px 10px",
+  padding: "7px 10px",
   borderRadius: 6,
   border: `1px dashed ${ACCENT}`,
   background: "#fff",

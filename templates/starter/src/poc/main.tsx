@@ -119,17 +119,30 @@ interface NodeProps {
   selectedId: string;
   hoveredId: string | undefined;
   order: string[];
+  interactive: boolean;
   onSelect: (id: string) => void;
   onHover: (id: string | undefined) => void;
 }
 
-function Node({ node, selectedId, hoveredId, order, onSelect, onHover }: NodeProps) {
+function Node({
+  node,
+  selectedId,
+  hoveredId,
+  order,
+  interactive,
+  onSelect,
+  onHover,
+}: NodeProps) {
   const Tag = node.tag as "div";
-  const selected = node.id === selectedId;
-  const hovered = node.id === hoveredId && !selected;
+  const selected = !interactive && node.id === selectedId;
+  const hovered = !interactive && node.id === hoveredId && node.id !== selectedId;
+  // Interact mode hands the real component back to the browser: raw classes (so real `:hover`/`md:`
+  // fire natively) and no editor overlay or click-capture.
   return (
     <Tag
-      class={flattenForPreview(node.classes, order, scales)}
+      class={
+        interactive ? node.classes : flattenForPreview(node.classes, order, scales)
+      }
       style={{
         ...node.style,
         outline: selected
@@ -138,20 +151,25 @@ function Node({ node, selectedId, hoveredId, order, onSelect, onHover }: NodePro
             ? "1.5px solid rgba(59,91,219,0.4)"
             : undefined,
         outlineOffset: "3px",
-        cursor: "pointer",
+        cursor: interactive ? undefined : "pointer",
       }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(node.id);
-      }}
-      onMouseOver={(e) => {
-        e.stopPropagation();
-        onHover(node.id);
-      }}
-      onMouseOut={(e) => {
-        e.stopPropagation();
-        onHover(undefined);
-      }}
+      onClick={
+        interactive
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+              onSelect(node.id);
+            }
+      }
+      onMouseOver={
+        interactive
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+              onHover(node.id);
+            }
+      }
+      onMouseOut={interactive ? undefined : () => onHover(undefined)}
     >
       {node.text}
       {node.children?.map((c) => (
@@ -161,6 +179,7 @@ function Node({ node, selectedId, hoveredId, order, onSelect, onHover }: NodePro
           selectedId={selectedId}
           hoveredId={hoveredId}
           order={order}
+          interactive={interactive}
           onSelect={onSelect}
           onHover={onHover}
         />
@@ -176,6 +195,7 @@ function App() {
   const [viewport, setViewport] = useState<ViewportKey>("base");
   const [state, setState] = useState<StateKey>("default");
   const [added, setAdded] = useState<Record<string, string[]>>({});
+  const [interactive, setInteractive] = useState(false);
 
   const selected = find(tree, selectedId) ?? tree;
   const order = previewOrder(viewport, state);
@@ -208,8 +228,31 @@ function App() {
           gap: 12,
         }}
       >
-        <div style={{ fontSize: 12, color: "#8a8a8a" }}>
-          {viewportWidth(viewport)}px preview
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 12, color: "#8a8a8a" }}>
+            {viewportWidth(viewport)}px preview
+          </span>
+          <button
+            type="button"
+            onClick={() => setInteractive((i) => !i)}
+            title={
+              interactive
+                ? "Back to editing"
+                : "Interact with the real component (real hover, clicks)"
+            }
+            style={{
+              fontSize: 12,
+              padding: "5px 12px",
+              borderRadius: 999,
+              border: `1px solid ${interactive ? "#e0512f" : "#cfcfd6"}`,
+              background: interactive ? "#e0512f" : "#fff",
+              color: interactive ? "#fff" : "#555",
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            {interactive ? "● Interacting — click to edit" : "▶ Preview / interact"}
+          </button>
         </div>
         <div
           style={{
@@ -228,6 +271,7 @@ function App() {
             selectedId={selectedId}
             hoveredId={hoveredId}
             order={order}
+            interactive={interactive}
             onSelect={setSelectedId}
             onHover={setHoveredId}
           />
