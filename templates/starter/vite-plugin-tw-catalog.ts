@@ -183,15 +183,28 @@ function valueLabel(value: string): string {
   return humanize(v);
 }
 
-/** First real declaration (skips Tailwind's `--tw-*` vars) → the property this class is "about". */
+// The property a class is "about": the first real (non-`--*`) declaration with a *concrete* value.
+// Tailwind writes scaffolding first (`border-2` → `border-style: var(--tw-border-style)` then the
+// real `border-width: 2px`), so a `var(--tw-*)` value is skipped — unless every declaration is one
+// (shadow/filter genuinely resolve to `var(--tw-shadow)`), in which case we keep the first.
 function primaryDecl(css: string): { prop: string; value: string } | undefined {
+  // Only the utility's own rule body — never the trailing `@property { syntax: … }` blocks, whose
+  // `syntax`/`inherits` declarations would otherwise be mistaken for the property.
+  const body = css.match(/\{([^{}]*)\}/)?.[1] ?? css;
   const re = /([a-z-]+)\s*:\s*([^;{}]+);/g;
+  const vendor = (p: string) => /^-(webkit|moz|ms|o)-/.test(p);
   let m: RegExpExecArray | null;
-  while ((m = re.exec(css))) {
+  let first: { prop: string; value: string } | undefined;
+  while ((m = re.exec(body))) {
     const prop = m[1] ?? "";
-    if (!prop.startsWith("--")) return { prop, value: (m[2] ?? "").trim() };
+    if (prop.startsWith("--")) continue;
+    const value = (m[2] ?? "").trim();
+    first ??= { prop, value };
+    // Prefer the real, standard property: skip `var(--tw-*)` scaffolding and `-webkit-`/`-moz-`
+    // prefixes (`select-none` writes `-webkit-user-select` before the real `user-select`).
+    if (!value.startsWith("var(--tw-") && !vendor(prop)) return { prop, value };
   }
-  return undefined;
+  return first;
 }
 
 export interface FeatureOption {
@@ -207,6 +220,9 @@ export interface Feature {
   /** The utility prefix (`bg-`, `rotate-`) — drives the arbitrary-value escape `prefix-[value]`;
    * empty for static/keyword utilities that take no value. */
   prefix: string;
+  /** Every class that drives this property (no value-dedupe) — the basis for class→feature lookup,
+   * so distinct utilities that share a value (`text-x` vs `placeholder-x`) are both resolvable. */
+  classes: string[];
   options: FeatureOption[];
 }
 export interface ColorShade {
@@ -267,10 +283,13 @@ function deriveColors(
   return families;
 }
 
-async function build(tokensText: string): Promise<Catalog> {
+export async function buildCatalog(
+  tokensText: string,
+  base: string = here,
+): Promise<Catalog> {
   const ds = await __unstable__loadDesignSystem(
     `@import "tailwindcss";\n@theme {\n${themeFromTokens(tokensText)}\n}\n`,
-    { base: here },
+    { base },
   );
   const classes = ds
     .getClassList()
@@ -314,6 +333,7 @@ async function build(tokensText: string): Promise<Catalog> {
       group: bucketOf(f.prop),
       control,
       prefix,
+      classes: f.opts.map((o) => o.cls),
       options,
     });
   }
@@ -341,7 +361,7 @@ export function twCatalogPlugin(): Plugin {
       if (id !== `\0${VIRTUAL}`) return;
       if (!cache) {
         const tokens = readFileSync(path.resolve(here, "poc.tokens"), "utf8");
-        cache = build(tokens).then((cat) => {
+        cache = buildCatalog(tokens).then((cat) => {
           // biome-ignore lint/suspicious/noConsole: dev-time visibility into catalog size
           console.log(
             `[tw-catalog] ${cat.total} classes → ${cat.features.length} features`,

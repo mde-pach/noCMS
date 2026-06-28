@@ -6,6 +6,7 @@ import type {
   Feature,
   FeatureOption,
 } from "../../vite-plugin-tw-catalog";
+import * as core from "./controls-core";
 
 // The full Tailwind surface, reshaped into CSS *features* with typed controls — never raw class
 // names. Coverage is the engine's; the user only ever sees design controls and human values.
@@ -15,19 +16,18 @@ export type { ColorFamily, ColorShade, Control, Feature, FeatureOption };
 
 export const FEATURE = new Map(CATALOG.features.map((f) => [f.id, f]));
 
-// class → feature id (CSS property), so applying one option drops whatever else drives that feature.
-const featureOfClass = new Map<string, string>();
-for (const f of CATALOG.features)
-  for (const o of f.options) featureOfClass.set(o.cls, f.id);
+const featureOf = core.makeFeatureOf(CATALOG.features);
 
-// Colour utilities carry an opacity modifier (`bg-brand-600/40`) the base map doesn't know — strip
-// it so a modified colour still resolves to its feature for highlighting and dedupe.
-const stripModifier = (util: string) => util.split("/")[0] ?? util;
-const featureOf = (util: string) =>
-  featureOfClass.get(util) ?? featureOfClass.get(stripModifier(util));
-
-/** Public: the feature (CSS property) a class drives — used to dedupe an applied class. */
+export { composeColor, parseColorClass, widgetFor } from "./controls-core";
 export const featureIdOf = (util: string) => featureOf(util) ?? "";
+export const currentClass = (className: string, featureId: string, variant = "") =>
+  core.currentClass(className, featureId, variant, featureOf);
+export const applyClass = (
+  className: string,
+  cls: string,
+  featureId: string,
+  variant = "",
+) => core.applyClass(className, cls, featureId, variant, featureOf);
 
 /** The value scale of a feature as composable keys (`p-4` → key "4"), for box/side controls that
  * re-use one scale across many target prefixes. */
@@ -69,26 +69,6 @@ export function searchFeatures(
   return out;
 }
 
-const splitVariant = (cls: string) => {
-  const i = cls.lastIndexOf(":");
-  return i === -1
-    ? { variant: "", util: cls }
-    : { variant: cls.slice(0, i + 1), util: cls.slice(i + 1) };
-};
-
-/** The class currently driving `featureId` on `className`, in the active variant (for highlighting). */
-export function currentClass(
-  className: string,
-  featureId: string,
-  variant = "",
-): string | undefined {
-  for (const cls of className.split(/\s+/).filter(Boolean)) {
-    const { variant: v, util } = splitVariant(cls);
-    if (v === variant && featureOf(util) === featureId) return util;
-  }
-  return undefined;
-}
-
 const COLOR_FEATURE: Record<string, string> = {
   "bg-": "background-color",
   "text-": "color",
@@ -97,38 +77,4 @@ const COLOR_FEATURE: Record<string, string> = {
 
 export function colorFeatureId(prefix: string): string {
   return COLOR_FEATURE[prefix] ?? "";
-}
-
-/** Split an applied colour class (`bg-brand-600/40`) back into its knob values. */
-export function parseColorClass(
-  util: string | undefined,
-  prefix: string,
-): { key: string; opacity: number } | undefined {
-  if (!util || !util.startsWith(prefix)) return undefined;
-  const [base, mod] = util.slice(prefix.length).split("/");
-  return { key: base ?? "", opacity: mod ? Number(mod) : 100 };
-}
-
-/** Compose a colour class from the knobs: family/shade key + opacity. */
-export function composeColor(prefix: string, key: string, opacity: number): string {
-  return `${prefix}${key}${opacity < 100 ? `/${opacity}` : ""}`;
-}
-
-/** Set or clear one feature in the active variant (empty `cls` clears it); other classes untouched. */
-export function applyClass(
-  className: string,
-  cls: string,
-  featureId: string,
-  variant = "",
-): string {
-  const kept = className
-    .split(/\s+/)
-    .filter(Boolean)
-    .filter((c) => {
-      const { variant: v, util } = splitVariant(c);
-      if (v !== variant) return true;
-      return featureOf(util) !== featureId;
-    });
-  if (cls) kept.push(`${variant}${cls}`);
-  return kept.join(" ");
 }
