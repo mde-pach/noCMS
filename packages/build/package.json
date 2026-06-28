@@ -20,6 +20,8 @@
     "@nocms/editor": "workspace:*",
     "@nocms/renderer": "workspace:*",
     "@nocms/tokens": "workspace:*",
+    "@tailwindcss/node": "^4.3.1",
+    "tailwindcss": "^4.3.1",
     "vite": "^6.3.0"
   },
   "devDependencies": {

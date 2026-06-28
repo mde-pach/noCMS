@@ -12,7 +12,7 @@ import {
   siteRuntime,
 } from "@nocms/core";
 import type { ComponentMap } from "@nocms/renderer";
-import { parseTokens, toCssVariables } from "@nocms/tokens";
+import { parseTokens, toCssVariables, toTailwindTheme } from "@nocms/tokens";
 import type { ComponentChildren, ComponentType } from "preact";
 import { type PrerenderedPage, prerenderRoutes, type Route } from "./prerender";
 
@@ -73,6 +73,7 @@ export async function buildSite(options: BuildOptions): Promise<void> {
   const routes = await loadRoutes(join(root, "content"));
 
   const css = await collectCss(root);
+  const tailwindTheme = await collectTailwindTheme(root);
 
   const components: ComponentMap = Object.fromEntries(
     Object.entries(registry).map(([name, entry]) => [name, entry.component]),
@@ -93,6 +94,7 @@ export async function buildSite(options: BuildOptions): Promise<void> {
     shell: options.shell,
     base,
     css,
+    tailwind: tailwindTheme ? { theme: tailwindTheme, base: root } : undefined,
     head: head || undefined,
     islands,
     islandClientSrc: `${base}${ISLAND_CLIENT_FILE}`,
@@ -176,6 +178,15 @@ async function collectCss(root: string): Promise<string | undefined> {
   const stylesFile = join(root, "styles.css");
   if (existsSync(stylesFile)) parts.push(await readFile(stylesFile, "utf8"));
   return parts.length ? parts.join("\n") : undefined;
+}
+
+// The same flat token file that drives the runtime CSS vars also generates the Tailwind `@theme`, so
+// utilities bind to the very tokens a theme edit swaps. Absent `theme.tokens`, the site ships no
+// Tailwind (and the build skips the engine entirely).
+async function collectTailwindTheme(root: string): Promise<string | undefined> {
+  const tokensFile = join(root, "theme.tokens");
+  if (!existsSync(tokensFile)) return undefined;
+  return toTailwindTheme(parseTokens(await readFile(tokensFile, "utf8")));
 }
 
 async function collectHead(

@@ -14,6 +14,14 @@ export interface PrerenderOptions {
     }>;
     base?: string;
     css?: string;
+    /**
+     * When set, a static Tailwind stylesheet is compiled from the classes used across all prerendered
+     * pages and appended after `css`. `base` is the filesystem dir that resolves `tailwindcss`.
+     */
+    tailwind?: {
+        theme: string;
+        base: string;
+    };
     head?: string;
     title?: (route: Route) => string;
     /** Registry names to treat as islands; their roots get prerender markers. */

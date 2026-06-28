@@ -6,6 +6,7 @@ import {
   wrapIslandComponents,
 } from "@nocms/renderer";
 import { type ComponentChildren, type ComponentType, h } from "preact";
+import { tailwindCss } from "./tailwind";
 
 export interface Route {
   path: string;
@@ -19,6 +20,11 @@ export interface PrerenderOptions {
   shell?: ComponentType<{ children?: ComponentChildren; base?: string }>;
   base?: string;
   css?: string;
+  /**
+   * When set, a static Tailwind stylesheet is compiled from the classes used across all prerendered
+   * pages and appended after `css`. `base` is the filesystem dir that resolves `tailwindcss`.
+   */
+  tailwind?: { theme: string; base: string };
   head?: string;
   title?: (route: Route) => string;
   /** Registry names to treat as islands; their roots get prerender markers. */
@@ -90,7 +96,8 @@ export async function prerenderRoutes(
   const components = options.islands?.length
     ? wrapIslandComponents(base, options.islands)
     : base;
-  return Promise.all(
+
+  const rendered = await Promise.all(
     routes.map(async (route) => {
       // The shell renders through the same renderer as content, so it can't diverge from the editor/reader.
       const content = await renderToVNode({
@@ -108,11 +115,24 @@ export async function prerenderRoutes(
         (islands.length && options.islandClientSrc
           ? `<script type="module" src="${options.islandClientSrc}"></script>`
           : "") + (options.editor ? editorScripts(route.mdx, options.editor) : "");
-      return {
-        path: route.path,
-        html: document(body, title, options.css, options.head, scripts || undefined),
-        islands,
-      };
+      return { path: route.path, body, islands, title, scripts };
     }),
   );
+
+  // Tailwind needs every page's classes at once (one stylesheet for the whole site), so it runs
+  // between rendering and wrapping. Token vars + site CSS first, then the generated utilities.
+  const tw = options.tailwind
+    ? await tailwindCss(
+        rendered.map((page) => page.body),
+        options.tailwind.theme,
+        options.tailwind.base,
+      )
+    : "";
+  const css = [options.css, tw].filter(Boolean).join("\n") || undefined;
+
+  return rendered.map((page) => ({
+    path: page.path,
+    html: document(page.body, page.title, css, options.head, page.scripts || undefined),
+    islands: page.islands,
+  }));
 }
