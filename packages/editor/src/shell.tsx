@@ -26,6 +26,7 @@ import type { BreakpointId } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
 import { EditorChrome } from "./chrome-view.js";
 import { anchorComponents } from "./content-anchors.js";
+import { createContentEditor } from "./content-edit.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
@@ -563,7 +564,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   const handleHover = (event: MouseEvent): void => {
-    if (proseSession.isActive() || drag.isDragging()) {
+    if (proseSession.isActive() || contentEditor.isActive() || drag.isDragging()) {
       overlays.clearHover();
       overlays.showContentHover(undefined);
       return;
@@ -628,7 +629,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   function renderContentSelection(): void {
     // `focusedContentPath` is checked first so this is safe to call from the canvas's first paint,
     // before `proseSession` exists: with nothing anchored the prose check is never evaluated.
-    if (!focusedContentPath || proseSession.isActive()) {
+    if (!focusedContentPath || proseSession.isActive() || contentEditor.isActive()) {
       overlays.showContentSelection(undefined);
       return;
     }
@@ -652,6 +653,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     selection: CanvasSelection | undefined,
   ): Promise<void> => {
     if (proseSession.isActive()) await proseSession.commit();
+    if (contentEditor.isActive()) await contentEditor.commit();
     const node = selection ? selectableNode(selection.path) : undefined;
     const anchor = selection?.element.closest("[data-nocms-path]");
     const focus = anchor?.getAttribute("data-nocms-path") ?? undefined;
@@ -670,9 +672,31 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   };
 
   const handleActivate = (event: Event): void => {
-    if (proseSession.isActive()) return;
+    if (proseSession.isActive() || contentEditor.isActive()) return;
     const el = event.target;
     if (!(el instanceof Element)) return;
+
+    // A content leaf mapped to a prop (`data-nocms-path`): edit it directly on the page, writing
+    // back to the same prop the panel edits. These are plain strings, so plain contenteditable.
+    const leaf = el.closest("[data-nocms-path]");
+    if (leaf instanceof HTMLElement && leaf.dataset.nocmsPath) {
+      const leafOffset = offsetFromElement(leaf);
+      const owner =
+        leafOffset === undefined
+          ? undefined
+          : nodeAtOffset(docs.doc, leafOffset).findLast(isJsxElement);
+      if (owner?.name) {
+        const def = components[owner.name];
+        contentEditor.start(
+          leaf,
+          owner,
+          leaf.dataset.nocmsPath,
+          def ? controlsOf(def) : [],
+        );
+        return;
+      }
+    }
+
     const offset = offsetFromElement(el);
     if (offset === undefined) return;
     const path = nodeAtOffset(docs.doc, offset);
@@ -708,6 +732,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (event.key === "Escape" && proseSession.isActive()) {
       event.preventDefault();
       void proseSession.commit().then(select);
+      return;
+    }
+    if (contentEditor.isActive()) {
+      // Inline content is single-line plain text: Enter commits rather than inserting a newline;
+      // Escape abandons the edit and restores the original.
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void contentEditor.commit();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        contentEditor.cancel();
+      }
     }
   };
 
@@ -757,7 +793,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       // The repaint replaced the anchored node; re-pin the content box to the fresh one.
       renderContentSelection();
     },
-    suppressWhen: (el) => proseSession.containsEl(el),
+    suppressWhen: (el) => proseSession.containsEl(el) || contentEditor.containsEl(el),
   });
   surface.append(toolbarHost, formatHost);
 
@@ -787,6 +823,21 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       renderToolbar();
       renderContentSelection();
     },
+  });
+
+  // Inline editing of prop-backed content (a `data-nocms-path` leaf) directly on the page,
+  // writing back to the same prop the panel edits.
+  const contentEditor = createContentEditor({
+    docs,
+    canvas,
+    onStart: () => {
+      renderToolbar();
+      renderContentSelection();
+    },
+    // Repaint only the chrome (panel), not the canvas, so the panel field tracks the live text
+    // while the contenteditable stays intact under the caret.
+    refreshPanel: () => paint(),
+    markDirty: () => chrome.markDirty(),
   });
 
   surface.addEventListener("dblclick", handleActivate);
@@ -844,6 +895,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     dispose() {
       chrome.dispose();
       proseSession.dispose();
+      contentEditor.dispose();
       surface.removeEventListener("dblclick", handleActivate);
       surface.removeEventListener("keydown", handleKeydown);
       surface.removeEventListener("mousemove", handleHover);

@@ -253,6 +253,12 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
   background: color-mix(in srgb, var(--nc-accent) 7%, transparent);
 }
 .nocms-canvas [data-nocms-path] { cursor: pointer; }
+/* A prop-backed content leaf being edited directly on the page: an accent ring + text caret,
+   so it reads as an active inline field. */
+.nocms-canvas .nocms-content-editing {
+  outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px;
+  cursor: text; caret-color: var(--nc-accent);
+}
 .nocms-hover {
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }
