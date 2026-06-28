@@ -62,7 +62,7 @@ export const EDITOR_CSS = `
 /* Isolation: pin every chrome surface to the tool font and neutralise site link/heading rules,
    including the parts that mount outside .nocms-editor (the selection toolbar in the content
    host; the sign-in gate on the body). The editor must look the same on any site. */
-.nocms-editor, .nocms-toolbar, .nc-hover-label, .nc-signin-root,
+.nocms-editor, .nocms-toolbar, .nc-name-tag, .nc-signin-root,
 .nocms-editor :where(button, input, textarea, select, a, h1, h2, h3, h4, h5, h6, p, span, div, label),
 .nocms-toolbar :where(button),
 .nc-signin-root :where(button, h1, h2, h3, p, span, div) {
@@ -231,20 +231,17 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 .nocms-hover {
   outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 40%, transparent); outline-offset: -1px; pointer-events: none; position: absolute; z-index: 5;
 }
-.nc-hover-label {
-  position: absolute; background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
-  border-radius: 6px; pointer-events: none; white-space: nowrap; z-index: 6;
-}
-.nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
-
-/* selected block: a name tag pinned just above the selection's top-left, never over its content */
-.nc-sel-label {
-  position: absolute; z-index: 7; transform: translateY(-100%);
+/* the block name tag shown above a hovered or selected block — same tag for both, lifted off the
+   top edge by a small gap so it never sits on the border or over the content. */
+.nc-name-tag {
+  position: absolute; z-index: 7; transform: translateY(calc(-100% - 5px));
   background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
-  padding: 3px 8px; border-radius: 6px 6px 6px 0; pointer-events: none; white-space: nowrap;
+  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 6px; pointer-events: none; white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(26,25,22,0.18);
 }
+.nc-name-tag--hover { opacity: 0.9; }
+.nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
 
 /* drag-reorder: the lifted block + the drop-indicator line */
 .nocms-dragging {

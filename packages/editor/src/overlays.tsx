@@ -38,6 +38,20 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   const surfaceLeft = (el: Element): number =>
     boundingRect(el).left - surface.getBoundingClientRect().left + surface.scrollLeft;
 
+  // The name tag both hover and selection show: pinned above the element's top-left, with a small
+  // gap (handled in CSS) so it never sits on the border or over the content. They share one tag so
+  // the affordance reads the same; a `--hover` modifier only softens the hover one.
+  const nameTag = (el: Element, label: string, hover: boolean) => {
+    const top = surfaceTop(el);
+    const left = surfaceLeft(el);
+    const cls = hover ? "nc-name-tag nc-name-tag--hover" : "nc-name-tag";
+    return (
+      <div class={cls} style={`top:${Math.max(top, 0)}px;left:${left}px`}>
+        {label}
+      </div>
+    );
+  };
+
   function showHover(el: Element | undefined, label: string | undefined): void {
     if (!el) {
       render(null, hoverHost);
@@ -52,11 +66,7 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
           class="nocms-hover"
           style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
         />
-        {label ? (
-          <div class="nc-hover-label" style={`top:${top + 8}px;left:${left + 8}px`}>
-            {label}
-          </div>
-        ) : null}
+        {label ? nameTag(el, label, true) : null}
       </>,
       hoverHost,
     );
@@ -72,14 +82,7 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
       render(null, labelHost);
       return;
     }
-    const top = surfaceTop(el);
-    const left = surfaceLeft(el);
-    render(
-      <div class="nc-sel-label" style={`top:${Math.max(top, 0)}px;left:${left}px`}>
-        {label}
-      </div>,
-      labelHost,
-    );
+    render(nameTag(el, label, false), labelHost);
   }
 
   function showDropLine(y: number | undefined): void {
