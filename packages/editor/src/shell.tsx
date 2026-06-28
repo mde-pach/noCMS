@@ -1,19 +1,14 @@
-// The editor shell: the interaction loop that turns the pieces into a usable editor. It
-// frames the canvas with the app chrome (top bar) and a docked right rail, keeps one live
-// MdxDocument, and on every selection resolves the meaningful node, looks up its controls,
-// and renders the props panel. A panel edit mutates the node in place; the shell
-// re-serializes, re-renders the canvas from the updated source, and re-highlights the same
-// node by its index-path — never by raw offset, which shifts when the edit changes length.
+// The editor shell: the wiring layer. It builds the canvas and the controllers that each own a
+// slice of the editor, then connects them — selection drives the rail/toolbar, edits flow through
+// the document store, the chrome controller owns the top bar, the overlay layer draws the
+// affordances, the drag controller handles reorder. The shell holds only what's left: the live
+// selection, the in-place prose session, and the modal/rail state, plus the event handlers that
+// route input to a controller.
 //
-// Every structural change — insert, delete, duplicate, reorder, drag — is one tree-transform
-// over the uniform block tree (D15), addressed by index-path, then re-serialized to canonical
-// MDX. Because every edit funnels through one commit that snapshots the serialized MDX,
-// undo/redo is a single uniform stack. Nothing here special-cases a block type.
-//
-// Presentational chrome state (breakpoint, appearance, dirty, publish status, the active
-// overlay, the expanded design panel) lives alongside the document state and is pushed into
-// pure presenter components via small render functions, mirroring how the canvas overlay and
-// toolbar are kept in sync.
+// State is deliberately owned, not shared: `document-store` owns the document + history + every
+// tree command (D15: one tree, one undo); `chrome-controller` owns breakpoint/appearance/dirty/
+// publish; `overlays`/`drag-controller` own their visuals. Adding a feature means extending (or
+// adding) a controller — not growing this closure, which is how it became a 1000-line file before.
 
 import {
   type ComponentManifest,
@@ -39,12 +34,8 @@ import {
   offsetFromElement,
 } from "./canvas.js";
 import { InsertSheet } from "./catalog.js";
-import {
-  type Appearance,
-  type BreakpointId,
-  type PublishStatus,
-  TopBar,
-} from "./chrome.js";
+import type { BreakpointId } from "./chrome.js";
+import { createChromeController } from "./chrome-controller.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { FormatBar } from "./format-bar.js";
@@ -171,18 +162,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const initialMdx = mdx;
   const initialTokensSrc = options.tokens;
 
-  // --- presentational chrome state -------------------------------------------------
-  let breakpoint: BreakpointId = "L4";
-  let appearance: Appearance = "light";
-  let dirty = false;
-  let publishStatus: PublishStatus = "idle";
+  // --- modal + rail state (chrome/top-bar state lives in the chrome controller) -----------
   let overlay: "catalog" | "publish" | "navigator" | "media" | "save-component" | null =
     null;
   let mediaTarget: { element: JsxElement; key: string } | undefined;
   let saveTarget: { node: JsxElement; path: IndexPath; container: boolean } | undefined;
   let brandExpanded = false;
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
-  let publishTimer: ReturnType<typeof setTimeout> | undefined;
 
   // --- DOM scaffold ----------------------------------------------------------------
   // The editor is an overlay over the live page, not a frame around it: the page's content host
@@ -235,11 +221,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   chromeRoot.append(chromeHost, panelRegion, modalHost, popoverHost);
   document.body.append(chromeRoot);
 
-  document.documentElement.style.setProperty(
-    "--nocms-page-width",
-    BREAKPOINT_WIDTH[breakpoint],
-  );
-
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
   const themeStyle = document.createElement("style");
   if (options.tokens !== undefined) {
@@ -251,6 +232,20 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
 
+  // The top bar and its state (breakpoint, appearance, dirty, publish) — its own concern; the
+  // shell only supplies the actions it can't own (reset, open navigator/publish, re-pin overlays).
+  const chrome = createChromeController({
+    host: chromeHost,
+    surface,
+    siteHost: options.siteHost ?? "nocms.github.io",
+    pageName: options.pageName ?? "Home",
+    breakpointWidth: BREAKPOINT_WIDTH,
+    onBreakpointChange: () => trackOverlays(360),
+    onTogglePublish: () => togglePublish(),
+    onReset: () => void resetEdits(),
+    onMenu: () => openNavigator(),
+  });
+
   // The document model + history + every tree command live in the store; the shell reads
   // `docs.doc` and calls commands, but owns none of that state.
   const docs = createDocumentStore({
@@ -260,7 +255,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     select: (path) => select(path),
     getSelectedPath: () => selectedPath,
     onChange,
-    markDirty: () => markDirty(),
+    markDirty: () => chrome.markDirty(),
   });
 
   // The floating toolbar and format bar share the overlay layer's surface-relative geometry.
@@ -273,35 +268,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
 
-  const markDirty = (): void => {
-    if (!dirty) {
-      dirty = true;
-      renderChrome();
-    }
-  };
-
-  // --- chrome / rail / overlay renderers -------------------------------------------
-  function renderChrome(): void {
-    render(
-      <TopBar
-        siteHost={options.siteHost ?? "nocms.github.io"}
-        pageName={options.pageName ?? "Home"}
-        breakpoint={breakpoint}
-        onBreakpoint={setBreakpoint}
-        appearance={appearance}
-        onAppearance={toggleAppearance}
-        dirty={dirty}
-        onReset={() => void resetEdits()}
-        publishStatus={publishStatus}
-        onPublish={togglePublish}
-        onMenu={openNavigator}
-        onPagePill={openNavigator}
-        avatarInitial="A"
-      />,
-      chromeHost,
-    );
-  }
-
+  // --- rail / overlay renderers (the top bar is the chrome controller's) -----------------
   const brandPanel = (): ReturnType<typeof TokensPanel> | null => {
     if (tokens.length === 0) return null;
     return (
@@ -311,7 +278,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           tokens = next;
           themeStyle.textContent = css;
           onTokensChange?.(flat);
-          markDirty();
+          chrome.markDirty();
           renderRail();
         }}
       />
@@ -466,9 +433,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (overlay === "publish") {
       render(
         <PublishPopover
-          changes={changeset()}
+          changes={chrome.changeset()}
           lastDeploy="2d ago"
-          onPublish={() => void runPublish()}
+          onPublish={runPublish}
           onClose={closeOverlay}
         />,
         popoverHost,
@@ -478,24 +445,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     }
   }
 
-  // --- chrome actions --------------------------------------------------------------
-  function setBreakpoint(bp: BreakpointId): void {
-    breakpoint = bp;
-    document.documentElement.style.setProperty(
-      "--nocms-page-width",
-      BREAKPOINT_WIDTH[bp],
-    );
-    renderChrome();
-    // The page width animates; keep the selection overlay and toolbar pinned to the moving
-    // element for the duration of the transition.
-    trackOverlays(360);
-  }
+  // --- publish + reset (chrome state lives in the chrome controller) ----------------------
+  // The top-bar "Publish" opens this popover; its confirm runs the (stubbed) publish.
+  const togglePublish = (): void => {
+    overlay = overlay === "publish" ? null : "publish";
+    renderOverlays();
+  };
 
-  function toggleAppearance(): void {
-    appearance = appearance === "light" ? "dark" : "light";
-    surface.dataset.appearance = appearance;
-    renderChrome();
-  }
+  const runPublish = (): void => {
+    overlay = null;
+    renderOverlays();
+    chrome.beginPublish();
+  };
 
   async function resetEdits(): Promise<void> {
     if (initialTokensSrc !== undefined) {
@@ -503,35 +464,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       themeStyle.textContent = toCssVariables(tokens);
       onTokensChange?.(formatTokens(tokens));
     }
-    dirty = false;
-    publishStatus = "idle";
     await docs.commit(initialMdx, undefined);
-    dirty = false;
-    renderChrome();
+    chrome.reset();
     renderRail();
-  }
-
-  function togglePublish(): void {
-    if (publishStatus === "publishing") return;
-    overlay = overlay === "publish" ? null : "publish";
-    renderOverlays();
-  }
-
-  function changeset(): { kind: "edit" | "add"; label: string }[] {
-    if (!dirty) return [];
-    return [{ kind: "edit", label: "Unpublished edits on this page" }];
-  }
-
-  async function runPublish(): Promise<void> {
-    overlay = null;
-    renderOverlays();
-    publishStatus = "publishing";
-    renderChrome();
-    publishTimer = setTimeout(() => {
-      publishStatus = "published";
-      dirty = false;
-      renderChrome();
-    }, 1600);
   }
 
   const openCatalog = (): void => {
@@ -715,7 +650,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       onChange: (nodes: PhrasingContent[]) => {
         block.children = nodes;
         onChange?.(docs.serialize());
-        markDirty();
+        chrome.markDirty();
       },
     });
     handle.view.focus();
@@ -915,7 +850,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   window.addEventListener("resize", reposition);
   window.addEventListener("scroll", reposition, { passive: true });
 
-  renderChrome();
+  chrome.render();
   renderRail();
   renderOverlays();
 
@@ -929,7 +864,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     undo: () => docs.undo(),
     redo: () => docs.redo(),
     dispose() {
-      if (publishTimer) clearTimeout(publishTimer);
+      chrome.dispose();
       prose?.handle.destroy();
       prose = undefined;
       surface.removeEventListener("dblclick", handleActivate);
@@ -942,7 +877,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
       drag.endDrag();
       canvas.dispose();
-      render(null, chromeHost);
       render(null, railHost);
       render(null, toolbarHost);
       render(null, formatHost);
