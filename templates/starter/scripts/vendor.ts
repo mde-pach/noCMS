@@ -147,7 +147,10 @@ async function vendorStarterClient(bundle: {
           build.onLoad({ filter: /.*/, namespace: "tw-catalog" }, async () => {
             const tokens = readFileSync(join(starterDir, "theme.tokens"), "utf8");
             const catalog = await buildCatalog(tokens, starterDir);
-            return { contents: `export default ${JSON.stringify(catalog)};`, loader: "js" };
+            return {
+              contents: `export default ${JSON.stringify(catalog)};`,
+              loader: "js",
+            };
           });
         },
       },
