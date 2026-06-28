@@ -18,14 +18,10 @@ import {
   type SavedDef,
   savedDefToBlock,
 } from "@nocms/components";
-import {
-  mountProseEditor,
-  type ProseEditorHandle,
-  toggleProseMark,
-} from "@nocms/prose";
+import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
-import type { Nodes, Parent, PhrasingContent } from "mdast";
+import type { Nodes, Parent } from "mdast";
 import { render } from "preact";
 import {
   type CanvasHandle,
@@ -38,7 +34,6 @@ import type { BreakpointId } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
 import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
-import { FormatBar } from "./format-bar.js";
 import { readFrontmatter } from "./frontmatter.js";
 import {
   getProp,
@@ -59,7 +54,8 @@ import {
   nodeAtOffset,
 } from "./position.js";
 import { PropsPanel } from "./props-panel.js";
-import { isProseEditable, type ProseBlock } from "./prose-edit.js";
+import { createProseController } from "./prose-controller.js";
+import { isProseEditable } from "./prose-edit.js";
 import { PublishPopover } from "./publish.js";
 import { PageRail } from "./rail.js";
 import { SaveComponentDialog } from "./save-component.js";
@@ -229,8 +225,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   }
 
   let selectedPath: IndexPath | undefined;
-
-  let prose: { handle: ProseEditorHandle; el: Element; path: IndexPath } | undefined;
 
   // The top bar and its state (breakpoint, appearance, dirty, publish) — its own concern; the
   // shell only supplies the actions it can't own (reset, open navigator/publish, re-pin overlays).
@@ -566,7 +560,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     docs.move(selectedPath, direction);
 
   const handleInsert = async (manifest: ComponentManifest): Promise<void> => {
-    if (prose) await commitProse();
+    if (proseSession.isActive()) await proseSession.commit();
     overlay = null;
     renderOverlays();
     await docs.insertManifest(manifest, selectedPath);
@@ -574,7 +568,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   function renderToolbar(): void {
     const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
-    if (!node || !selectedPath || selectedPath.length === 0 || prose) {
+    if (
+      !node ||
+      !selectedPath ||
+      selectedPath.length === 0 ||
+      proseSession.isActive()
+    ) {
       render(null, toolbarHost);
       toolbarHost.style.display = "none";
       return;
@@ -612,7 +611,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   // --- hover affordance ------------------------------------------------------------
   const handleHover = (event: MouseEvent): void => {
-    if (prose || drag.isDragging()) {
+    if (proseSession.isActive() || drag.isDragging()) {
       overlays.clearHover();
       return;
     }
@@ -639,72 +638,18 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showHover(el ?? undefined, label);
   };
 
-  // --- prose in-place editing ------------------------------------------------------
-  const startProse = (block: ProseBlock, el: Element, path: IndexPath): void => {
-    canvas.highlight(undefined);
-    overlays.clearHover();
-    renderToolbar();
-    el.replaceChildren();
-    const handle = mountProseEditor(el, {
-      nodes: block.children,
-      onChange: (nodes: PhrasingContent[]) => {
-        block.children = nodes;
-        onChange?.(docs.serialize());
-        chrome.markDirty();
-      },
-    });
-    handle.view.focus();
-    prose = { handle, el, path };
-    showFormatBar(el);
-  };
-
-  // The format bar floats just above the text being edited; mark intents route through the
-  // same prose marks the keymap uses, so there is one editing model.
-  function showFormatBar(el: Element): void {
-    formatHost.style.top = `${Math.max(surfaceTop(el) - 42, 6)}px`;
-    formatHost.style.left = `${surfaceLeft(el)}px`;
-    formatHost.style.display = "block";
-    const view = () => prose?.handle.view;
-    render(
-      <FormatBar
-        onBold={() => {
-          const v = view();
-          if (v) toggleProseMark(v, "strong");
-        }}
-        onItalic={() => {
-          const v = view();
-          if (v) toggleProseMark(v, "em");
-        }}
-        onLink={() => {
-          const v = view();
-          const href = v ? window.prompt("Link URL") : null;
-          if (v && href) toggleProseMark(v, "link", { href });
-        }}
-      />,
-      formatHost,
-    );
-  }
-
-  function hideFormatBar(): void {
-    render(null, formatHost);
-    formatHost.style.display = "none";
-  }
-
-  const commitProse = async (): Promise<IndexPath | undefined> => {
-    if (!prose) return undefined;
-    const { handle, path } = prose;
-    prose = undefined;
-    handle.destroy();
-    hideFormatBar();
-    return docs.pushApply(path);
-  };
-
   // The block's name tag, anchored just above the selection's top-left so it labels the
   // selection without ever overlapping the content inside it.
   function renderSelectionLabel(): void {
     const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
     const el = selectedPath ? elementAtPath(selectedPath) : null;
-    if (!node || !selectedPath || selectedPath.length === 0 || prose || !el) {
+    if (
+      !node ||
+      !selectedPath ||
+      selectedPath.length === 0 ||
+      proseSession.isActive() ||
+      !el
+    ) {
       overlays.showSelectionLabel(undefined, undefined);
       return;
     }
@@ -723,13 +668,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const handleSelect = async (
     selection: CanvasSelection | undefined,
   ): Promise<void> => {
-    if (prose) await commitProse();
+    if (proseSession.isActive()) await proseSession.commit();
     const node = selection ? selectableNode(selection.path) : undefined;
     select(node ? indexPathOf(selection?.path ?? [], node) : undefined);
   };
 
   const handleActivate = (event: Event): void => {
-    if (prose) return;
+    if (proseSession.isActive()) return;
     const el = event.target;
     if (!(el instanceof Element)) return;
     const offset = offsetFromElement(el);
@@ -744,13 +689,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       blockOffset === undefined
         ? null
         : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
-    if (blockEl) startProse(block, blockEl, indexPath);
+    if (blockEl) proseSession.start(block, blockEl, indexPath);
   };
 
   const handleKeydown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape" && prose) {
+    if (event.key === "Escape" && proseSession.isActive()) {
       event.preventDefault();
-      void commitProse().then(select);
+      void proseSession.commit().then(select);
     }
   };
 
@@ -772,7 +717,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       closeOverlay();
       return;
     }
-    if (prose) return;
+    if (proseSession.isActive()) return;
     if (event.altKey && event.key === "ArrowUp") {
       event.preventDefault();
       void moveSelected(-1);
@@ -795,7 +740,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     components: componentMap,
     data,
     onSelect: handleSelect,
-    suppressWhen: (el) => prose?.el.contains(el) ?? false,
+    suppressWhen: (el) => proseSession.containsEl(el),
   });
   surface.append(toolbarHost, formatHost);
 
@@ -813,6 +758,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     },
   });
 
+  // In-place text editing; `onStart` hides the selection toolbar while a session is open.
+  const proseSession = createProseController({
+    formatHost,
+    overlays,
+    canvas,
+    docs,
+    onChange,
+    markDirty: () => chrome.markDirty(),
+    onStart: () => renderToolbar(),
+  });
+
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
   surface.addEventListener("mousemove", handleHover);
@@ -827,8 +783,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // re-pins them all; a ResizeObserver on the surface catches reflow the scroll/resize listeners
   // miss (this is what kept the selection box drifting off its block before).
   const reposition = (): void => {
-    if (prose) {
-      showFormatBar(prose.el);
+    if (proseSession.isActive()) {
+      proseSession.reposition();
       return;
     }
     canvas.highlight(selectedPath);
@@ -859,14 +815,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   requestAnimationFrame(() => document.documentElement.classList.add("nocms-editing"));
 
   return {
-    proseView: () => prose?.handle.view,
+    proseView: () => proseSession.view(),
     selection: () => selectedPath,
     undo: () => docs.undo(),
     redo: () => docs.redo(),
     dispose() {
       chrome.dispose();
-      prose?.handle.destroy();
-      prose = undefined;
+      proseSession.dispose();
       surface.removeEventListener("dblclick", handleActivate);
       surface.removeEventListener("keydown", handleKeydown);
       surface.removeEventListener("mousemove", handleHover);
