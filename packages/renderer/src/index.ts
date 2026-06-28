@@ -42,6 +42,12 @@ export async function renderToHtml(input: RenderInput): Promise<string> {
   return renderToStaticHtml(await renderToVNode(input));
 }
 
+export {
+  type Anchor,
+  type AnchorInput,
+  probeContentAnchors,
+  sentinelFor,
+} from "./content-anchors.js";
 export { renderEditableToVNode } from "./editable.js";
 
 export {
