@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { linkField } from "./shared";
 
@@ -27,7 +28,10 @@ export const NavbarSchema = v.object({
   sticky: v.optional(v.boolean(), true),
 });
 
-export type NavbarProps = v.InferInput<typeof NavbarSchema>;
+export type NavbarProps = v.InferInput<typeof NavbarSchema> & {
+  class?: string;
+  className?: string;
+};
 
 // The site header: a wordmark, a row of links, and an optional call-to-action. A normal curated
 // component — schema-driven controls, overridable by a site pack, insertable from the catalog —
@@ -40,68 +44,34 @@ export function Navbar({
   ctaLabel,
   ctaHref = "#",
   sticky = true,
+  class: cls,
+  className,
 }: NavbarProps) {
   return (
     <header
-      class="navbar"
-      style={{
-        position: sticky ? "sticky" : "static",
-        top: 0,
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "var(--space-md)",
-        padding: "var(--space-sm) var(--space-md)",
-        borderBottom:
-          "1px solid color-mix(in srgb, var(--color-text) 10%, transparent)",
-        background: "color-mix(in srgb, var(--color-bg) 86%, transparent)",
-        backdropFilter: "blur(8px)",
-      }}
+      class={cx(
+        sticky ? "sticky" : "static",
+        "top-0 z-10 flex items-center justify-between gap-md py-sm px-md border-b border-b-text/10 bg-bg/86 backdrop-blur-[8px]",
+        className,
+        cls,
+      )}
     >
       <a
         href="/"
-        style={{
-          display: "inline-flex",
-          alignItems: "baseline",
-          gap: "0.4rem",
-          textDecoration: "none",
-          color: "var(--color-text)",
-        }}
+        class="inline-flex items-baseline gap-[0.4rem] no-underline text-text"
       >
-        <span
-          style={{
-            fontFamily: "var(--font-heading)",
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-          }}
-        >
+        <span class="font-heading text-[1.4rem] font-semibold tracking-[-0.02em]">
           {brand}
-          <span style={{ color: "var(--color-brand-500)" }}>{brandMark}</span>
+          <span class="text-brand-500">{brandMark}</span>
         </span>
-        {tagline ? (
-          <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>{tagline}</span>
-        ) : null}
+        {tagline ? <span class="text-[0.75rem] opacity-60">{tagline}</span> : null}
       </a>
-      <nav
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "var(--space-md)",
-          flexWrap: "wrap",
-        }}
-      >
+      <nav class="flex items-center gap-md flex-wrap">
         {links.map((link) => (
           <a
             key={link.href}
             href={link.href}
-            style={{
-              fontSize: "0.9rem",
-              textDecoration: "none",
-              color: "var(--color-text)",
-              opacity: 0.75,
-            }}
+            class="text-[0.9rem] no-underline text-text opacity-75"
           >
             {link.label}
           </a>

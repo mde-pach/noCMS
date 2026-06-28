@@ -6,5 +6,8 @@ export declare const InputSchema: v.ObjectSchema<{
     readonly placeholder: v.OptionalSchema<v.StringSchema<undefined>, undefined>;
     readonly required: v.OptionalSchema<v.BooleanSchema<undefined>, false>;
 }, undefined>;
-export type InputProps = v.InferInput<typeof InputSchema>;
-export declare function Input({ name, label, type, placeholder, required, }: InputProps): import("preact").JSX.Element;
+export type InputProps = v.InferInput<typeof InputSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Input({ name, label, type, placeholder, required, class: cls, className, }: InputProps): import("preact").JSX.Element;

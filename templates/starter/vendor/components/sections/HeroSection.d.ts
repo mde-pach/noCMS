@@ -24,5 +24,8 @@ export declare const HeroSectionSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type HeroSectionProps = v.InferInput<typeof HeroSectionSchema>;
-export declare function HeroSection({ eyebrow, title, subtitle, primaryLabel, primaryHref, secondaryLabel, secondaryHref, image, imageAlt, layout, background, }: HeroSectionProps): import("preact").JSX.Element;
+export type HeroSectionProps = v.InferInput<typeof HeroSectionSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function HeroSection({ eyebrow, title, subtitle, primaryLabel, primaryHref, secondaryLabel, secondaryHref, image, imageAlt, layout, background, class: cls, className, }: HeroSectionProps): import("preact").JSX.Element;

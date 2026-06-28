@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
 import {
@@ -28,7 +29,10 @@ export const CTASchema = v.object({
   background: surfaceField("brand"),
 });
 
-export type CTAProps = v.InferInput<typeof CTASchema>;
+export type CTAProps = v.InferInput<typeof CTASchema> & {
+  class?: string;
+  className?: string;
+};
 
 export function CTA({
   title = SEED.title,
@@ -39,24 +43,14 @@ export function CTA({
   secondaryHref = "#",
   layout = "banner",
   background = "brand",
+  class: cls,
+  className,
 }: CTAProps) {
   const inner = (
-    <div style={{ textAlign: "center", display: "grid", gap: "var(--space-md)" }}>
-      {title ? (
-        <h2 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>{title}</h2>
-      ) : null}
-      {body ? (
-        <p style={{ margin: "0 auto", maxWidth: "38rem", color: mutedInk }}>{body}</p>
-      ) : null}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--space-sm)",
-          justifyContent: "center",
-          marginTop: "var(--space-sm)",
-        }}
-      >
+    <div class="text-center grid gap-md">
+      {title ? <h2 class="m-0 font-heading">{title}</h2> : null}
+      {body ? <p class={cx("mx-auto my-0 max-w-[38rem]", mutedInk)}>{body}</p> : null}
+      <div class="flex flex-wrap gap-sm justify-center mt-sm">
         {primaryLabel ? (
           <Button label={primaryLabel} href={primaryHref} variant="primary" />
         ) : null}
@@ -69,16 +63,14 @@ export function CTA({
 
   if (layout === "boxed") {
     return (
-      <Band background="page">
+      <Band background="page" class={cls} className={className}>
         <Container width="normal">
           <div
-            style={{
-              padding: "var(--space-xl)",
-              borderRadius: "var(--radius-md)",
-              border: hairline,
-              background:
-                "color-mix(in srgb, var(--color-brand-500) 7%, var(--color-bg))",
-            }}
+            class={cx(
+              "p-xl rounded-md",
+              hairline,
+              "bg-[color-mix(in_srgb,var(--color-brand-500)_7%,var(--color-bg))]",
+            )}
           >
             {inner}
           </div>
@@ -88,7 +80,7 @@ export function CTA({
   }
 
   return (
-    <Band background={background}>
+    <Band background={background} class={cls} className={className}>
       <Container width="normal">{inner}</Container>
     </Band>
   );

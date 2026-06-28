@@ -1,7 +1,8 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
-import { hairline, mutedInk, surfaceField, surfaceFor } from "./shared";
+import { hairlineTop, mutedInk, surfaceBg, surfaceField } from "./shared";
 
 const FooterLink = v.object({
   label: v.string(),
@@ -45,7 +46,10 @@ export const FooterSchema = v.object({
   background: surfaceField("subtle"),
 });
 
-export type FooterProps = v.InferInput<typeof FooterSchema>;
+export type FooterProps = v.InferInput<typeof FooterSchema> & {
+  class?: string;
+  className?: string;
+};
 
 export function Footer({
   siteName = "noCMS",
@@ -53,53 +57,25 @@ export function Footer({
   columns = SEED_COLUMNS,
   copyright = "© noCMS. MIT licensed.",
   background = "subtle",
+  class: cls,
+  className,
 }: FooterProps) {
   return (
-    <footer
-      class="footer"
-      style={{
-        background: surfaceFor[background],
-        color: "var(--color-text)",
-        paddingBlock: "var(--space-xl)",
-      }}
-    >
+    <footer class={cx(surfaceBg[background], "text-text py-xl", className, cls)}>
       <Container width="wide">
-        <div
-          style={{
-            display: "grid",
-            gap: "var(--space-lg)",
-            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 14rem), 1fr))",
-          }}
-        >
+        <div class="grid gap-lg grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))]">
           <div>
-            <strong style={{ fontFamily: "var(--font-heading)", fontSize: "1.2rem" }}>
-              {siteName}
-            </strong>
-            {tagline ? (
-              <p style={{ margin: "var(--space-sm) 0 0", color: mutedInk }}>
-                {tagline}
-              </p>
-            ) : null}
+            <strong class="font-heading text-[1.2rem]">{siteName}</strong>
+            {tagline ? <p class={cx("m-0 mt-sm", mutedInk)}>{tagline}</p> : null}
           </div>
           <Grid columns={Math.max(1, columns.length)} gap="md">
             {columns.map((column) => (
               <nav key={column.heading} aria-label={column.heading}>
-                <div style={{ fontWeight: 600, marginBottom: "var(--space-sm)" }}>
-                  {column.heading}
-                </div>
-                <ul
-                  style={{
-                    listStyle: "none",
-                    margin: 0,
-                    padding: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "var(--space-sm)",
-                  }}
-                >
+                <div class="font-semibold mb-sm">{column.heading}</div>
+                <ul class="list-none m-0 p-0 flex flex-col gap-sm">
                   {column.links?.map((link) => (
                     <li key={link.label}>
-                      <a href={link.href} style={{ color: mutedInk }}>
+                      <a href={link.href} class={mutedInk}>
                         {link.label}
                       </a>
                     </li>
@@ -110,15 +86,7 @@ export function Footer({
           </Grid>
         </div>
         {copyright ? (
-          <p
-            style={{
-              marginTop: "var(--space-lg)",
-              paddingTop: "var(--space-md)",
-              borderTop: hairline,
-              color: mutedInk,
-              fontSize: "0.9rem",
-            }}
-          >
+          <p class={cx("mt-lg pt-md text-[0.9rem]", hairlineTop, mutedInk)}>
             {copyright}
           </p>
         ) : null}

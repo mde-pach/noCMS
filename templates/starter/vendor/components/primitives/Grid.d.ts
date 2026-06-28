@@ -8,5 +8,7 @@ export declare const GridSchema: v.ObjectSchema<{
 }, undefined>;
 export type GridProps = v.InferInput<typeof GridSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Grid({ columns, gap, children }: GridProps): import("preact").JSX.Element;
+export declare function Grid({ columns, gap, children, class: cls, className, }: GridProps): import("preact").JSX.Element;

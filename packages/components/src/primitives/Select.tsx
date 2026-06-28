@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const SelectSchema = v.object({
   name: v.string(),
@@ -8,26 +9,31 @@ export const SelectSchema = v.object({
   required: v.optional(v.boolean(), false),
 });
 
-export type SelectProps = v.InferInput<typeof SelectSchema>;
+export type SelectProps = v.InferInput<typeof SelectSchema> & {
+  class?: string;
+  className?: string;
+};
 
-const FIELD = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-sm)",
-} as const;
+const FIELD = "flex flex-col gap-sm";
 
 // Options come from a comma-separated string so they're editable through a plain text control
 // (props-discovery has no list control).
-export function Select({ name, label, options, required = false }: SelectProps) {
+export function Select({
+  name,
+  label,
+  options,
+  required = false,
+  class: cls,
+  className,
+}: SelectProps) {
   const items = options
     .split(",")
     .map((option) => option.trim())
     .filter(Boolean);
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is the nested select.
-    <label class="field" style={FIELD}>
-      {label ? <span class="field-label">{label}</span> : null}
-      <select class="field-input" name={name} required={required}>
+    <label class={cx(FIELD, className, cls)}>
+      {label ? <span>{label}</span> : null}
+      <select name={name} required={required}>
         {items.map((option) => (
           <option key={option} value={option}>
             {option}

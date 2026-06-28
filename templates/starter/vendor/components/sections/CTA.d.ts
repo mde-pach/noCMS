@@ -19,5 +19,8 @@ export declare const CTASchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type CTAProps = v.InferInput<typeof CTASchema>;
-export declare function CTA({ title, body, primaryLabel, primaryHref, secondaryLabel, secondaryHref, layout, background, }: CTAProps): import("preact").JSX.Element;
+export type CTAProps = v.InferInput<typeof CTASchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function CTA({ title, body, primaryLabel, primaryHref, secondaryLabel, secondaryHref, layout, background, class: cls, className, }: CTAProps): import("preact").JSX.Element;

@@ -6,5 +6,7 @@ export declare const StackSchema: v.ObjectSchema<{
 }, undefined>;
 export type StackProps = v.InferInput<typeof StackSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Stack({ gap, align, children }: StackProps): import("preact").JSX.Element;
+export declare function Stack({ gap, align, children, class: cls, className, }: StackProps): import("preact").JSX.Element;

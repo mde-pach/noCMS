@@ -6,5 +6,7 @@ export declare const HeroSchema: v.ObjectSchema<{
 }, undefined>;
 export type HeroProps = v.InferInput<typeof HeroSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Hero({ title, subtitle, children }: HeroProps): import("preact").JSX.Element;
+export declare function Hero({ title, subtitle, children, class: cls, className }: HeroProps): import("preact").JSX.Element;

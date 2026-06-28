@@ -5,5 +5,7 @@ export declare const BadgeSchema: v.ObjectSchema<{
 }, undefined>;
 export type BadgeProps = v.InferInput<typeof BadgeSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Badge({ variant, children }: BadgeProps): import("preact").JSX.Element;
+export declare function Badge({ variant, children, class: cls, className, }: BadgeProps): import("preact").JSX.Element;

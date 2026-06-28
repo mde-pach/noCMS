@@ -22,5 +22,8 @@ export declare const FooterSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type FooterProps = v.InferInput<typeof FooterSchema>;
-export declare function Footer({ siteName, tagline, columns, copyright, background, }: FooterProps): import("preact").JSX.Element;
+export type FooterProps = v.InferInput<typeof FooterSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Footer({ siteName, tagline, columns, copyright, background, class: cls, className, }: FooterProps): import("preact").JSX.Element;

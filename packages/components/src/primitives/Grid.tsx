@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const GridSchema = v.object({
   columns: v.optional(
@@ -11,18 +12,19 @@ export const GridSchema = v.object({
 
 export type GridProps = v.InferInput<typeof GridSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-export function Grid({ columns = 2, gap = "md", children }: GridProps) {
+export function Grid({
+  columns = 2,
+  gap = "md",
+  children,
+  class: cls,
+  className,
+}: GridProps) {
   return (
-    <div
-      class="grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        gap: `var(--space-${gap})`,
-      }}
-    >
+    <div class={cx("grid", `grid-cols-${columns}`, `gap-${gap}`, className, cls)}>
       {children}
     </div>
   );

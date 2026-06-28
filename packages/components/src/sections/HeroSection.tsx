@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
 import { Image } from "../primitives/Image";
@@ -35,7 +36,10 @@ export const HeroSectionSchema = v.object({
   background: surfaceField("page"),
 });
 
-export type HeroSectionProps = v.InferInput<typeof HeroSectionSchema>;
+export type HeroSectionProps = v.InferInput<typeof HeroSectionSchema> & {
+  class?: string;
+  className?: string;
+};
 
 export function HeroSection({
   eyebrow,
@@ -49,38 +53,28 @@ export function HeroSection({
   imageAlt = "",
   layout = "center",
   background = "page",
+  class: cls,
+  className,
 }: HeroSectionProps) {
   const surface: SurfaceRole = background;
   const centered = layout === "center";
   const copy = (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "var(--space-md)",
-        alignItems: centered ? "center" : "flex-start",
-        textAlign: centered ? "center" : "left",
-        maxWidth: layout === "split" ? "none" : "44rem",
-        marginInline: centered ? "auto" : undefined,
-      }}
+      class={cx(
+        "flex flex-col gap-md",
+        centered ? "items-center text-center" : "items-start text-left",
+        layout === "split" ? "max-w-none" : "max-w-[44rem]",
+        centered && "mx-auto",
+      )}
     >
-      {eyebrow ? (
-        <span style={{ color: "var(--color-brand-600)", fontWeight: 600 }}>
-          {eyebrow}
-        </span>
-      ) : null}
-      <h1 style={{ margin: 0, fontFamily: "var(--font-heading)" }}>{title}</h1>
-      {subtitle ? (
-        <p style={{ margin: 0, color: mutedInk, fontSize: "1.15rem" }}>{subtitle}</p>
-      ) : null}
+      {eyebrow ? <span class="text-brand-600 font-semibold">{eyebrow}</span> : null}
+      <h1 class="m-0 font-heading">{title}</h1>
+      {subtitle ? <p class={cx("m-0 text-[1.15rem]", mutedInk)}>{subtitle}</p> : null}
       <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--space-sm)",
-          marginTop: "var(--space-sm)",
-          justifyContent: centered ? "center" : "flex-start",
-        }}
+        class={cx(
+          "flex flex-wrap gap-sm mt-sm",
+          centered ? "justify-center" : "justify-start",
+        )}
       >
         {primaryLabel ? (
           <Button label={primaryLabel} href={primaryHref} variant="primary" />
@@ -93,18 +87,10 @@ export function HeroSection({
   );
 
   return (
-    <Band background={surface} size="lg">
+    <Band background={surface} size="lg" class={cls} className={className}>
       <Container width="wide">
         {layout === "split" && image ? (
-          <div
-            class="hero-split"
-            style={{
-              display: "grid",
-              gap: "var(--space-xl)",
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 22rem), 1fr))",
-              alignItems: "center",
-            }}
-          >
+          <div class="grid gap-xl grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] items-center">
             {copy}
             <Image src={image} alt={imageAlt} rounded />
           </div>
@@ -112,7 +98,7 @@ export function HeroSection({
           <>
             {copy}
             {image ? (
-              <div style={{ marginTop: "var(--space-lg)" }}>
+              <div class="mt-lg">
                 <Image src={image} alt={imageAlt} rounded />
               </div>
             ) : null}

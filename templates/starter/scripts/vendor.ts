@@ -5,10 +5,11 @@
 // In a fork the monorepo sources are absent, so this is a no-op; in the monorepo it regenerates
 // the bundles, so `predev`/`prebuild` run it and a contributor's package edits reach the starter.
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildCatalog } from "../vite-plugin-tw-catalog";
 
 interface VendoredPackage {
   name: string;
@@ -130,6 +131,23 @@ async function vendorStarterClient(bundle: {
             const name = args.path.slice("@nocms/".length);
             const src = join(packagesDir, name, "src", "index.ts");
             return existsSync(src) ? { path: src } : undefined;
+          });
+        },
+      },
+      {
+        // The editor's Style panel imports `virtual:tw-catalog` (a Vite virtual module in dev). For
+        // the published bundle there is no Vite, so embed the generated catalog directly — same
+        // engine introspection, run once at vendor time off the site's real theme.
+        name: "tw-catalog",
+        setup(build) {
+          build.onResolve({ filter: /^virtual:tw-catalog$/ }, () => ({
+            path: "tw-catalog",
+            namespace: "tw-catalog",
+          }));
+          build.onLoad({ filter: /.*/, namespace: "tw-catalog" }, async () => {
+            const tokens = readFileSync(join(starterDir, "theme.tokens"), "utf8");
+            const catalog = await buildCatalog(tokens, starterDir);
+            return { contents: `export default ${JSON.stringify(catalog)};`, loader: "js" };
           });
         },
       },

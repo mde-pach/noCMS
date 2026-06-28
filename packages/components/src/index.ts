@@ -194,6 +194,7 @@ export const core: ComponentPack = definePack({
 
 export const registry: ComponentRegistry = createRegistry(core);
 
+export { cx } from "./cx";
 export {
   type BlockDef,
   block,

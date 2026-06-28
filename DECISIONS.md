@@ -1175,52 +1175,47 @@ missing *UX layer* — how a non-developer actually sets layout up. Full detail 
   reference before removing the source — a source preceding the destination under a shared ancestor
   was silently shifting the destination's index.
 
-### D23 — Adopt Tailwind v4 as the styling engine + per-element class-derived controls → **RESOLVED (direction; build pending).**
-Replaces the hand-rolled inline-`style`-object styling with Tailwind v4 as the production-grade,
-widely-adopted styling system, and makes **per-element editing of Tailwind utilities the primary
-editor affordance** (the original goal), with Tailwind-as-engine the enabling substrate. Reframes
-the styling approach under invariant #1 and amends invariant #5; extends D9.
+### D23 — Adopt Tailwind v4 as the styling engine + an editor Style panel → **RESOLVED (building).**
+Replaces hand-rolled inline-`style`-object styling with Tailwind v4 as the production-grade styling
+system, and adds an in-editor **Style** panel whose controls are *features driven by utilities*, not
+utilities themselves. Amends invariant #5; reframes #1's "one renderer, two moments" to carry a
+Tailwind CSS step; holds #3 (runtime CSS-var theming) via `@theme inline`. Proven first in the POC
+under `templates/starter/src/poc/` (validated in-browser end to end).
 
-- **Why this is viable on v4 specifically (it was not on v3).** v4's `@theme` directive *generates
-  CSS custom properties* (`--color-primary`, spacing scale, …) and every utility resolves to
-  `var(--…)`. So token theming stays a **CSS-variable swap with no rebuild** (#3), and the flat
-  token file stays canonical — it **generates the `@theme` block** the same way it already generates
-  DTCG (#5 amended: tokens → DTCG **and** `@theme`, never the reverse). Roles/ramps become theme
-  keys: `color.primary` → `--color-primary` → `bg-primary`; "edit one role, everything rebinds"
-  survives. Verified against Tailwind v4 docs (`@theme` → CSS vars; `@tailwindcss/browser@4` JIT).
+- **Why v4 specifically.** `@theme` *generates CSS custom properties* and every utility resolves to a
+  `var(--…)`. So the flat token file stays canonical and **generates the `@theme`** the way it already
+  generates DTCG (#5 amended: tokens → DTCG **and** `@theme`, never the reverse). `@theme inline` with
+  a `var(--…)` value makes a generated utility point at the token's *runtime* variable (the one
+  `toCssVariables` emits) — so a token edit stays a CSS-variable swap, no Tailwind recompile (#3).
 
-- **Two engines, one config — the load-bearing constraint.** The editor previews with the in-browser
-  JIT engine (`@tailwindcss/browser@4`, explicitly dev-only); publish runs the Tailwind CLI in the
-  Action (tier ②/③) emitting a static stylesheet. *Preview = publish* (#1) now depends on both being
-  **version-pinned and fed the same generated `@theme`**. Guard it with: lockfile pin, a single
-  token→`@theme` generator shared by both moments, and a parity test diffing editor-CSS vs build-CSS
-  for a fixture page. This is the property that silently breaks the core guarantee if it drifts.
+- **Two engines, one config — the load-bearing constraint.** Preview uses `@tailwindcss/browser`
+  (in-page JIT); publish uses the CLI / `@tailwindcss/node` in the Action. *Preview = publish* (#1)
+  depends on both being version-pinned and fed the same generated `@theme`; guard with a parity test.
 
-- **Scope: A + B, with B the goal.** **A** — curated components use utilities instead of inline-style
-  objects (ecosystem leverage, contributor familiarity, static cached published CSS). **B** — the
-  editor edits an element's utility classes directly via structured controls (pick a spacing step, a
-  color role, a radius), reading the class string off the rendered tree and writing it back. B is the
-  point; A is what makes B sit on a real system instead of a bespoke one.
+- **Controls = features, not classes (the editor model).** A control is a *generator* over Tailwind's
+  grammar (`[breakpoint:][state:]property-value[-shade][/opacity]`), not a list of classes. The full
+  surface is enumerated from the engine's design system (`__unstable__loadDesignSystem().getClassList()`
+  / `parseCandidate` / `candidatesToCss`) and reshaped into compact, factorized **capability panels**
+  (Color with a target, Spacing as a side picker + amount, …) with relevant-by-element defaults and a
+  complete search for the tail. Coverage is the engine's; the user never sees a class name. Amounts
+  expose named token steps (sm/md/lg/xl), ordered by size. Off-the-shelf class parsers don't work:
+  they're v3-era or bake the default theme; the v4 engine is the only complete, theme-aware source.
 
-- **B extends D9, does not contradict it.** Schema-introspection stays the source for **component
-  prop** controls. Class-derived controls are a *different layer* — per-element **style overrides** on
-  the rendered DOM, not props. Constrain B to the token-backed scales (theme keys), not Tailwind's
-  open-ended grammar: surface arbitrary values (`p-[13px]`) and exotic variants as a raw escape hatch,
-  never as the primary control vocabulary, so the editor stays a design-system tool, not a CSS console.
-
-- **Leverage, don't hand-write the parser.** Class↔structure round-tripping has existing libraries —
-  e.g. `@xengine/tailwindcss-class-parser` (class→AST→class), `@toddledev/tailwind-parser`,
-  `tailwindcss-parser`. **Onlook** (Apache-2.0) is the closest whole-feature prior art — a visual
-  editor that reads/writes Tailwind classes on elements — to study for approach (it's a whole app,
-  not a library to import). Any dependency must be permissive OSS (MIT/Apache-2.0/BSD-class); MIT is
-  not required. Vet a chosen lib's license + v4 support before adopting.
-
-- **Migration & risk surface (build pending).** Rewrite the ~20 curated components to utilities; keep
-  the sandbox render-proxy's static HTML templates and plugin-contributed class strings **scannable at
-  publish** (safelist or scan rendered output) — a sandboxed plugin emitting a novel utility at runtime
-  is the one spot where "browser engine renders it, publish scanner missed it" can break #1. Sequencing:
-  ① token→`@theme` generator + two-engine wiring + parity test; ② migrate curated components to
-  utilities; ③ per-element class inspector (B) over the parser lib; ④ plugin/sandbox scan hardening.
+- **Build sequence (slice = one committed, gate-clean change). All DONE.**
+  ① `toTailwindTheme` in `@nocms/tokens` (generated `@theme inline`).
+  ② `@nocms/build`: a Tailwind CSS step post-prerender (`tailwindCss()` scans the prerendered HTML →
+     compiles via `@tailwindcss/node`), appended to the inlined `<style>` in `prerender.document()`.
+  ③ Preview: `ensureTailwindPreview` injects `@tailwindcss/browser` + the generated `@theme` in the
+     starter reader and the editor entry.
+  ④ Migrated all 26 `@nocms/components` from inline-style objects to token-bound utilities, forwarding
+     `class`/`className` via `cx()`. Hover/focus → Tailwind variants; styles.css base in `@layer base`
+     so utilities outrank bare element defaults.
+  ⑤ Editor Style panel: a generic `renderStyleSection` seam on `mountEditor` (the editor stays
+     styling-agnostic — invariant #2); the starter supplies the capability panel, editing the selected
+     element's `class` via `setProp`. `vendor.ts` embeds the catalog for the published bundle.
+  ⑥ Parity guard: `@nocms/build` test asserts the publish engine emits a rule for every utility *shape*
+     the components produce (a dropped class is how the two moments diverge); the live cross-engine
+     check runs in the editor Playwright sweep.
 
 ### D24 — Array-prop items are first-class canvas objects (select + drag a card) → **RESOLVED.**
 A component that maps an object-array prop to repeated UI (Pricing `tiers`, Features `items`, Navbar

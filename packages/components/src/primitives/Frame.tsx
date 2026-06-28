@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 // The auto-layout container (D22): one block that arranges its children as a row, a column,
 // or a grid — Figma's auto-layout model, not raw CSS. Every prop is a flat scalar so it
@@ -46,15 +47,22 @@ export const FrameSchema = v.object({
 
 export type FrameProps = v.InferInput<typeof FrameSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-const SPACE = {
-  none: "0",
-  sm: "var(--space-sm)",
-  md: "var(--space-md)",
-  lg: "var(--space-lg)",
+const GAP = { sm: "gap-sm", md: "gap-md", lg: "gap-lg" } as const;
+const PAD = { none: "p-0", sm: "p-sm", md: "p-md", lg: "p-lg" } as const;
+const ALIGN = {
+  start: "items-start",
+  center: "items-center",
+  end: "items-end",
 } as const;
-const POSITION = { start: "flex-start", center: "center", end: "flex-end" } as const;
+const JUSTIFY = {
+  start: "justify-start",
+  center: "justify-center",
+  end: "justify-end",
+} as const;
 
 export function Frame({
   direction = "column",
@@ -65,17 +73,20 @@ export function Frame({
   justify = "start",
   wrap = false,
   children,
+  class: cls,
+  className,
 }: FrameProps) {
-  const box = { gap: SPACE[gap], padding: SPACE[padding] };
   if (direction === "grid") {
     return (
       <div
-        class="frame frame-grid"
-        style={{
-          ...box,
-          display: "grid",
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        }}
+        class={cx(
+          "grid",
+          `grid-cols-${columns}`,
+          GAP[gap],
+          PAD[padding],
+          className,
+          cls,
+        )}
       >
         {children}
       </div>
@@ -83,15 +94,17 @@ export function Frame({
   }
   return (
     <div
-      class={`frame frame-${direction}`}
-      style={{
-        ...box,
-        display: "flex",
-        flexDirection: direction,
-        flexWrap: wrap ? "wrap" : "nowrap",
-        justifyContent: POSITION[justify],
-        alignItems: POSITION[align],
-      }}
+      class={cx(
+        "flex",
+        direction === "row" ? "flex-row" : "flex-col",
+        wrap ? "flex-wrap" : "flex-nowrap",
+        GAP[gap],
+        PAD[padding],
+        JUSTIFY[justify],
+        ALIGN[align],
+        className,
+        cls,
+      )}
     >
       {children}
     </div>

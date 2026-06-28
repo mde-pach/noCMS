@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const TextareaSchema = v.object({
   name: v.string(),
@@ -8,13 +9,12 @@ export const TextareaSchema = v.object({
   required: v.optional(v.boolean(), false),
 });
 
-export type TextareaProps = v.InferInput<typeof TextareaSchema>;
+export type TextareaProps = v.InferInput<typeof TextareaSchema> & {
+  class?: string;
+  className?: string;
+};
 
-const FIELD = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "var(--space-sm)",
-} as const;
+const FIELD = "flex flex-col gap-sm";
 
 export function Textarea({
   name,
@@ -22,18 +22,13 @@ export function Textarea({
   placeholder,
   rows = 4,
   required = false,
+  class: cls,
+  className,
 }: TextareaProps) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is the nested textarea.
-    <label class="field" style={FIELD}>
-      {label ? <span class="field-label">{label}</span> : null}
-      <textarea
-        class="field-input"
-        name={name}
-        placeholder={placeholder}
-        rows={rows}
-        required={required}
-      />
+    <label class={cx(FIELD, className, cls)}>
+      {label ? <span>{label}</span> : null}
+      <textarea name={name} placeholder={placeholder} rows={rows} required={required} />
     </label>
   );
 }

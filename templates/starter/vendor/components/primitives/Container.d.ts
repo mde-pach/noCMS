@@ -5,5 +5,7 @@ export declare const ContainerSchema: v.ObjectSchema<{
 }, undefined>;
 export type ContainerProps = v.InferInput<typeof ContainerSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Container({ width, children }: ContainerProps): import("preact").JSX.Element;
+export declare function Container({ width, children, class: cls, className, }: ContainerProps): import("preact").JSX.Element;

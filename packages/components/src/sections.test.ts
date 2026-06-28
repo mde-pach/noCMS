@@ -120,7 +120,7 @@ describe("sections render finished seed content with no props", () => {
   test("Stats prerenders its seed figures on the brand band", () => {
     const html = seed(Stats);
     expect(html).toContain("Monthly cost");
-    expect(html).toContain("var(--color-brand-500)");
+    expect(html).toContain("bg-brand-500"); // the brand band
   });
 
   test("CTA prerenders banner copy; boxed insets it on the page band", () => {

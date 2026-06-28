@@ -29,5 +29,8 @@ export declare const PricingSchema: v.ObjectSchema<{
         readonly control: "color";
     }>]>, "page" | "surface" | "subtle" | "brand">;
 }, undefined>;
-export type PricingProps = v.InferInput<typeof PricingSchema>;
-export declare function Pricing({ title, subtitle, tiers, background, }: PricingProps): import("preact").JSX.Element;
+export type PricingProps = v.InferInput<typeof PricingSchema> & {
+    class?: string;
+    className?: string;
+};
+export declare function Pricing({ title, subtitle, tiers, background, class: cls, className, }: PricingProps): import("preact").JSX.Element;

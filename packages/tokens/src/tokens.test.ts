@@ -12,7 +12,29 @@ import {
   TokenParseError,
   toCssVariables,
   toDtcg,
+  toTailwindTheme,
 } from "./index";
+
+describe("toTailwindTheme", () => {
+  it("maps token namespaces to Tailwind theme keys that point at the runtime vars", () => {
+    const tokens = parseTokens(
+      "color.primary: #2563eb\nspace.3: 1rem\ntext.lg: 1.25rem\nradius.md: 0.5rem",
+    );
+    const css = toTailwindTheme(tokens);
+    expect(css).toContain("@theme inline {");
+    expect(css).toContain("--color-primary: var(--color-primary);");
+    expect(css).toContain("--spacing-3: var(--space-3);"); // space → spacing
+    expect(css).toContain("--text-lg: var(--text-lg);");
+    expect(css).toContain("--radius-md: var(--radius-md);");
+  });
+
+  it("emits a theme key for every token in the default set", () => {
+    const css = toTailwindTheme(parseTokens(DEFAULT_TOKENS));
+    // every base token (no `@mode`/`@breakpoint` qualifier) yields one `var(--…)` declaration
+    const tokenCount = parseTokens(DEFAULT_TOKENS).length;
+    expect(css.match(/: var\(--/g)?.length).toBe(tokenCount);
+  });
+});
 
 describe("parseTokens", () => {
   it("parses name: value lines, skipping blanks and comments", () => {

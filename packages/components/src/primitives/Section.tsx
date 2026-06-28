@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
+import { cx } from "../cx";
 
 export const SectionSchema = v.object({
   tone: v.optional(v.picklist(["default", "muted", "accent"]), "default"),
@@ -8,20 +9,25 @@ export const SectionSchema = v.object({
 
 export type SectionProps = v.InferInput<typeof SectionSchema> & {
   children?: ComponentChildren;
+  class?: string;
+  className?: string;
 };
 
-const TONE_BG = {
-  default: "transparent",
-  muted: "color-mix(in srgb, var(--color-text) 4%, transparent)",
-  accent: "var(--color-brand-500)",
+const TONE = {
+  default: "bg-transparent",
+  muted: "bg-text/4",
+  accent: "bg-brand-500",
 } as const;
 
-export function Section({ tone = "default", padding = "lg", children }: SectionProps) {
+export function Section({
+  tone = "default",
+  padding = "lg",
+  children,
+  class: cls,
+  className,
+}: SectionProps) {
   return (
-    <section
-      class={`section section-${tone}`}
-      style={{ background: TONE_BG[tone], paddingBlock: `var(--space-${padding})` }}
-    >
+    <section class={cx(TONE[tone], `py-${padding}`, className, cls)}>
       {children}
     </section>
   );

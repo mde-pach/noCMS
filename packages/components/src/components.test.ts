@@ -41,7 +41,7 @@ describe("primitives", () => {
       h(Button, { label: "Go", href: "/x", variant: "secondary" }),
     );
     expect(html).toContain('href="/x"');
-    expect(html).toContain("btn-secondary");
+    expect(html).toContain("border-text/22"); // the secondary variant's outline
     expect(html).toContain("Go");
   });
 });
@@ -49,43 +49,41 @@ describe("primitives", () => {
 describe("layout primitives", () => {
   it("Container constrains width by variant", () => {
     const html = renderToString(h(Container, { width: "narrow", children: "x" }));
-    expect(html).toContain("container-narrow");
-    expect(html).toContain("40rem");
+    expect(html).toContain("max-w-[40rem]");
   });
 
   it("Section reflects tone and applies token padding", () => {
     const html = renderToString(
       h(Section, { tone: "muted", padding: "sm", children: "y" }),
     );
-    expect(html).toContain("section-muted");
-    expect(html).toContain("var(--space-sm)");
+    expect(html).toContain("bg-text/4"); // muted tone
+    expect(html).toContain("py-sm");
   });
 
   it("Grid renders the requested column count", () => {
     const html = renderToString(h(Grid, { columns: 3, children: "z" }));
-    expect(html).toContain("repeat(3");
+    expect(html).toContain("grid-cols-3");
   });
 
   it("Stack aligns its children", () => {
     const html = renderToString(h(Stack, { align: "center", children: "s" }));
-    expect(html).toContain("align-items:center");
+    expect(html).toContain("items-[center]");
   });
 
   it("Frame in row mode flows horizontally with the chosen alignment", () => {
     const html = renderToString(
       h(Frame, { direction: "row", align: "center", justify: "end", children: "f" }),
     );
-    expect(html).toContain("flex-direction:row");
-    expect(html).toContain("align-items:center");
-    expect(html).toContain("justify-content:flex-end");
+    expect(html).toContain("flex-row");
+    expect(html).toContain("items-center");
+    expect(html).toContain("justify-end");
   });
 
   it("Frame in grid mode lays children into columns", () => {
     const html = renderToString(
       h(Frame, { direction: "grid", columns: 4, children: "g" }),
     );
-    expect(html).toContain("display:grid");
-    expect(html).toContain("repeat(4");
+    expect(html).toContain("grid-cols-4");
   });
 });
 
@@ -101,7 +99,7 @@ describe("content & media primitives", () => {
 
   it("Card renders a div when no href is given", () => {
     const html = renderToString(h(Card, { children: "plain" }));
-    expect(html).toContain('class="card"');
+    expect(html).toContain("border-text/12"); // the card's outline
     expect(html).not.toContain("<a");
   });
 
@@ -117,7 +115,7 @@ describe("content & media primitives", () => {
   it("Divider renders a rule with token spacing", () => {
     const html = renderToString(h(Divider, { spacing: "lg" }));
     expect(html).toContain("<hr");
-    expect(html).toContain("var(--space-lg)");
+    expect(html).toContain("my-lg");
   });
 
   it("Badge reflects its variant", () => {

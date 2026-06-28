@@ -6,5 +6,7 @@ export declare const SectionSchema: v.ObjectSchema<{
 }, undefined>;
 export type SectionProps = v.InferInput<typeof SectionSchema> & {
     children?: ComponentChildren;
+    class?: string;
+    className?: string;
 };
-export declare function Section({ tone, padding, children }: SectionProps): import("preact").JSX.Element;
+export declare function Section({ tone, padding, children, class: cls, className, }: SectionProps): import("preact").JSX.Element;

@@ -3,8 +3,36 @@
 // `mountEditor` to layer editing chrome over what is already on screen — no reload, no route.
 
 import type { ComponentRegistry } from "@nocms/components";
-import { EDITOR_CSS, FONTS_HREF, mountEditor, SignInGate } from "@nocms/editor";
+import {
+  EDITOR_CSS,
+  FONTS_HREF,
+  mountEditor,
+  SignInGate,
+  type StyleSectionContext,
+} from "@nocms/editor";
 import { render } from "preact";
+import { CapabilityBrowser } from "./poc/capabilities";
+import { applyClass } from "./poc/catalog";
+import { ensureTailwindPreview } from "./tailwind-preview";
+
+// The site owns its styling system (invariant #2): the editor exposes the selected element's
+// `class`; this panel — the Tailwind catalog's capability controls — generates utility classes onto
+// it. Editing `class` re-renders the component (which forwards `className`), and the in-page Tailwind
+// engine compiles the result live.
+function StyleSection({ name, getClass, setClass }: StyleSectionContext) {
+  const className = getClass();
+  const variant = "";
+  return (
+    <CapabilityBrowser
+      tag={name}
+      className={className}
+      variant={variant}
+      onApply={(cls, featureId) =>
+        setClass(applyClass(className, cls, featureId, variant))
+      }
+    />
+  );
+}
 
 const SIGNED_IN_KEY = "nocms-dev-signed-in";
 const EDITOR_CSS_ID = "nocms-editor-css";
@@ -38,6 +66,7 @@ export interface EnterEditOptions {
 
 export async function enterEdit(options: EnterEditOptions): Promise<void> {
   ensureChrome();
+  void ensureTailwindPreview(options.tokens);
   if (sessionStorage.getItem(SIGNED_IN_KEY) !== "1") {
     await signIn();
     sessionStorage.setItem(SIGNED_IN_KEY, "1");
@@ -77,5 +106,6 @@ function start({ contentHost, mdx, tokens, registry }: EnterEditOptions): void {
     tokens,
     onChange: (next) => console.info("[nocms] content edited", next.length, "chars"),
     onTokensChange: () => console.info("[nocms] theme edited"),
+    renderStyleSection: (ctx) => <StyleSection {...ctx} />,
   });
 }
