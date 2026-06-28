@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>noCMS — content anchors spike</title>
+    <style>
+      body { margin: 0; font-family: var(--font-body, system-ui); }
+      .anchors-layout { display: grid; grid-template-columns: 1fr 340px; min-height: 100vh; }
+      #stage { overflow: auto; }
+      /* The hidden mechanism, made visible: every anchored content leaf. */
+      #stage [data-anchor-path] {
+        cursor: pointer;
+        outline: 1px dashed color-mix(in srgb, #4f6bed 45%, transparent);
+        outline-offset: 2px;
+        border-radius: 2px;
+        transition: background 120ms;
+      }
+      #stage [data-anchor-path]:hover { background: color-mix(in srgb, #4f6bed 12%, transparent); }
+      #stage [data-anchor-path].selected {
+        outline: 2px solid #4f6bed;
+        background: color-mix(in srgb, #4f6bed 16%, transparent);
+      }
+      #panel {
+        border-left: 1px solid #e3e3e8; padding: 20px; background: #fafafb;
+        font: 13px/1.5 "IBM Plex Sans", system-ui; position: sticky; top: 0; height: 100vh;
+        overflow: auto;
+      }
+      #panel h1 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #6b6b76; }
+      #panel .path { font-family: "IBM Plex Mono", monospace; color: #4f6bed; font-weight: 600; }
+      #panel label { display: block; margin: 14px 0 6px; color: #6b6b76; }
+      #panel textarea {
+        width: 100%; box-sizing: border-box; font: 13px "IBM Plex Mono", monospace;
+        padding: 8px; border: 1px solid #ccccd4; border-radius: 6px; resize: vertical;
+      }
+      #panel ul { list-style: none; padding: 0; margin: 14px 0 0; }
+      #panel li {
+        font-family: "IBM Plex Mono", monospace; font-size: 12px; padding: 4px 6px;
+        border-radius: 4px; cursor: pointer; color: #44444c;
+      }
+      #panel li:hover { background: #ededf2; }
+      #panel li.active { background: #4f6bed; color: white; }
+      #panel .hint { color: #9a9aa4; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="anchors-layout">
+      <main id="stage"></main>
+      <aside id="panel"></aside>
+    </div>
+    <script type="module" src="/src/anchors.tsx"></script>
+  </body>
+</html>
