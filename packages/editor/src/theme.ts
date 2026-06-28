@@ -1,18 +1,8 @@
-// The editor chrome stylesheet: one source of truth for the design tokens (colors,
-// type families, radii, shadows) and every chrome surface built from them. Scoped under
-// `.nocms-editor` so it never leaks into the rendered site on the canvas.
-//
-// Identity discipline (enforced here): the chrome wears a tool palette that is *deliberately
-// unlike any site brand* — graphite ink `--nc-ink` for primary actions (Publish, "Add a
-// section") and a teal `--nc-accent` for selection, focus, and active toggles. Neither is a
-// common website brand colour, so the editor never blends into the site it edits. Terracotta
-// `--nc-rust` is reserved for live-canvas site content and the brand-token swatches a user
-// picks from; it never styles chrome.
-//
-// Isolation: chrome can render inside the live page (the selection toolbar lives in the content
-// host; the sign-in gate sits on the body), so the site's own element rules (`a {color: brand}`,
-// heading fonts) would otherwise bleed in. The reset below pins every chrome surface to the tool
-// font and neutralises link colour, so the editor looks identical regardless of the site's CSS.
+// The chrome palette is a deliberately non-brand tool look (graphite `--nc-ink` for primary
+// actions, teal `--nc-accent` for selection) so the editor never blends into the site it edits.
+// The reset scoping every chrome surface to the tool font is load-bearing: chrome can render
+// inside the live page (the selection toolbar in the content host, the sign-in gate on the body),
+// so the site's own `a {color}`/heading rules would otherwise bleed in.
 
 export const FONTS_HREF =
   "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";
@@ -125,6 +115,27 @@ html.nocms-editing #app {
   background: var(--nc-surface); color: var(--nc-text); font-weight: 600;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
+.nc-seg-icon { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 6px; }
+.nc-seg-icon svg { color: var(--nc-text-2); }
+.nc-seg-icon[aria-pressed="true"] svg { color: var(--nc-accent); }
+.nc-seg-icon span { font-size: 11px; text-transform: capitalize; }
+
+/* alignment matrix: 9 cells, the active one shows the accent dot */
+.nc-align-matrix {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px;
+  width: 84px; aspect-ratio: 1; padding: 4px; border-radius: 9px;
+  background: var(--nc-field);
+}
+.nc-align-cell {
+  display: flex; align-items: center; justify-content: center; border: 0;
+  background: transparent; border-radius: 6px; cursor: pointer; padding: 0;
+  transition: background .1s;
+}
+.nc-align-cell:hover { background: rgba(0,0,0,0.04); }
+.nc-align-cell[aria-pressed="true"] { background: var(--nc-surface); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+.nc-align-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--nc-text-3); transition: background .1s, transform .1s; }
+.nc-align-cell:hover .nc-align-dot { background: var(--nc-text-2); }
+.nc-align-cell[aria-pressed="true"] .nc-align-dot { background: var(--nc-accent); transform: scale(1.5); }
 
 /* toggle */
 .nc-toggle {

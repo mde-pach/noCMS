@@ -1,9 +1,3 @@
-// The curated component library, declared as the `core` component pack and composed into
-// a registry by the editor and renderer. Every component declares a valibot props schema
-// (D9) so `deriveControls` produces its panel — one source, no drift. A site adds more with
-// `createRegistry(core, myPack)` — plugin packs contribute via the sandbox without editing
-// this package (D18).
-
 import {
   block,
   type ComponentPack,
@@ -18,6 +12,7 @@ import { Card, CardSchema } from "./primitives/Card";
 import { Container, ContainerSchema } from "./primitives/Container";
 import { Counter, CounterSchema } from "./primitives/Counter";
 import { Divider, DividerSchema } from "./primitives/Divider";
+import { Frame, FrameSchema } from "./primitives/Frame";
 import { Grid, GridSchema } from "./primitives/Grid";
 import { Hero, HeroSchema } from "./primitives/Hero";
 import { Image, ImageSchema } from "./primitives/Image";
@@ -42,7 +37,6 @@ import { Testimonials, TestimonialsSchema } from "./sections/Testimonials";
 
 const entry = block;
 
-/** The curated component library: the always-present `core` pack a site composes with. */
 export const core: ComponentPack = definePack({
   id: "core",
   name: "noCMS core",
@@ -65,6 +59,12 @@ export const core: ComponentPack = definePack({
       slots: ["children"],
       category: "Layout",
       description: "Centers and width-constrains its contents.",
+    }),
+    Frame: entry(Frame, {
+      schema: FrameSchema,
+      slots: ["children"],
+      category: "Layout",
+      description: "Auto-layout container: arrange children as a row, column, or grid.",
     }),
     Grid: entry(Grid, {
       schema: GridSchema,
@@ -144,8 +144,6 @@ export const core: ComponentPack = definePack({
       description: "Lists the most recent collection entries.",
     }),
 
-    // Page-role sections: finished compositions of primitives, seeded with real
-    // content, styled only through tokens, static unless interactive.
     Navbar: entry(Navbar, {
       schema: NavbarSchema,
       category: "Sections",
@@ -194,7 +192,6 @@ export const core: ComponentPack = definePack({
   },
 });
 
-/** The default registry: the core pack alone. Compose more with `createRegistry`. */
 export const registry: ComponentRegistry = createRegistry(core);
 
 export {
@@ -221,6 +218,7 @@ export {
 } from "./primitives/Container";
 export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
 export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
+export { Frame, type FrameProps, FrameSchema } from "./primitives/Frame";
 export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
 export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";

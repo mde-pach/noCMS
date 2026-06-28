@@ -1,8 +1,8 @@
-// The plugin security boundary (invariant #8). Plugin code runs in a sandboxed,
-// null-origin iframe and reaches the host only through a capability-scoped
-// postMessage broker over a transferred MessagePort. It never receives the
-// GitHub token, the host DOM, or — by default — the network. v1 is iframe-only;
-// QuickJS-in-WASM is a documented defense-in-depth escalation (DECISIONS.md D4).
+// The plugin security boundary: plugin code runs in a sandboxed, null-origin
+// iframe and reaches the host only through a capability-scoped postMessage
+// broker over a transferred MessagePort — never the GitHub token, the host DOM,
+// or (by default) the network. v1 is iframe-only; QuickJS-in-WASM is a possible
+// defense-in-depth escalation.
 
 import type { Capability, PluginManifest } from "@nocms/core";
 import { createBroker, type HostApi } from "./broker.js";
@@ -52,9 +52,7 @@ export interface LoadPluginOptions {
    * load regardless, but nothing receives it).
    */
   source?: string;
-  /** Where to attach the frame. Defaults to `document.body`. */
   mount?: HTMLElement;
-  /** Injected for testing; defaults to the ambient `document`. */
   document?: Document;
 }
 
@@ -86,7 +84,6 @@ export function loadPlugin(
   const channel = new MessageChannel();
   const detach = serveBroker(channel.port1, createBroker(host, granted));
 
-  // Hand the guest its end of the channel and its grant once the frame loads.
   const onLoad = () => {
     frame.contentWindow?.postMessage(
       { protocol: PROTOCOL, kind: "ready", capabilities: granted },

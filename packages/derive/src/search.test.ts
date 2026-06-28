@@ -97,7 +97,6 @@ describe("deriveAll → search.json", () => {
     const search = artifacts.find((a) => a.path === "search.json");
     expect(search).toBeDefined();
 
-    // The runtime path: fetch the JSON and reload with the shared options.
     const reloaded = MiniSearch.loadJSON<SearchDocument>(
       search?.contents ?? "",
       SEARCH_OPTIONS,

@@ -1,9 +1,5 @@
-// The in-site editor entry for a published static site — the deploy-time counterpart of the
-// Vite dev `?edit` flow. It is lazy-loaded only when `?edit` is present (the page's bootstrap
-// gates it), so readers never pay for this heavy bundle (it carries the MDX compiler + the
-// prose editor). It reads the page's own inlined MDX + tokens + schemas and mounts the editor
-// over the prerendered content. Editing is in-memory here — persisting to GitHub is a separate
-// seam (onChange/onTokensChange are where a save flow would attach).
+// Lazy-loaded only on `?edit`, so readers never pay for this heavy bundle (MDX compiler + prose
+// editor). Editing is in-memory; `onChange`/`onTokensChange` are where a GitHub save flow would attach.
 
 import { registry } from "@nocms/components";
 import { type EditorOptions, mountEditor } from "@nocms/editor";
@@ -21,8 +17,8 @@ export function run(): void {
   const root = document.getElementById("app");
   if (!dataEl?.textContent || !root) return;
 
-  // On a published page `#app` holds the prerendered content (and any hydrated islands); the
-  // dev `?edit` flow mounts into an empty `#app`. Clear it so the editor owns a clean root.
+  // On a published page `#app` holds prerendered content (and hydrated islands); clear it so the
+  // editor owns a clean root, matching the empty `#app` the dev `?edit` flow mounts into.
   root.replaceChildren();
 
   const data = JSON.parse(dataEl.textContent) as EditorData;

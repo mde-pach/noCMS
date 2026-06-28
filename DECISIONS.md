@@ -1121,3 +1121,41 @@ The editor is now a trustworthy, single-page view of the real page, not a separa
   file's raw text (the `@mdx-js/rollup` plugin strips the query and would otherwise compile it),
   so the dev editor edits the same source the reader renders. Published pages already inline the
   route MDX (`prerender.ts`), so this is dev-only. Retires the D2 dev shim for the home route.
+
+### D22 — Layout tools: the auto-layout model + a visual layout inspector → **RESOLVED (model; build pending).**
+D15 fixed *what the tree allows* (typed containers, slots, no free positioning). This adds the
+missing *UX layer* — how a non-developer actually sets layout up. Full detail in
+`docs/specs/layout-tools.md`. Refines `component-library`; reaffirms invariants #1, #3, #5, #10.
+
+- **The model is Figma auto-layout, not raw CSS.** We already rejected absolute positioning (D15);
+  the right ergonomic for the rest is the proven one: a container whose children flow under a small
+  set of constrained, token-bound rules. We expose *that*, never `flex`/`grid` directly.
+
+- **One Frame, three modes.** `Stack` and `Grid` collapse into one user-facing container, **Frame**,
+  with a `direction` mode — **row** / **column** / **grid**. One container, one inspector, one thing
+  to learn; switching direction switches behaviour. `Section` (semantic band) and `Container` (width)
+  stay. `Stack`/`Grid` remain valid block names that deserialize to Frame modes, so D15's tree and
+  existing content are untouched.
+
+- **A `control: "layout"` meta-type.** Layout props render as one *visual* group (direction · gap ·
+  padding · 3×3 align matrix · distribute · wrap · columns), not stacked sliders — a new control kind
+  the props panel renders specially. It is a renderer over schema-derived values (D9): no annotation
+  DSL, no second source. A plugin container that declares it gets the same inspector for free (#10).
+
+- **Per-child sizing is the Figma subset, not raw flex.** A selected child exposes `Fill` / `Hug` /
+  `Fixed` + `align-self` — and deliberately **not** `grow`/`shrink`/`basis`/`order`/`z-index`, which
+  invite broken, non-responsive layouts and read as a dev tool.
+
+- **Responsive is smart-by-default, override on demand.** Grid reflows automatically
+  (`auto-fit`/`minmax`), row `wrap`s; a single value is the norm. Per-breakpoint authoring is an
+  opt-in escape hatch ("override per screen"), serialized as the per-breakpoint shape the catalog
+  spec already names. No rebuild — token-bound values stay runtime CSS variables (#3).
+
+- **Drag-to-arrange sets order/membership; the inspector sets rules.** Dragging reorders within and
+  moves between slots, with drop targets constrained to legal slots (D15's typed-slot seam) — never a
+  free drop onto pixels. One renderer, one tree (#1): the inspector and DnD are host-side UI over the
+  existing canvas, committing as normal tree edits.
+
+- **Sequencing (build pending).** ① the `layout` inspector over today's Stack/Grid; ② Frame
+  unification + per-child Fill/Hug/Fixed; ③ smart responsive + per-breakpoint override; ④
+  drag-to-arrange. Each step is independently shippable on the existing schema→control→panel seam.

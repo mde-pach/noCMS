@@ -40,7 +40,6 @@ describe("savedBlockFromDefinition", () => {
     expect(controls.map((c) => c.key)).toEqual(["label", "href"]);
     expect(controls.find((c) => c.key === "label")?.default).toBe("Get started");
     expect(controls.find((c) => c.key === "href")?.default).toBe("/signup");
-    // The locked `variant` is gone from the panel.
     expect(controls.some((c) => c.key === "variant")).toBe(false);
   });
 
@@ -125,10 +124,10 @@ describe("composedBlockFromDefinition (compose + slots)", () => {
     const html = renderToString(
       h(def.component, { heading: "Welcome", cta: "Go" }, h("p", {}, "body text")),
     );
-    expect(html).toContain("Welcome"); // the exposed Card title
-    expect(html).toContain("Go"); // the exposed Button label
-    expect(html).toContain("btn-primary"); // the baked variant
-    expect(html).toContain("body text"); // the instance's children, via the slot
+    expect(html).toContain("Welcome");
+    expect(html).toContain("Go");
+    expect(html).toContain("btn-primary");
+    expect(html).toContain("body text");
     expect(html).toContain("card");
   });
 
@@ -137,7 +136,6 @@ describe("composedBlockFromDefinition (compose + slots)", () => {
     const manifest = manifestOf("Panel", def);
     expect(manifest.controls.map((c) => c.key)).toEqual(["heading", "cta"]);
     expect(manifest.slots).toEqual(["children"]);
-    // The baked `variant` is not part of the interface.
     expect(manifest.controls.some((c) => c.key === "variant")).toBe(false);
   });
 

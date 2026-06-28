@@ -1,8 +1,6 @@
-// The editor's document model. MDX text is the source of truth (invariant #5);
-// the in-memory model is its mdast tree. Parsing and serializing go through one
-// processor so a parse→edit→serialize cycle is structurally lossless on JSX
-// blocks, attributes, and expressions — edits mutate the tree, never re-derive
-// it from rendered output.
+// Parse and serialize go through one processor so a parse→edit→serialize cycle is structurally
+// lossless on JSX blocks, attributes, and expressions; edits mutate the tree, never re-derive it
+// from rendered output.
 
 import type { Root } from "mdast";
 import remarkFrontmatter from "remark-frontmatter";

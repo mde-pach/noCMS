@@ -1,14 +1,7 @@
 import * as v from "valibot";
 
-// The site-config seam: the one place a site declares its deployment-wide knobs that
-// every tier needs to agree on — the deployment `base`, the absolute `siteUrl`, the
-// `locales` in scope (locales[0] is the default), and the syndication `feed`. Build
-// (③), derive (②), and the runtime (①) all read it, so per the invariant "if two
-// packages need the same thing it belongs in core" it lives here in the shared
-// vocabulary, validated with valibot exactly like a collection definition.
-//
 // Config is small, flat, machine-read, and rarely edited, so it is structured JSON
-// validated by valibot — not a flat token-style text file. The text-not-JSON invariant
+// validated by valibot — not a flat token-style text file. The text-not-JSON rule
 // scopes to layout and tokens (large, line-merged by hand); config is neither.
 
 /** Which collections syndicate, and the feed's own metadata. */

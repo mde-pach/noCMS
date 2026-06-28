@@ -1,12 +1,7 @@
-// Build the definition for a "save as component" action, kept apart from the shell because it is
-// a pure transform: given the selected block, its base's controls, and which props to expose, it
-// produces the SavedDef the registry loads. The shell still owns the side effects (register the
-// def, rewrite the selected node into an instance, commit) — this only decides the shape.
-//
-// Two shapes fall out of one rule. A container saved with `slot` becomes a *composed* component
-// that keeps an editable child region (its contents stay authorable); anything else becomes a
-// *specialized* leaf with its locked props baked in. Either way the exposed props remain editable
-// on the instance.
+// Pure transform for "save as component": given the selected block and which props to expose, it
+// produces the SavedDef the registry loads (the shell owns the side effects). A container saved
+// with `slot` becomes a composed component that keeps an editable child region; anything else
+// becomes a specialized leaf with its locked props baked in.
 
 import {
   type BlockDef,

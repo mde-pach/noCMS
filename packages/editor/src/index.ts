@@ -1,7 +1,3 @@
-// The in-site editor: WYSIWYG over MDX, visual layout, and live token theming.
-// It ships with each site and reuses the runtime renderer as its canvas. Heavy
-// preview compilation loads only here, never in the reader's bundle.
-
 export {
   type CanvasHandle,
   type CanvasOptions,

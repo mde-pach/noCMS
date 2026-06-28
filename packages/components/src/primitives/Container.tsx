@@ -16,7 +16,6 @@ const MAX_WIDTH = {
   full: "100%",
 } as const;
 
-// Centers and width-constrains its content — the page's horizontal rhythm.
 export function Container({ width = "normal", children }: ContainerProps) {
   return (
     <div

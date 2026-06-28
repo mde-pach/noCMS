@@ -1,14 +1,7 @@
-// The document store: the single owner of the editing model — the parsed MDX `doc` and the undo
-// history — plus every command that changes it (insert, delete, duplicate, move, frontmatter) and
-// the commit/apply/undo/redo plumbing they funnel through. This is the hub the rest of the editor
-// read from (`store.doc`), extracted out of the shell so that one mutable thing is owned in one
-// place instead of being a closure variable touched from ~30 sites.
-//
-// Every structural change is one tree-transform over the uniform block tree (D15), re-serialized
-// to canonical MDX; because every edit funnels through `commit` (or `pushApply` for in-place text),
-// undo/redo is a single uniform stack. Nothing here special-cases a block type. The store renders
-// nothing and owns no selection — it takes a `select` callback and reports changes through
-// `onChange`, so the shell stays the wiring layer.
+// Owns the editing model — the parsed MDX `doc` and the undo history — and every command that
+// changes it (insert/delete/duplicate/move/frontmatter). Everything funnels through `commit` (or
+// `pushApply` for in-place text) so undo/redo stays one uniform stack. Renders nothing and holds
+// no selection: it takes a `select` callback and reports changes via `onChange`.
 
 import type { ComponentManifest } from "@nocms/components";
 import type { Nodes, Parent } from "mdast";

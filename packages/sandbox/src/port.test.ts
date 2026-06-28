@@ -13,7 +13,6 @@ const ALL: Capability[] = [
   "layout:contribute",
 ];
 
-/** Wire a broker to one channel end and a guest client to the other. */
 function connect(host: Partial<HostApi>, granted: readonly Capability[]) {
   const channel = new MessageChannel();
   const detach = serveBroker(channel.port1, createBroker(host, granted));

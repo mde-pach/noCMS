@@ -10,7 +10,7 @@ import { defineConfig, type Plugin } from "vite";
 // component. Vite's built-in `?raw` doesn't help: the `@mdx-js/rollup` plugin strips the query
 // (`id.split('?')`) before filtering, so it compiles `index.mdx?raw` as MDX anyway. So resolve
 // the request to a virtual module with a non-`.mdx` extension — which the MDX plugin skips — and
-// load the raw bytes ourselves. This keeps the dev editor on the same content the reader renders.
+// load the raw bytes ourselves.
 const RAW_PREFIX = "\0nocms-raw:";
 function rawMdxPlugin(): Plugin {
   return {
@@ -30,21 +30,17 @@ function rawMdxPlugin(): Plugin {
   };
 }
 
-// MDX is compiled to a Preact component at build time, so the reader bundle
-// never ships the MDX compiler. The remark plugin set must match the editor's
-// runtime renderer (@nocms/renderer) so preview and published output agree —
-// here that means stripping frontmatter the same way. Project Pages serve under
-// /<repo>/, so base is set from an env var in CI and defaults to "/" locally.
+// The remark plugin set below must match the editor's runtime renderer (@nocms/renderer) so
+// preview and published output agree — here, stripping frontmatter the same way.
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-// `@nocms/components|renderer|tokens` ship to a fork as committed vendor bundles
-// (D1). Inside the monorepo dev server those bundles are the wrong thing to load:
-// they're pre-built, so Vite caches them immutably under a content-independent
-// `?v=` hash and re-vendoring never invalidates the browser copy — and esbuild's
-// isolated dep optimization strips properties only read cross-package (a block's
-// `schema`/`slots`, consumed by @nocms/editor). Resolve them to live workspace
-// source in dev instead, so the in-site editor always reflects current code.
-// A fork (no `../../packages`) falls through to the vendored bundles unchanged.
+// `@nocms/components|renderer|tokens` ship to a fork as committed vendor bundles. Inside the
+// monorepo dev server those bundles are the wrong thing to load: they're pre-built, so Vite
+// caches them immutably under a content-independent `?v=` hash and re-vendoring never invalidates
+// the browser copy — and esbuild's isolated dep optimization strips properties only read
+// cross-package (a block's `schema`/`slots`, consumed by @nocms/editor). Resolve them to live
+// workspace source in dev instead, so the in-site editor always reflects current code. A fork
+// (no `../../packages`) falls through to the vendored bundles unchanged.
 const VENDORED_IN_DEV = ["components", "renderer", "tokens"] as const;
 
 export default defineConfig(({ command }) => {
@@ -64,9 +60,9 @@ export default defineConfig(({ command }) => {
   return {
     base: process.env.BASE_PATH ?? "/",
     resolve: { alias },
-    // For a fork (bundles loaded as real file: deps), keep Vite from re-optimizing
-    // the already-built vendor bundles — esbuild DCE would strip cross-package
-    // properties as above. In the monorepo the alias above sidesteps this entirely.
+    // For a fork (bundles loaded as real file: deps), keep Vite from re-optimizing the vendor
+    // bundles — esbuild DCE would strip cross-package properties as above. In the monorepo the
+    // alias sidesteps this entirely.
     optimizeDeps: {
       exclude: [
         "@nocms/components",

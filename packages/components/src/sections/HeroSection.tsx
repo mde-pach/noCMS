@@ -37,9 +37,6 @@ export const HeroSectionSchema = v.object({
 
 export type HeroSectionProps = v.InferInput<typeof HeroSectionSchema>;
 
-// The opening band: a headline, supporting line, and up to two CTAs, optionally
-// paired with an image. `center`/`left` set text alignment; `split` floats the
-// image beside the copy. Static — no interactivity to hydrate.
 export function HeroSection({
   eyebrow,
   title = SEED.title,

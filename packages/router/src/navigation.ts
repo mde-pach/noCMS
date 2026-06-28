@@ -1,9 +1,5 @@
-// The navigation surface. Static multi-page navigation is the default (a plain
-// `<a href>` is a real page load against prerendered HTML — zero routing JS).
-// This is the OPTIONAL soft-navigation enhancement: a dependency-free History-API
-// interceptor over the route table. Framework-agnostic — it emits route changes;
-// the host renders. All DOM/History access is injected so the table logic that
-// drives it stays testable.
+// An optional progressive enhancement: without it, links are real page loads against
+// prerendered HTML. DOM/History access is injected so the table logic stays testable.
 
 import { matchRoute, type RouteMatch, type RouteTable } from "./table";
 
@@ -15,17 +11,13 @@ export interface NavigationOptions {
 }
 
 export interface Navigation<T> {
-  /** The currently matched route, or `null` when nothing matches. */
   current(): RouteMatch<T> | null;
-  /** Soft-navigate to a path/href; resolves relative to the current location. */
+  /** Soft-navigate to a path/href, resolved relative to the current location. */
   navigate(to: string, options?: { replace?: boolean }): void;
-  /** Observe route changes; returns an unsubscribe. Fires on every change. */
   subscribe(listener: (match: RouteMatch<T> | null) => void): () => void;
-  /** Remove the click + popstate listeners. */
   destroy(): void;
 }
 
-/** Decide whether a click should be soft-navigated; returns the target URL. */
 function interceptableUrl(event: MouseEvent, win: Window): URL | null {
   if (event.defaultPrevented || event.button !== 0) return null;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
@@ -41,13 +33,8 @@ function interceptableUrl(event: MouseEvent, win: Window): URL | null {
   return url.origin === win.location.origin ? url : null;
 }
 
-/**
- * Start soft navigation: intercept same-origin link clicks that resolve to a
- * known route and swap via the History API instead of a full reload; mirror the
- * back/forward buttons; expose the current route as a subscribable value. A click
- * to an unmatched same-origin path is left alone, so assets and not-yet-known
- * pages fall back to a normal page load.
- */
+// A click to an unmatched same-origin path is left alone, so assets and not-yet-known pages
+// fall back to a normal page load.
 export function startNavigation<T>(
   table: RouteTable<T>,
   options: NavigationOptions = {},

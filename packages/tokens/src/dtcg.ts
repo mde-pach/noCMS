@@ -21,9 +21,9 @@ function inferType(name: string): string | undefined {
 }
 
 /**
- * Nested W3C DTCG generated from the flat tokens, for tooling interop only —
- * one-way by contract (invariant #5): flat source is canonical, this is derived.
- * `@mode` variants (D12) ride along under `$extensions` so the export stays
+ * Nested W3C DTCG generated from the flat tokens, for tooling interop only — and
+ * one-way by contract: the flat source is canonical, this is derived, never read
+ * back. `@mode` variants ride along under `$extensions` so the export stays
  * non-lossy without inventing a non-standard top-level shape.
  */
 export function toDtcg(tokens: Token[]): Record<string, unknown> {

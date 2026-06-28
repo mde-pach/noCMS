@@ -1,8 +1,5 @@
-// Uniform undo/redo for the editor. Every edit — inline text, prop change, insert,
-// reorder, delete — ends as one serialized-MDX snapshot pushed here, so undo is a
-// single reliable model rather than one history per edit kind (the fragility the
-// research flagged in products with two edit models). A push truncates any redo
-// branch; an identical consecutive snapshot is ignored so a no-op edit costs no step.
+// A push truncates any redo branch; an identical consecutive snapshot is ignored so a no-op edit
+// costs no undo step.
 
 export interface History<T> {
   current(): T;

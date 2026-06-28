@@ -1,10 +1,7 @@
-// Island hydration for the one renderer. An "island" is a curated component declared
-// interactive (its registry entry's `island: true`). At prerender its sub-tree is wrapped
-// with a marker element carrying its name + JSON-serialized props; in the browser the same
-// component is re-instantiated from that marker and attached with Preact `hydrate` — the
-// same component model, never a second renderer. Detection, wrapping, and serialization are
-// pure (no DOM, no MDX) so they unit-test without a browser; `hydrateIslands` is the only
-// DOM-touching seam.
+// An "island" is a component its registry entry marks `island: true`: at prerender its sub-tree
+// is wrapped with a marker carrying name + JSON props, and the browser re-instantiates it with
+// Preact `hydrate`. Detection, wrapping, and serialization stay pure so they unit-test without a
+// browser; `hydrateIslands` is the only DOM-touching seam.
 
 import { type ComponentType, h, hydrate, isValidElement, type VNode } from "preact";
 import type { ComponentMap } from "./index.js";
@@ -13,16 +10,12 @@ export const ISLAND_ATTR = "data-island";
 export const ISLAND_PROPS_ATTR = "data-island-props";
 
 export interface IslandInstance {
-  /** the registered tag the marker is hydrated back into */
   name: string;
-  /** the serializable props needed to re-instantiate the component client-side */
   props: Record<string, unknown>;
 }
 
 export interface IslandManifest {
-  /** unique island names present — the set of components the client must ship */
   islands: string[];
-  /** every island occurrence, with the props to re-instantiate it */
   instances: IslandInstance[];
 }
 
@@ -72,10 +65,9 @@ function walk(node: unknown, identify: IdentifyIsland, out: IslandInstance[]): v
 }
 
 /**
- * Walk a resolved VNode tree and collect every island sub-tree it contains. Pure — no DOM,
- * no render. The prerender path can't use this directly (an MDX document renders lazily, so
- * there is no resolved tree to walk before output), but a consumer that already holds a tree
- * — the editor preview — gets the islands on a page from it.
+ * Collects every island sub-tree in a resolved VNode tree. The prerender path can't use it (an
+ * MDX document renders lazily, so there's no resolved tree to walk before output); a consumer
+ * that already holds a tree — the editor preview — can.
  */
 export function collectIslands(tree: VNode, identify: IdentifyIsland): IslandManifest {
   const instances: IslandInstance[] = [];
@@ -102,9 +94,8 @@ function islandHost(
 }
 
 /**
- * Replace each named island component with a marker-emitting host, leaving every other
- * component untouched. The build passes the result to the renderer so island roots prerender
- * with their marker + serialized props while island-free output stays byte-for-byte the same.
+ * Replaces each named island with a marker-emitting host, leaving other components untouched, so
+ * island roots prerender with their marker while island-free output stays byte-for-byte the same.
  */
 export function wrapIslandComponents(
   components: ComponentMap,
@@ -118,7 +109,6 @@ export function wrapIslandComponents(
   return wrapped;
 }
 
-/** Unique island names present in prerendered HTML — the post-render manifest seam. */
 export function islandNamesFromHtml(html: string): string[] {
   const found = new Set<string>();
   const pattern = new RegExp(`${ISLAND_ATTR}="([^"]*)"`, "g");
@@ -128,11 +118,7 @@ export function islandNamesFromHtml(html: string): string[] {
   return [...found];
 }
 
-/**
- * Find every island marker under `root`, deserialize its props, and hydrate the matching
- * component from `components` in place — reusing the one renderer's component model. The only
- * DOM-touching island seam.
- */
+/** Hydrates each island marker under `root` in place — the only DOM-touching island seam. */
 export function hydrateIslands(
   components: ComponentMap,
   root: ParentNode = document,

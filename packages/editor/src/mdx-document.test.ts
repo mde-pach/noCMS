@@ -21,8 +21,7 @@ function withoutPositions(node: Nodes): unknown {
   return visit(node);
 }
 
-// Each covers an MDX construct the round-trip must not lose. cat-next persisted
-// ProseMirror JSON and lost the JSX shape; the editor persists MDX text, so the
+// Each covers an MDX construct the round-trip must not lose: the editor persists MDX text, so the
 // tree it serializes must reproduce these exactly.
 const fixtures: Record<string, string> = {
   jsxFlowWithAllAttributeKinds: `<Hero title="Welcome" count={3} dark {...rest}>

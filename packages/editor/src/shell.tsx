@@ -1,14 +1,6 @@
-// The editor shell: the wiring layer. It builds the canvas and the controllers that each own a
-// slice of the editor, then connects them — selection drives the rail/toolbar, edits flow through
-// the document store, the chrome controller owns the top bar, the overlay layer draws the
-// affordances, the drag controller handles reorder. The shell holds only what's left: the live
-// selection, the in-place prose session, and the modal/rail state, plus the event handlers that
-// route input to a controller.
-//
-// State is deliberately owned, not shared: `document-store` owns the document + history + every
-// tree command (D15: one tree, one undo); `chrome-controller` owns breakpoint/appearance/dirty/
-// publish; `overlays`/`drag-controller` own their visuals. Adding a feature means extending (or
-// adding) a controller — not growing this closure, which is how it became a 1000-line file before.
+// The editor's wiring layer: build the canvas and the controllers, then connect them. State is
+// owned by controllers (document store, chrome, prose, drag, overlays), not shared in this
+// closure — add features as/to a controller so this file doesn't grow back into a 1000-line tangle.
 
 import {
   type ComponentManifest,
@@ -85,7 +77,7 @@ export interface EditorOptions {
   /** the component library MDX tags resolve to in the canvas; each block carries
    *  its controls, from which the props panel renders fields. */
   components: ComponentRegistry;
-  /** @deprecated controls are now derived from each block's schema (D9); ignored. */
+  /** @deprecated controls are now derived from each block's schema; ignored. */
   schemas?: Record<string, unknown>;
   /** values exposed to the document as props. */
   data?: Record<string, unknown>;
@@ -156,14 +148,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   const initialMdx = mdx;
   const initialTokensSrc = options.tokens;
 
-  // --- modal + rail state (chrome/top-bar state lives in the chrome controller) -----------
+  // Modal + rail state; the top-bar state lives in the chrome controller.
   let overlay: OverlayKind | null = null;
   let mediaTarget: { element: JsxElement; key: string } | undefined;
   let saveTarget: { node: JsxElement; path: IndexPath; container: boolean } | undefined;
   let brandExpanded = false;
   let tokens: Token[] = options.tokens !== undefined ? parseTokens(options.tokens) : [];
 
-  // --- DOM scaffold ----------------------------------------------------------------
   // The editor is an overlay over the live page, not a frame around it: the page's content host
   // (`target`) *is* the editing surface, and the chrome (top bar, rail, modals, popovers) mounts
   // into a fixed layer above it. Entering edit adds `nocms-editing` to <html>, which slides the
@@ -247,7 +238,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
 
-  // --- chrome paint (one declarative tree; see chrome-view) ------------------------------
+  // One declarative chrome tree (see chrome-view), painted from a state snapshot.
   const brandPanel = (): ReturnType<typeof TokensPanel> | null => {
     if (tokens.length === 0) return null;
     return (
@@ -381,7 +372,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     };
   }
 
-  // --- publish + reset (chrome state lives in the chrome controller) ----------------------
   // The top-bar "Publish" opens this popover; its confirm runs the (stubbed) publish.
   const togglePublish = (): void => {
     overlay = overlay === "publish" ? null : "publish";
@@ -491,7 +481,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (rendered && block) block.preview = rendered.outerHTML;
   };
 
-  // --- document edits (the model lives in `docs`; these are the shell's call sites) ---------
+  // Document-edit call sites; the model + history live in `docs`.
   const editFrontmatter = (key: string, value: string): void =>
     docs.editFrontmatter(key, value);
   const handleEdit = (): Promise<void> => docs.handleEdit();
@@ -556,7 +546,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
-  // --- hover affordance ------------------------------------------------------------
   const handleHover = (event: MouseEvent): void => {
     if (proseSession.isActive() || drag.isDragging()) {
       overlays.clearHover();

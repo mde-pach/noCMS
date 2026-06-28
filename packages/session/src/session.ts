@@ -13,28 +13,20 @@ export interface EditingSessionOptions {
 }
 
 export interface EditingSession {
-  /** the ref the session forked from (its publish target by default) */
+  /** the ref the session forked from, and its publish target by default */
   readonly base: RepoRef;
-  /** the per-session working branch ref */
   branchRef(): RepoRef;
-  /** create the session branch and load its content into entries */
   open(): Promise<CollectionEntry[]>;
   entries(): CollectionEntry[];
-  /** stage ready file changes (the editor's serialized output) */
   stage(...changes: FileChange[]): void;
   /** stage an edited entry, serialized back to MDX text */
   stageEntry(entry: CollectionEntry): void;
   staged(): FileChange[];
-  /** commit the staged batch; resolves to the commit oid, or null if nothing is staged */
+  /** resolves to the commit oid, or null if nothing is staged */
   commit(message: string): Promise<string | null>;
-  /** merge the session branch into the publish target, then delete it */
   publish(): Promise<void>;
 }
 
-// One editing session = one branch. Edits accumulate as staged file changes (keyed
-// by path, last write wins) and commit as a batch; publishing merges the branch
-// back and cleans it up. The GitHub client and clock are injected — nothing here
-// touches the network or a real clock directly.
 export function openEditingSession(
   base: RepoRef,
   opts: EditingSessionOptions,

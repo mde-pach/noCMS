@@ -2,12 +2,9 @@ import { type CollectionEntry, contentPathToRoute } from "@nocms/core";
 import type { DerivedArtifact, DeriveInput, FeedConfig } from "./index";
 import { plainText } from "./search";
 
-// A JSON Feed 1.1 document, precomputed in the ② tier. JSON over XML because the
-// ① runtime reads it with plain fetch + JSON.parse (no XML parser) — the same file
-// is both a syndication feed and the data source for an in-site "latest" island —
-// and because JSON.stringify removes the XML-escaping and RFC-822 date pitfalls of
-// hand-emitting RSS/Atom. Item URLs come from core's content-path↔route mapping, so
-// the feed names a page with exactly the URL the sitemap and runtime use.
+// JSON Feed rather than RSS/Atom XML: the runtime reads it with plain fetch +
+// JSON.parse, and JSON.stringify sidesteps the XML-escaping and RFC-822 date
+// pitfalls of hand-emitting RSS/Atom.
 
 const VERSION = "https://jsonfeed.org/version/1.1";
 const FEED_PATH = "feed.json";
@@ -58,8 +55,7 @@ function firstString(
 }
 
 // Frontmatter dates may be ISO strings or Date values (some loaders coerce YAML
-// dates). Return RFC-3339 plus a sortable timestamp; an unparseable or absent date
-// yields no published date and sorts last.
+// dates). An unparseable or absent date yields no published date and sorts last.
 function publishedAt(data: Record<string, unknown>): { iso?: string; time: number } {
   const raw = data.date ?? data.published;
   if (typeof raw !== "string" && !(raw instanceof Date)) return { time: -Infinity };
@@ -110,7 +106,6 @@ export function buildFeed(
   return feed;
 }
 
-/** Emit feed.json when both a site URL and a feed config are set; else nothing. */
 export function runFeed(input: DeriveInput): DerivedArtifact[] {
   if (!input.siteUrl || !input.feed) return [];
   const feed = buildFeed(input.entries, input.siteUrl, input.feed);

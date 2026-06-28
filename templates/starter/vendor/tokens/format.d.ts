@@ -1,8 +1,7 @@
 import type { Token } from "./types";
 /**
- * Serialize tokens back to the flat, one-token-per-line source — the format git
- * line-merges. `parseTokens` is the inverse: `parseTokens(formatTokens(t))` is `t`.
- * Each token emits its base `name: value`, then a `name@<q>: value` line per mode
- * and breakpoint override (base first, so the parser attaches overrides to it).
+ * Inverse of `parseTokens`: `parseTokens(formatTokens(t))` is `t`. Emits each
+ * token's base `name: value` line before its `name@<q>` overrides, because the
+ * parser attaches an override to the base token it has already seen.
  */
 export declare function formatTokens(tokens: Token[]): string;

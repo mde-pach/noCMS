@@ -22,8 +22,8 @@ function topLevel(tree: Nodes): string[] {
   return kids.map((n) => ("name" in n && n.name ? n.name : n.type));
 }
 
-// Drop source positions: a transform leaves stale offsets behind, so structural
-// equality means "same shape", not "same byte offsets" (matches mdx-document.test).
+// Drop source positions: a transform leaves stale offsets behind, so structural equality means
+// "same shape", not "same byte offsets".
 function withoutPositions(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(withoutPositions);
   if (node && typeof node === "object") {
@@ -102,9 +102,9 @@ describe("tree-edit transforms (D15)", () => {
   });
 });
 
-// The load-bearing D15 property: a transformed tree serializes to canonical MDX that
-// re-parses to an identical tree, and serializing is a stable fixpoint. This is what
-// makes "git-backed" hold — a non-deterministic serializer is what quietly breaks it.
+// The load-bearing property: a transformed tree serializes to canonical MDX that re-parses to an
+// identical tree, and serializing is a stable fixpoint. A non-deterministic serializer is what
+// would quietly break git-backed storage.
 describe("canonical MDX round-trip after a transform (D15)", () => {
   const node = leaf("Image");
   const containerNode = container("Stack");

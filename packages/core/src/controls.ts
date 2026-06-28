@@ -1,10 +1,3 @@
-// One mapper, two callers: editor props panels and collection entry forms both
-// derive their controls from a valibot schema here (invariant #10). The schema is
-// the single source — `v.InferOutput` gives the type, this gives the controls, so
-// they can't drift. Meta-types stamped with `v.metadata({ control })` map bare
-// values to rich controls; an unknown hint falls back to the base control, never
-// throws. `kind` is an OPEN string set so plugins can register new control kinds.
-
 import type { GenericSchema } from "valibot";
 import {
   arrayItem,
@@ -32,6 +25,13 @@ export type ControlKind =
   | "date"
   | "group"
   | "list"
+  // Layout inspector kinds (D22): a direction toggle (row/column/grid) and a 2-axis
+  // alignment matrix. Both are flat scalar props rendered as one visual widget.
+  | "layout-direction"
+  | "layout-align"
+  // A prop the panel never renders on its own — it is driven by a sibling widget
+  // (e.g. `justify` is set by the `layout-align` matrix alongside `align`).
+  | "hidden"
   // Open set: plugins register kinds beyond the built-ins above.
   | (string & {});
 
@@ -73,6 +73,9 @@ export const KNOWN_CONTROL_KINDS: ReadonlySet<string> = new Set([
   "date",
   "group",
   "list",
+  "layout-direction",
+  "layout-align",
+  "hidden",
 ]);
 
 function humanize(key: string): string {
@@ -141,6 +144,16 @@ function deriveControl(key: string, entry: GenericSchema): ControlDescriptor {
   if (meta.advanced === true) descriptor.advanced = true;
   if (isShowIf(meta.showIf)) descriptor.showIf = meta.showIf;
   if (base.config) descriptor.config = base.config;
+
+  // A schema can hand kind-specific config straight to its control (e.g. the
+  // `layout-align` matrix needs the sibling `justify` prop it co-writes). It merges
+  // over the base config so a hint can refine a derived `{ options }`, never lose it.
+  if (meta.config && typeof meta.config === "object") {
+    descriptor.config = {
+      ...descriptor.config,
+      ...(meta.config as Record<string, unknown>),
+    };
+  }
 
   // Recurse into nested structure only when no explicit hint overrides it.
   if (!hinted && type === "object") {

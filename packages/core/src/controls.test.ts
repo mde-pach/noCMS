@@ -93,6 +93,21 @@ describe("deriveControls — meta-types win over base type", () => {
     // Hint is honoured as an open-set kind; the host decides how to render/fallback.
     expect(fancy?.kind).toBe("spinner-3000");
   });
+
+  test("metadata config merges over the derived config, keeping picklist options", () => {
+    const schema = v.object({
+      align: v.pipe(
+        v.picklist(["start", "center", "end"]),
+        v.metadata({ control: "layout-align", config: { mainKey: "justify" } }),
+      ),
+    });
+    const [align] = deriveControls(schema);
+    expect(align?.kind).toBe("layout-align");
+    expect(align?.config).toEqual({
+      options: ["start", "center", "end"],
+      mainKey: "justify",
+    });
+  });
 });
 
 describe("deriveControls — nested structure", () => {

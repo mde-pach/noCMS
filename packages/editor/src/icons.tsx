@@ -1,7 +1,5 @@
-// The editor's line-glyph icon set: quiet 1.4–1.6 stroke SVGs in one place so chrome,
-// rail, toolbar, and catalog all draw from the same visual vocabulary. Each takes a
-// `size` (px) and inherits `currentColor` for the stroke, so callers theme via CSS. Icons
-// are decorative (`aria-hidden`); the accessible name lives on the parent button/link.
+// Each icon inherits `currentColor` for the stroke, so callers theme via CSS. Icons are
+// decorative (`aria-hidden`); the accessible name lives on the parent button/link.
 
 import type { JSX, VNode } from "preact";
 
@@ -45,6 +43,41 @@ export const ChevronRight = ({ size = 13, class: c }: IconProps): VNode =>
 
 export const ChevronUpSmall = ({ size = 12, class: c }: IconProps): VNode =>
   svg(size, c, <path d="M3 9.5L8 5l5 4.5" />);
+
+// Layout-direction glyphs: bars laid out the way the Frame lays out its children.
+export const RowIcon = ({ size = 15, class: c }: IconProps): VNode =>
+  svg(
+    size,
+    c,
+    <g>
+      <rect x="2.5" y="3" width="3.5" height="10" rx="1" />
+      <rect x="7.25" y="3" width="3.5" height="10" rx="1" />
+      <rect x="12" y="3" width="1.5" height="10" rx="0.75" />
+    </g>,
+  );
+
+export const ColumnIcon = ({ size = 15, class: c }: IconProps): VNode =>
+  svg(
+    size,
+    c,
+    <g>
+      <rect x="3" y="2.5" width="10" height="3.5" rx="1" />
+      <rect x="3" y="7.25" width="10" height="3.5" rx="1" />
+      <rect x="3" y="12" width="10" height="1.5" rx="0.75" />
+    </g>,
+  );
+
+export const GridIcon = ({ size = 15, class: c }: IconProps): VNode =>
+  svg(
+    size,
+    c,
+    <g>
+      <rect x="2.5" y="2.5" width="5" height="5" rx="1" />
+      <rect x="8.5" y="2.5" width="5" height="5" rx="1" />
+      <rect x="2.5" y="8.5" width="5" height="5" rx="1" />
+      <rect x="8.5" y="8.5" width="5" height="5" rx="1" />
+    </g>,
+  );
 
 export const CheckIcon = ({ size = 13, class: c }: IconProps): VNode =>
   svg(size, c, <path d="M3 8.5l3.2 3.2L13 4.5" />);

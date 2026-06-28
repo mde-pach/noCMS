@@ -1,8 +1,3 @@
-// The inline text format bar: a small dark toolbar that floats above an active in-place
-// text edit. It raises mark intents (bold / italic / link); the shell applies them to the
-// live prose view via @nocms/prose's mark commands, so formatting goes through the same
-// ProseMirror marks the Mod-b / Mod-i keymaps use — one editing model, no second path.
-
 import type { VNode } from "preact";
 import { BoldIcon, ItalicIcon, LinkIcon } from "./icons.js";
 

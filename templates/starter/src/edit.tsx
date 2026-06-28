@@ -1,9 +1,6 @@
-// In-site editor, entered *in place* over the live page. It's lazily imported (only on `?edit`),
-// so the reader bundle never carries it or the MDX compiler it pulls. It signs the owner in
-// (over a scrim, the real page still behind it), then hands the page's content host to
-// `mountEditor`, which layers the editing chrome over what is already on screen — no reload, no
-// separate route. The editor previews with the same renderer the build prerenders with, and now
-// over the same shell and content, so what you edit is what publishes.
+// Lazily imported (only on `?edit`) so the reader bundle never carries it or the MDX compiler it
+// pulls. Signs the owner in over a scrim, then hands the page's live content host to
+// `mountEditor` to layer editing chrome over what is already on screen — no reload, no route.
 
 import type { ComponentRegistry } from "@nocms/components";
 import { EDITOR_CSS, FONTS_HREF, mountEditor, SignInGate } from "@nocms/editor";
@@ -12,8 +9,8 @@ import { render } from "preact";
 const SIGNED_IN_KEY = "nocms-dev-signed-in";
 const EDITOR_CSS_ID = "nocms-editor-css";
 
-// The sign-in gate (and then the editor) need the chrome stylesheet + fonts present before they
-// render. mountEditor reuses this same tag (by id), so there is one source for both screens.
+// mountEditor reuses this same tag by id, so the gate and the editor share one source for the
+// chrome stylesheet + fonts.
 function ensureChrome(): void {
   if (!document.getElementById(EDITOR_CSS_ID)) {
     const style = document.createElement("style");
@@ -31,15 +28,11 @@ function ensureChrome(): void {
 }
 
 export interface EnterEditOptions {
-  /** the page's live content host — the editor takes it over as the editing surface. */
   contentHost: HTMLElement;
-  /** MDX source of the page being edited (the same file the reader rendered). */
   mdx: string;
-  /** flat token source the design panel themes from. */
   tokens: string;
-  /** the site's composed registry MDX tags resolve to. */
   registry: ComponentRegistry;
-  /** base path, kept for parity with the reader/build (links, future persistence). */
+  // Unused for now; kept for parity with the reader/build (links, future persistence).
   base: string;
 }
 
@@ -52,9 +45,8 @@ export async function enterEdit(options: EnterEditOptions): Promise<void> {
   start(options);
 }
 
-// The gate is a scrim over the live page (not a screen that replaces it), so the owner signs in
-// looking at their actual site. Resolves once they continue. In the real editor `onContinue`
-// wires to the PKCE OAuth flow (@nocms/auth).
+// A dev placeholder for the real sign-in: `onContinue` stands in for the PKCE OAuth flow
+// (@nocms/auth). A scrim, not a replacement screen, so the owner signs in looking at their site.
 function signIn(): Promise<void> {
   return new Promise((resolve) => {
     const gate = document.createElement("div");

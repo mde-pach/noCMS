@@ -1,15 +1,9 @@
-// Tokens-as-bricks: the Design & brand panel edits tokens as semantic, opinionated
-// choices — a brand color picked from a curated swatch palette and a corner-radius slider —
-// never raw var names. An edit updates the token's value, emits the new flat source (the
-// file written back to git) and the CSS-variable block (applied live with no rebuild —
-// invariant #3). Template / appearance / typography / spacing are the "more tokens" rows.
-
 import { formatTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { VNode } from "preact";
 import { useState } from "preact/hooks";
 import { ChevronRight } from "./icons.js";
 
-// The curated palette a site owner picks a primary color from (handoff brand swatches).
+// The curated palette a site owner picks a primary color from.
 const SWATCHES: [name: string, hex: string][] = [
   ["Terracotta", "#B0542F"],
   ["Olive", "#5B6B4A"],

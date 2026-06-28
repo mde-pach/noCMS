@@ -1,6 +1,5 @@
-// The guest side of the protocol — what plugin code uses to call the host. It
-// holds only a port; the GitHub token never crosses this boundary. Each call
-// gets a correlation id and resolves when the matching result/error returns.
+// Guest side of the protocol: it holds only a port — the GitHub token never
+// crosses this boundary.
 
 import type { HostApi } from "./broker.js";
 import type { PortLike } from "./port.js";
@@ -20,7 +19,7 @@ export class SandboxError extends Error {
   }
 }
 
-/** Every host method, viewed from the guest, is async (it crosses a channel). */
+/** Every host method is async from the guest — it crosses a channel. */
 export type RemoteHostApi = {
   [K in keyof HostApi]: (
     ...args: Parameters<HostApi[K]>

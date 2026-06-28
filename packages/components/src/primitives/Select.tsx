@@ -16,8 +16,8 @@ const FIELD = {
   gap: "var(--space-sm)",
 } as const;
 
-// A labelled dropdown. Options come from a comma-separated string so the choices
-// are editable through a plain text control (props-discovery has no list control).
+// Options come from a comma-separated string so they're editable through a plain text control
+// (props-discovery has no list control).
 export function Select({ name, label, options, required = false }: SelectProps) {
   const items = options
     .split(",")

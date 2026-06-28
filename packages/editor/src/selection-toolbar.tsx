@@ -1,9 +1,5 @@
-// The contextual toolbar on the selected block: a floating dark bar with the structural
-// actions every block shares — reorder up/down, duplicate, delete, settings — plus a drag
-// handle. Type-agnostic: the same actions apply to a Hero, a heading, or a plugin block,
-// because each is one node in the uniform tree. A pure presenter; the shell turns each
-// intent into a tree-transform. Each action stops propagation so the canvas click handler
-// doesn't read it as empty space and deselect the very block being acted on.
+// Each action stops propagation so the canvas click handler doesn't read it as empty space and
+// deselect the block being acted on.
 
 import type { VNode } from "preact";
 import {

@@ -1,9 +1,6 @@
-// The semantic token contract M1 fixes: the named roles + ramps every component
-// binds to, never raw palette. Editing one role (a "brick") restyles every
-// component bound to it. This module is the vocabulary; the flat token file is
-// still the source of truth — `DEFAULT_TOKENS` is one concrete assignment of it.
+// The named roles + ramps every component binds to, never raw palette — so
+// editing one role restyles every component bound to it.
 
-/** Color roles. A component `color` control binds to one of these, so a theme swap is global. */
 export const COLOR_ROLES = [
   "bg",
   "surface",
@@ -16,7 +13,7 @@ export const COLOR_ROLES = [
 ] as const;
 export type ColorRole = (typeof COLOR_ROLES)[number];
 
-/** Ordered ramps components reference by step. Ramps are mode-invariant — never `@mode` qualified. */
+/** Ramps are mode-invariant — never `@mode` qualified. */
 export const RAMPS = {
   space: ["1", "2", "3", "4", "5", "6"],
   text: ["sm", "base", "lg", "xl", "2xl"],
@@ -36,7 +33,6 @@ export function isMode(qualifier: string): qualifier is Mode {
   return MODE_SET.has(qualifier);
 }
 
-/** Every canonical token name the contract requires: `color.<role>` and `<ramp>.<step>`. */
 export function contractTokenNames(): string[] {
   const names = COLOR_ROLES.map((role) => `color.${role}`);
   for (const [ramp, steps] of Object.entries(RAMPS)) {
@@ -45,17 +41,13 @@ export function contractTokenNames(): string[] {
   return names;
 }
 
-/** Contract token names absent from `tokens` — empty means the theme is complete. */
 export function missingContractTokens(tokens: { name: string }[]): string[] {
   const present = new Set(tokens.map((t) => t.name));
   return contractTokenNames().filter((name) => !present.has(name));
 }
 
-/**
- * A clean neutral starter theme: a complete role + ramp assignment, with `@dark`
- * variants on the colors. The flat one-token-per-line source stays canonical
- * (invariant #5); this is a default value of it, not a second format.
- */
+// A complete starter theme — a default value of the flat source, not a second
+// format; the flat one-token-per-line file stays canonical.
 export const DEFAULT_TOKENS = `# Color roles — the named contract components bind to.
 color.bg: #ffffff
 color.bg@dark: #0b1120

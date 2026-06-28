@@ -1,8 +1,6 @@
-// Which selected nodes can be edited in place by the prose widget (@nocms/prose). The
-// widget edits a single block's *inline* content (a flat `PhrasingContent[]`), so the
+// The prose widget edits a single block's inline content (a flat `PhrasingContent[]`), so the
 // editable blocks are exactly the ones whose children are phrasing content: paragraphs and
-// headings. Lists, code, and blockquotes are containers of blocks, not prose spans — they
-// are selected and configured, not typed into directly.
+// headings. Lists, code, and blockquotes are containers of blocks, not prose spans.
 
 import type { Heading, Nodes, Paragraph } from "mdast";
 

@@ -1,15 +1,14 @@
-// Client-side GitHub App sign-in: PKCE (S256) with short-lived rotating tokens
-// (~8h user, ~6mo refresh). The browser can't redeem the code (no CORS on the
-// token endpoint), so the stateless relay does only the exchange and refresh.
-// A fine-grained PAT is the zero-relay fallback. The token never leaves the
-// host/auth context — plugin code never sees it.
+// The browser can't redeem the OAuth code (no CORS on GitHub's token endpoint),
+// so the stateless relay does only the exchange and refresh. Tokens are
+// short-lived and rotating (~8h access, ~6mo refresh) and never leave the
+// host/auth context — plugin code never sees a token.
 
 import { generatePkce, randomState } from "./pkce";
 
 const AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 
 export interface AuthConfig {
-  /** GitHub App client id (public) */
+  /** public — safe to ship in client code */
   clientId: string;
   /** stateless exchange relay base URL; omit to require a PAT */
   relayUrl?: string;
@@ -78,7 +77,7 @@ async function postToRelay(
   return toSession((await res.json()) as TokenResponse, deps.now ?? Date.now);
 }
 
-/** Build the authorize URL and the PKCE secrets the caller must stash for the callback. */
+/** The caller must stash the returned verifier and state until the callback. */
 export async function beginSignIn(config: AuthConfig): Promise<SignInStart> {
   const { verifier, challenge } = await generatePkce();
   const state = randomState();
@@ -92,7 +91,6 @@ export async function beginSignIn(config: AuthConfig): Promise<SignInStart> {
   return { authorizeUrl: url.toString(), verifier, state };
 }
 
-/** Redeem the authorization code via the relay using the stashed verifier. */
 export function completeSignIn(
   config: AuthConfig,
   params: { code: string; verifier: string },
@@ -120,7 +118,7 @@ export function refresh(
   return postToRelay(config, "/refresh", { refreshToken: session.refreshToken }, deps);
 }
 
-/** True if the session is expired or will expire within `skewMs` (default 60s). */
+/** Also true within `skewMs` before the hard expiry (default 60s), so callers refresh early. */
 export function isExpired(
   session: Session,
   now: number = Date.now(),

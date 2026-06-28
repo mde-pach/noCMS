@@ -1,8 +1,3 @@
-// The pages & structure navigator: a left slide-in panel listing the site's pages and the
-// section outline of the current page. Selecting an outline row selects that block on the
-// canvas (the shell maps the row's index-path to selection); the section list is derived
-// live from the document's top-level blocks, so it always mirrors the canvas.
-
 import type { VNode } from "preact";
 import { GripIcon, PageIcon, PlusIcon, SectionIcon } from "./icons.js";
 

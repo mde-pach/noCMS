@@ -17,8 +17,8 @@ interface Seen {
   auth: string | undefined;
 }
 
-// A GitHub + relay stub: the relay rotates the token, and every api.github.com call
-// records the Authorization header so we can prove the refreshed token flows through.
+// Every api.github.com call records its Authorization header, so a test can prove the
+// rotated token flows through.
 function stubFetch(): { fetch: typeof fetch; seen: Seen[] } {
   const seen: Seen[] = [];
   const fetchImpl = (async (url: string, init: RequestInit = {}) => {
@@ -63,7 +63,7 @@ describe("connectGitHub", () => {
       session: { accessToken: "old", expiresAt: 1_000, refreshToken: "r1" },
       config: { clientId: "id", relayUrl: "https://relay" },
       store: { set: (s) => void saved.push(s) },
-      now: () => 0, // session expires at 1_000, inside the 60s skew → refresh first
+      now: () => 0, // expiry 1_000 falls inside the 60s skew window → refresh first
       fetch,
     });
 
@@ -77,10 +77,8 @@ describe("connectGitHub", () => {
         body: "# Home",
       },
     ]);
-    // The relay was hit once to rotate, and the rotated session was persisted.
     expect(seen.filter((s) => s.url.endsWith("/refresh"))).toHaveLength(1);
     expect(saved).toHaveLength(1);
-    // Every GitHub request carried the refreshed bearer token.
     const apiCalls = seen.filter((s) => s.url.includes("api.github.com"));
     expect(apiCalls.length).toBeGreaterThan(0);
     expect(apiCalls.every((s) => s.auth === "Bearer rotated")).toBe(true);

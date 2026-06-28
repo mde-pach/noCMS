@@ -110,10 +110,9 @@ describe("islandNamesFromHtml", () => {
   });
 });
 
-// Published output is determined by the atoms, their positions, and the island marker
-// contract — not by the engine that assembles them. So a different build-time assembler (D17)
-// can't silently diverge from the editor: rendering the same atom tree two ways — the @mdx-js
-// path and a hand-built Preact VNode tree with no MDX — must be byte-identical.
+// Output is determined by the atoms, their positions, and the island marker contract — not by the
+// engine that assembles them. So a different build-time assembler can't silently diverge from the
+// editor: the @mdx-js path and a hand-built VNode tree with no MDX must render byte-identically.
 describe("assembler portability (D17)", () => {
   const Counter = (props: Record<string, unknown>) =>
     h(

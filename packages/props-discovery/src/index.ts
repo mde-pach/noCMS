@@ -1,8 +1,3 @@
-// Derives editor controls by parsing a component's TypeScript prop types — no
-// annotation DSL. The type picks the control: string→text, literal-union→select,
-// ReactNode→slot, handler→action-binding. An optional field-config is the only
-// escape hatch for what types can't express.
-
 export interface Control {
   prop: string;
   kind: "text" | "number" | "boolean" | "select" | "slot" | "action" | "media";
@@ -20,10 +15,9 @@ export interface ComponentSchema {
 
 export { type DiscoverOptions, discoverControls } from "./discover";
 
-/** The thin escape hatch: per-prop overrides for what types can't express. */
+/** Per-prop overrides for what the prop types can't express. */
 export type FieldConfig = Record<string, Partial<Pick<Control, "help" | "group">>>;
 
-/** Overlay the optional field-config onto discovered controls. */
 export function bridgeFieldConfig(
   schema: ComponentSchema,
   fieldConfig?: FieldConfig,

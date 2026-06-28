@@ -19,7 +19,6 @@ const STYLE = {
   textDecoration: "none",
 } as const;
 
-// A bordered content block, optionally a link — for grids of features or posts.
 export function Card({ title, href, children }: CardProps) {
   const inner = (
     <>

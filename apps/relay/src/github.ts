@@ -1,5 +1,4 @@
-// The exchange itself, decoupled from HTTP so it can be unit-tested with a fake
-// fetch. The client secret stays here and is never returned to the caller.
+// The client secret stays here and is never returned to the caller.
 
 import * as v from "valibot";
 
@@ -11,7 +10,7 @@ export interface ExchangeDeps {
   fetch: typeof fetch;
 }
 
-/** GitHub's token response. Refresh fields appear only for expiring-token apps. */
+/** Refresh fields appear only for expiring-token apps. */
 const TokenResponseSchema = v.object({
   access_token: v.string(),
   token_type: v.string(),

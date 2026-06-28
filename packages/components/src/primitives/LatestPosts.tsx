@@ -2,8 +2,8 @@ import { useEffect, useState } from "preact/hooks";
 import * as v from "valibot";
 import { readSiteRuntime } from "../site-runtime";
 
-// The JSON Feed item fields this component reads. A minimal structural shape (not the full
-// `@nocms/derive` `JsonFeedItem`) so the reader bundle never pulls in the ② tier.
+// A minimal structural shape (not the full `@nocms/derive` `JsonFeedItem`) so the reader
+// bundle never pulls in the ② tier.
 interface FeedItem {
   url: string;
   title: string;
@@ -12,17 +12,14 @@ interface FeedItem {
 }
 
 export const LatestPostsSchema = v.object({
-  /** how many items to show */
   limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(20)), 5),
-  /** heading above the list */
   title: v.optional(v.string(), "Latest"),
 });
 
 export type LatestPostsProps = v.InferInput<typeof LatestPostsSchema>;
 
-// A runtime consumer of the ② feed artifact: it fetches `feed.json` (located via the embedded
-// site-runtime config) and lists the most recent items. An island because it fetches at view
-// time; it renders nothing until a feed is present.
+// An island because it fetches the ② feed artifact at view time; it renders nothing until a
+// feed is present.
 export function LatestPosts({ limit = 5, title = "Latest" }: LatestPostsProps) {
   const [items, setItems] = useState<FeedItem[]>([]);
 

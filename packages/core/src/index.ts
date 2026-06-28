@@ -1,9 +1,6 @@
-// Shared types and the content-collection schema — the vocabulary every other
-// package speaks. Runtime validation via valibot.
-
 import * as v from "valibot";
 
-/** A GitHub repository the owner edits. One sign-in can manage many. */
+/** A GitHub repository the owner edits. */
 export interface RepoRef {
   owner: string;
   repo: string;
@@ -14,10 +11,7 @@ export interface RepoRef {
 /** A repo-root-relative, POSIX-separated path. */
 export type RepoPath = string & { readonly __brand: "RepoPath" };
 
-/**
- * Where a transformation runs. Design rule: push work down a tier — precompute
- * in `Batch`, serve the result at runtime in `Client`.
- */
+/** Where a transformation runs in the pipeline. */
 export const Tier = {
   /** view-time, in the browser: render, routing, CSS-var theming. No build. */
   Client: 1,

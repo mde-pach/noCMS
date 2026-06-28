@@ -1,12 +1,7 @@
-// Bridges a Session into the @nocms/github TokenProvider contract: a `() =>
-// Promise<string>` the client calls per request. It refreshes the rotating token
-// just before expiry and persists the rotated session so a reload resumes signed in.
-
 import { type AuthConfig, isExpired, refresh, type Session } from "./index";
 
-/** Where the rotated session is persisted (e.g. localStorage-backed). Async-friendly. */
 export interface SessionStore {
-  /** seed the provider from a previously persisted session, if any */
+  /** seed from a previously persisted session, if any */
   get?(): Promise<Session | null> | Session | null;
   set(session: Session): Promise<void> | void;
 }
@@ -21,7 +16,6 @@ export interface TokenProviderOptions {
   fetch?: typeof fetch;
 }
 
-/** A per-request token supplier (the @nocms/github TokenProvider shape). */
 export type TokenProvider = () => Promise<string>;
 
 export function createTokenProvider(opts: TokenProviderOptions): TokenProvider {

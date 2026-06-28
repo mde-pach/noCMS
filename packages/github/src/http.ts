@@ -25,7 +25,6 @@ async function authHeaders(deps: HttpDeps): Promise<Record<string, string>> {
   };
 }
 
-/** REST request. Returns parsed JSON, or throws GitHubError on a non-2xx. */
 export async function rest<T>(
   deps: HttpDeps,
   method: string,
@@ -46,7 +45,6 @@ export async function rest<T>(
   return (await res.json()) as T;
 }
 
-/** GraphQL request. Throws GitHubError if the response carries `errors`. */
 export async function graphql<T>(
   deps: HttpDeps,
   query: string,
@@ -59,6 +57,7 @@ export async function graphql<T>(
   });
   if (!res.ok) throw new GitHubError(res.status, await res.text());
   const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
+  // GraphQL reports failures in the body with HTTP 200, so check `errors`, not status.
   if (json.errors?.length) {
     throw new GitHubError(200, json.errors.map((e) => e.message).join("; "));
   }

@@ -1,10 +1,6 @@
-// Structural transforms over the uniform mdast block tree (D15). Every canvas
-// mutation that changes shape — insert, delete, reorder — is one of these: a pure
-// function from (tree, address) to a *new* tree, addressed by IndexPath so it
-// survives the source-offset shifts an edit causes. No transform inspects a block's
-// type, so a brick added to the registry reorders, inserts, and deletes with zero
-// changes here. On an address that doesn't resolve, the input tree is returned
-// unchanged, so a stale selection can never corrupt the document.
+// Each transform is a pure function from (tree, IndexPath) to a new tree. On an address that
+// doesn't resolve, the input tree is returned unchanged, so a stale selection can never corrupt
+// the document.
 
 import type { Nodes, Parent } from "mdast";
 import { type IndexPath, nodeAtIndexPath } from "./position.js";

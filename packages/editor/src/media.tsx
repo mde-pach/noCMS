@@ -1,8 +1,3 @@
-// The media picker: choose an image committed to the repo's /assets. A recently-used row,
-// a grid with one selectable tile (slate ring + check), an upload tile, and Cancel/Insert.
-// The shell opens it from any image control and writes the chosen URL back to that prop.
-// Real upload/commit wires onto the GitHub client later; here it offers the repo's assets.
-
 import type { VNode } from "preact";
 import { useState } from "preact/hooks";
 import { CheckIcon, CloseIcon, UploadIcon } from "./icons.js";

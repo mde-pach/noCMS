@@ -1,20 +1,10 @@
 import type { ComponentChildren } from "preact";
 
-// The site shell: the thin frame around every page. One component, rendered in all three moments
-// — the dev reader, the in-site editor (the editor layers its chrome over this, it does not
-// replace it), and the publish prerender — so what you preview is what you publish, shell
-// included (D21). Every value comes from theme.tokens via CSS variables.
-//
-// The header/navigation is NOT in the shell: it is a normal `<Navbar/>` component at the top of
-// the page content, so it is editable, insertable and overridable like any other block (the nav
-// is no longer hardcoded chrome). The shell only owns the content slot and a minimal footer.
-//
-// The content slot (`#nocms-content`) is rendered empty here and filled by a *separate* Preact
-// root (the reader's content, or the editor's live canvas). Keeping content out of the shell's
-// own tree is what lets the editor take the slot over in place without the shell re-rendering.
-// The slot is full-bleed; sections own their own width via their Container, so the editor can
-// simulate a breakpoint by narrowing the whole page (`#app`) and the page reflows with it,
-// exactly as a real viewport would — never by reframing only the content column.
+// One shell for the dev reader, the in-site editor, and the publish prerender, so what you
+// preview is what you publish. The navigation is a `<Navbar/>` at the top of the page content,
+// not shell chrome, so it's editable like any other block. The content slot (`#nocms-content`) is
+// filled by a *separate* Preact root, which is what lets the editor take it over in place; it's
+// full-bleed, so a breakpoint narrows the whole page (`#app`) and everything reflows together.
 export const CONTENT_SLOT_ID = "nocms-content";
 
 export function SiteShell({

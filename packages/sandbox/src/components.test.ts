@@ -70,7 +70,7 @@ test("a granted registerComponent flows through the broker into a composable pac
 
   const composed = createRegistry(core, registrar.pack());
   expect(composed.Promo).toBeDefined();
-  expect(composed.Button).toBeDefined(); // core still present
+  expect(composed.Button).toBeDefined();
 
   const manifest = registrar.manifests()[0];
   expect(manifest?.name).toBe("Promo");

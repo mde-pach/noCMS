@@ -105,11 +105,15 @@ API** — cross-package use goes through that seam only.
 - Default to **no comment**. Code should read on its own.
 - Comment only the *why* of something non-obvious — a constraint, gotcha, or tradeoff. Never
   narrate *what* the next line does.
-- Comments must be **standalone**: never reference an external document or section marker. If a
-  comment only makes sense with another doc open, rewrite or delete it.
+- Judge by **need, not length**. Keep exactly what a reader needs to grasp the non-obvious — one
+  line if one line does it, a paragraph if the gotcha truly needs it, nothing if the code is clear.
+- Comments must be **standalone**: never reference an external document or section marker. A
+  decision/invariant tag like `(D9)` or `invariant #8` is such a marker — keep the *substance* it
+  points at and drop the tag; traceability lives in `DECISIONS.md`, not in code.
 - Delete section banners, decorative dividers, name-restating prose, play-by-play, and
   TODO-filler. If a comment explains *what*, the fix is a clearer name or a smaller function.
-- Durable knowledge goes in a README or a `.claude/rules/` file, not in comment soup.
+- No file-header narration that re-explains what the module is or restates a README/`rules/` file.
+  Durable knowledge goes in a README or a `.claude/rules/` file, not in comment soup.
 
 ## Commands
 

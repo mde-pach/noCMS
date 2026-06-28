@@ -36,8 +36,7 @@ const VARIANTS = {
   },
 } as const;
 
-// A link styled as a button — static, so it needs no client hydration. Hover/focus
-// polish is layered by the site theme (styles.css) on the `.btn` class.
+// Hover/focus polish is layered by the site theme on the `.btn` class.
 export function Button({ label, href = "#", variant = "primary" }: ButtonProps) {
   return (
     <a

@@ -1,6 +1,6 @@
-// Selection granularity. A click resolves to the deepest mdast node (often a raw
-// text/emphasis node the owner can't act on). The editor instead selects the nearest
-// *meaningful* node from the root→deepest path: a JSX component or a content block.
+// A click resolves to the deepest mdast node, often a raw text/emphasis node the owner can't act
+// on; instead select the nearest meaningful node from the root→deepest path: a JSX component or a
+// content block.
 
 import type { Nodes } from "mdast";
 import { nearestOfType } from "./position.js";

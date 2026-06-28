@@ -1,7 +1,5 @@
 import { type ComponentPack, type ComponentRegistry } from "./packs";
-/** The curated component library: the always-present `core` pack a site composes with. */
 export declare const core: ComponentPack;
-/** The default registry: the core pack alone. Compose more with `createRegistry`. */
 export declare const registry: ComponentRegistry;
 export { type BlockDef, block, type ComponentManifest, type ComponentPack, type ComponentRegistry, controlsOf, createRegistry, definePack, manifestOf, type PropPrimitive, registryManifest, } from "./packs";
 export { Badge, type BadgeProps, BadgeSchema } from "./primitives/Badge";
@@ -11,6 +9,7 @@ export { Card, type CardProps, CardSchema } from "./primitives/Card";
 export { Container, type ContainerProps, ContainerSchema, } from "./primitives/Container";
 export { Counter, type CounterProps, CounterSchema } from "./primitives/Counter";
 export { Divider, type DividerProps, DividerSchema } from "./primitives/Divider";
+export { Frame, type FrameProps, FrameSchema } from "./primitives/Frame";
 export { Grid, type GridProps, GridSchema } from "./primitives/Grid";
 export { Hero, type HeroProps, HeroSchema } from "./primitives/Hero";
 export { Image, type ImageProps, ImageSchema } from "./primitives/Image";

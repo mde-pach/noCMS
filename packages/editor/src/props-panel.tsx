@@ -1,14 +1,7 @@
-// The block-properties panel: friendly controls for the selected block, derived live from
-// its valibot props schema (D9). Editing a control mutates the JSX node's attributes in
-// place and calls onChange so the shell re-serializes and re-renders the canvas — the owner
-// never sees JSX or attribute syntax. Each control kind renders to the handoff's spec: mono
-// micro-labels, segmented selects, sliders with readouts, toggles, and an Advanced fold.
-//
-// Controls are rendered by one recursive, value-bound view: a scalar binds to a single JSX
-// attribute; a `group` (object) and a `list` (array) bind to a structured attribute the editor
-// round-trips as JSON (`items={[{…}]}`), so array/object content — feature cards, pricing tiers,
-// footer columns — is editable in the panel, not hidden. Nesting is uniform: a list of objects,
-// or an object holding a list, falls out of the same recursion.
+// Controls for the selected block, derived from its valibot props schema; editing one mutates the
+// JSX node's attributes in place. One recursive, value-bound view renders them: a scalar binds to a
+// single attribute; `group`/`list` bind to a structured attribute the editor round-trips as JSON
+// (`items={[{…}]}`), so array/object content (feature cards, tiers, footer columns) is editable too.
 
 import type { ControlDescriptor } from "@nocms/core";
 import type { VNode } from "preact";
@@ -18,8 +11,11 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronRight,
+  ColumnIcon,
+  GridIcon,
   GripIcon,
   PlusIcon,
+  RowIcon,
   SectionIcon,
   TrashIcon,
 } from "./icons.js";
@@ -176,6 +172,37 @@ function ControlView({ control, value, commit, onPickImage }: ControlViewProps):
             commit(raw === "" ? undefined : Number(raw));
           }}
         />
+      </div>
+    );
+  }
+
+  if (kind === "layout-direction") {
+    const options = (control.config?.options as string[] | undefined) ?? [];
+    const current = asString(value) || (control.default as string) || options[0] || "";
+    const icon: Record<string, VNode> = {
+      row: <RowIcon />,
+      column: <ColumnIcon />,
+      grid: <GridIcon />,
+    };
+    return (
+      <div class="nc-field">
+        <MonoLabel>{control.label}</MonoLabel>
+        <div class="nc-segmented" role="group" aria-label={control.label}>
+          {options.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              name={control.key}
+              value={opt}
+              class="nc-seg nc-seg-icon"
+              aria-pressed={current === opt}
+              onClick={() => commit(opt)}
+            >
+              {icon[opt] ?? null}
+              <span>{opt}</span>
+            </button>
+          ))}
+        </div>
       </div>
     );
   }
@@ -478,6 +505,55 @@ function ListView({
   );
 }
 
+// The 9-cell matrix sets the cross-axis (`align`, this control's key) and the main-axis (the
+// sibling `justify` in config.mainKey) at once. Which physical axis is "main" follows the Frame's
+// `direction`, so a dot maps to where it lands on the canvas.
+function AlignMatrix({
+  control,
+  element,
+  onChange,
+}: {
+  control: ControlDescriptor;
+  element: JsxElement;
+  onChange: () => void;
+}): VNode {
+  const POS = ["start", "center", "end"] as const;
+  const mainKey =
+    typeof control.config?.mainKey === "string" ? control.config.mainKey : "justify";
+  const horizontalIsMain = getProp(element, "direction") === "row";
+  const cross =
+    asString(getProp(element, control.key)) || (control.default as string) || "start";
+  const main = (getProp(element, mainKey) as string | undefined) ?? "start";
+  const colValue = horizontalIsMain ? main : cross;
+  const rowValue = horizontalIsMain ? cross : main;
+  const setCell = (rowPos: string, colPos: string): void => {
+    setProp(element, control.key, horizontalIsMain ? rowPos : colPos);
+    setProp(element, mainKey, horizontalIsMain ? colPos : rowPos);
+    onChange();
+  };
+  return (
+    <div class="nc-field">
+      <MonoLabel>{control.label}</MonoLabel>
+      <div class="nc-align-matrix" role="group" aria-label={control.label}>
+        {POS.flatMap((rowPos) =>
+          POS.map((colPos) => (
+            <button
+              key={`${rowPos}-${colPos}`}
+              type="button"
+              class="nc-align-cell"
+              aria-pressed={colValue === colPos && rowValue === rowPos}
+              aria-label={`${rowPos} ${colPos}`}
+              onClick={() => setCell(rowPos, colPos)}
+            >
+              <span class="nc-align-dot" />
+            </button>
+          )),
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Bind one top-level control to the selected element's attributes. Scalars write a single
  *  attribute; group/list write a JSON-valued attribute. */
 function TopField({
@@ -491,6 +567,9 @@ function TopField({
   onChange: () => void;
   onPickImage?: (key: string) => void;
 }): VNode {
+  if (control.kind === "layout-align") {
+    return <AlignMatrix control={control} element={element} onChange={onChange} />;
+  }
   if (control.kind === "group" || control.kind === "list") {
     const stored = getStructuredProp(element, control.key);
     const value = stored ?? control.default ?? (control.kind === "list" ? [] : {});
@@ -520,6 +599,8 @@ function TopField({
 }
 
 function isVisible(control: ControlDescriptor, element: JsxElement): boolean {
+  // `hidden` props are co-written by a sibling widget (the align matrix sets `justify`).
+  if (control.kind === "hidden") return false;
   if (control.showIf) {
     return getProp(element, control.showIf.key) === control.showIf.equals;
   }

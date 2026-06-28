@@ -75,6 +75,5 @@ if (import.meta.main) {
   const config = loadConfig(process.env);
   const handle = buildHandler(config);
   Bun.serve({ port: config.port, fetch: handle });
-  // Logs carry no secrets — just that the relay is up.
   console.log(`relay listening on :${config.port}`);
 }
