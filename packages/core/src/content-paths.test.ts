@@ -93,12 +93,35 @@ describe("enumerateItemPaths", () => {
     ]);
   });
 
-  it("ignores string arrays and scalar props — only object arrays are items", () => {
+  it("includes string arrays — a list of strings is a list of reorderable rows", () => {
     const withTags = deriveControls(
       v.object({ title: v.string(), tags: v.array(v.string()) }),
     );
-    const out = enumerateItemPaths(withTags, { title: "x", tags: ["a", "b"] });
-    expect(out).toEqual([]);
+    expect(enumerateItemPaths(withTags, { title: "x", tags: ["a", "b"] })).toEqual([
+      { path: "tags.0", key: "tags", index: 0 },
+      { path: "tags.1", key: "tags", index: 1 },
+    ]);
+  });
+
+  it("recurses into object items — a nested array's elements are items too", () => {
+    const tiers = deriveControls(
+      v.object({
+        tiers: v.array(v.object({ name: v.string(), features: v.array(v.string()) })),
+      }),
+    );
+    const value = {
+      tiers: [
+        { name: "Hobby", features: ["1 site", "Community"] },
+        { name: "Pro", features: ["Unlimited"] },
+      ],
+    };
+    expect(enumerateItemPaths(tiers, value)).toEqual([
+      { path: "tiers.0", key: "tiers", index: 0 },
+      { path: "tiers.0.features.0", key: "tiers.0.features", index: 0 },
+      { path: "tiers.0.features.1", key: "tiers.0.features", index: 1 },
+      { path: "tiers.1", key: "tiers", index: 1 },
+      { path: "tiers.1.features.0", key: "tiers.1.features", index: 0 },
+    ]);
   });
 
   it("returns nothing for an empty array", () => {

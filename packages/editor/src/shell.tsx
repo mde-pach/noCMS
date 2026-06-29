@@ -31,7 +31,7 @@ import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
 import type { InspectorProps } from "./inspector.js";
-import { type ItemSelection, parseItemPath, reorderArray } from "./item-selection.js";
+import { type ItemSelection, parseItemPath } from "./item-selection.js";
 import {
   getProp,
   getStructuredProp,
@@ -727,23 +727,43 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     );
   }
 
-  // The item's array, resolving the schema default when the prop isn't stored on the node — a
-  // section often renders its seed array (e.g. Pricing's tiers) with no attribute written yet, so
-  // reading only stored attributes would miss it (and a reorder would silently no-op).
-  function resolvedArray(item: ItemSelection): unknown[] | undefined {
+  // An item's key is a dotted path; it is reordered by rewriting its *top-level* prop (the first
+  // segment) with the nested array spliced, since `setStructuredProp` writes whole attributes. A
+  // nested feature `tiers.0.features.2` rewrites `tiers`; a top-level `tiers.1` rewrites `tiers`.
+  const splitItemKey = (key: string): { topKey: string; rest: string[] } => {
+    const segs = key.split(".");
+    return { topKey: segs[0] ?? key, rest: segs.slice(1) };
+  };
+  const navigate = (root: unknown, segs: string[]): unknown =>
+    segs.reduce<unknown>(
+      (cur, s) => (cur == null ? undefined : (cur as Record<string, unknown>)[s]),
+      root,
+    );
+
+  // The resolved top-level prop value an item belongs to, falling back to the schema default when
+  // the prop isn't stored on the node — a section often renders its seed array with no attribute,
+  // and reading only stored attributes would miss it (a reorder would silently no-op).
+  function resolvedTop(item: ItemSelection): unknown {
     const node = nodeAtIndexPath(docs.doc, item.component);
     if (!node || !isJsxElement(node) || !node.name) return undefined;
-    const stored = getStructuredProp(node, item.key);
-    if (Array.isArray(stored)) return stored;
+    const { topKey } = splitItemKey(item.key);
+    const stored = getStructuredProp(node, topKey);
+    if (stored !== undefined) return stored;
     const def = components[node.name];
-    const control = def ? controlsOf(def).find((c) => c.key === item.key) : undefined;
-    return Array.isArray(control?.default) ? control.default : undefined;
+    return def ? controlsOf(def).find((c) => c.key === topKey)?.default : undefined;
   }
 
-  // The chip text for an item: its first non-empty text field (a tier's name), else a positional
-  // fallback — legible without the component declaring a label field.
+  // The array an item sits in, at any depth — for labelling and reordering.
+  function resolvedArray(item: ItemSelection): unknown[] | undefined {
+    const arr = navigate(resolvedTop(item), splitItemKey(item.key).rest);
+    return Array.isArray(arr) ? arr : undefined;
+  }
+
+  // The chip text for an item: a string element verbatim (a feature), else its first non-empty text
+  // field (a tier's name), else a positional fallback — legible without a declared label field.
   function itemLabel(item: ItemSelection): string {
     const val = resolvedArray(item)?.[item.index];
+    if (typeof val === "string" && val.trim()) return val.trim().slice(0, 28);
     if (val && typeof val === "object") {
       for (const v of Object.values(val as Record<string, unknown>)) {
         if (typeof v === "string" && v.trim()) return v.trim().slice(0, 28);
@@ -776,13 +796,22 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     renderContentSelection();
   }
 
-  // Reorder an item within its array prop — the same write the props panel's up/down buttons make,
-  // driven from a canvas drag. The moved item stays selected at its new index.
+  // Reorder an item within its array — the same write the props panel's up/down buttons make,
+  // driven from a canvas drag. The top-level prop is cloned and the (possibly nested) array spliced
+  // in place, then written back whole. The moved item stays selected at its new index.
   const reorderItems = async (item: ItemSelection, to: number): Promise<void> => {
     const node = nodeAtIndexPath(docs.doc, item.component);
-    const arr = resolvedArray(item);
-    if (!node || !isJsxElement(node) || !arr) return;
-    setStructuredProp(node, item.key, reorderArray(arr, item.index, to));
+    const top = resolvedTop(item);
+    if (!node || !isJsxElement(node) || top === undefined) return;
+    const { topKey, rest } = splitItemKey(item.key);
+    const clone = structuredClone(top);
+    const arr = navigate(clone, rest);
+    if (!Array.isArray(arr)) return;
+    if (item.index < 0 || item.index >= arr.length || to < 0 || to >= arr.length)
+      return;
+    const [moved] = arr.splice(item.index, 1);
+    arr.splice(to, 0, moved);
+    setStructuredProp(node, topKey, clone);
     // `commit` (not `handleEdit`) re-parses the document so its source offsets re-sync with the
     // re-rendered canvas. Item *and* block selection resolve a clicked DOM offset against this tree;
     // a stale one (handleEdit leaves the mutated tree's offsets untouched) breaks all selection

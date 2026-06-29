@@ -12,6 +12,7 @@ import {
   type ControlDescriptor,
   contentPathsFromControls,
   enumerateItemPaths,
+  type ItemPath,
 } from "@nocms/core";
 import { sentinelFor } from "@nocms/renderer";
 import { type ComponentType, h, render } from "preact";
@@ -49,21 +50,55 @@ function commonAncestor(els: Element[]): Element | undefined {
   return common;
 }
 
-/** Tag each object-array item's card with `data-nocms-item="key.index"` so the canvas can select
- *  and drag it like a component. The card is the common ancestor of the item's already-tagged
- *  leaves; an item whose leaves didn't survive the probe simply isn't tagged. */
+/** The child of `container` whose subtree holds `descendant` — i.e. the element just below the
+ *  container on the path down to the leaf. The list-item element for a leaf, regardless of how deep
+ *  the leaf sits inside it. */
+function childOfContainer(
+  container: Element,
+  descendant: Element,
+): Element | undefined {
+  let cur: Element | null = descendant;
+  while (cur && cur.parentElement && cur.parentElement !== container) {
+    cur = cur.parentElement;
+  }
+  return cur?.parentElement === container ? cur : undefined;
+}
+
+/** Tag each array element with `data-nocms-item="key.index"` so the canvas can select and drag it.
+ *  Works per *array*, not per item: the array's list container is the common ancestor of all its
+ *  items' leaves, and each item is the container child holding that item's leaf(s). This finds the
+ *  real card/row for an object item *and* the `<li>` for a single-leaf string item (whose own
+ *  common ancestor would just be the text node), and it nests — a tier's `features` list sits inside
+ *  the tier card, each tagged independently. */
 function tagItems(
   liveEl: Element,
   controls: ControlDescriptor[],
   props: Record<string, unknown>,
 ): void {
+  const byArray = new Map<string, ItemPath[]>();
   for (const item of enumerateItemPaths(controls, props)) {
-    const leaves = [
-      ...liveEl.querySelectorAll<HTMLElement>(`[data-nocms-path^="${item.path}."]`),
-    ];
-    const card = commonAncestor(leaves);
-    if (card instanceof HTMLElement && card !== liveEl) {
-      card.dataset[ITEM_ATTR] = item.path;
+    const group = byArray.get(item.key);
+    if (group) group.push(item);
+    else byArray.set(item.key, [item]);
+  }
+
+  for (const items of byArray.values()) {
+    // An object item's leaves are `path.*`; a string item *is* the leaf `path` exactly.
+    const leavesOf = (path: string): HTMLElement[] => {
+      const exact = liveEl.querySelector<HTMLElement>(`[data-nocms-path="${path}"]`);
+      const nested = [
+        ...liveEl.querySelectorAll<HTMLElement>(`[data-nocms-path^="${path}."]`),
+      ];
+      return exact ? [exact, ...nested] : nested;
+    };
+    const perItem = items
+      .map((item) => ({ path: item.path, leaves: leavesOf(item.path) }))
+      .filter((entry) => entry.leaves.length > 0);
+    const container = commonAncestor(perItem.flatMap((entry) => entry.leaves));
+    if (!container) continue;
+    for (const { path, leaves } of perItem) {
+      const el = leaves[0] && childOfContainer(container, leaves[0]);
+      if (el instanceof HTMLElement && el !== liveEl) el.dataset[ITEM_ATTR] = path;
     }
   }
 }

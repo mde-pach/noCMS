@@ -72,23 +72,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-/** One element of a component's object-array prop — the unit the editor treats as a draggable,
- *  selectable "item" on the canvas (e.g. a pricing tier card). */
+/** One element of a component's array prop — the unit the editor treats as a draggable, selectable
+ *  "item" on the canvas (a pricing tier card, a feature in that tier's list, a nav link). */
 export interface ItemPath {
-  /** dotted path of the array element, e.g. `tiers.1` */
+  /** dotted path of the array element, e.g. `tiers.1` or `tiers.1.features.0` */
   path: string;
-  /** the array prop's key, e.g. `tiers` */
+  /** the array's dotted key, e.g. `tiers` or `tiers.1.features` */
   key: string;
-  /** the element's index within the array */
+  /** the element's index within that array */
   index: number;
 }
 
 /**
- * The object-array elements of a component's props — the cards/rows a repeated prop renders to.
- * Only top-level arrays whose element is an object (a `group` control) qualify: those render as
- * rich, locatable items, whereas a string array is just a list of leaves. The index space mirrors
- * the value's actual length, so each item gets an unambiguous `key.index` path the canvas can pin
- * to a DOM node (via its leaves) and reorder.
+ * Every array element in a component's props, at any depth — the cards/rows/list-items a repeated
+ * prop renders to. Recurses through object-array items into their own arrays, so a tier's `features`
+ * (`tiers.1.features.0`) is an item just like the tier (`tiers.1`). Both object and string arrays
+ * qualify (a feature string is still a reorderable row). The index space mirrors the value's actual
+ * length, so each item gets an unambiguous dotted path the canvas can pin to a DOM node and reorder.
  */
 export function enumerateItemPaths(
   controls: ControlDescriptor[],
@@ -97,12 +97,29 @@ export function enumerateItemPaths(
   if (!isRecord(value)) return [];
   const out: ItemPath[] = [];
   for (const control of controls) {
-    if (control.kind !== "list" || control.children?.[0]?.kind !== "group") continue;
-    const items = value[control.key];
-    if (!Array.isArray(items)) continue;
-    items.forEach((_, index) => {
-      out.push({ path: `${control.key}.${index}`, key: control.key, index });
-    });
+    collectItems(control, value[control.key], control.key, out);
   }
   return out;
+}
+
+function collectItems(
+  control: ControlDescriptor,
+  value: unknown,
+  path: string,
+  out: ItemPath[],
+): void {
+  if (control.kind === "group" && control.children && isRecord(value)) {
+    for (const child of control.children) {
+      collectItems(child, value[child.key], `${path}.${child.key}`, out);
+    }
+    return;
+  }
+  const element = control.children?.[0];
+  if (control.kind === "list" && element && Array.isArray(value)) {
+    value.forEach((item, index) => {
+      out.push({ path: `${path}.${index}`, key: path, index });
+      // Recurse into each element so arrays nested inside an object item are items too.
+      collectItems(element, item, `${path}.${index}`, out);
+    });
+  }
 }

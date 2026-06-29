@@ -1224,10 +1224,13 @@ rendered card is a selectable, draggable **item** that maps back to its array el
 edits the array directly. Reaffirms invariants #1 and #10; builds on the content-anchor pass and D22.
 
 - **Detection reuses the anchor pass, no component cooperation.** The content-anchor pass already
-  tags each text leaf with `data-nocms-path="tiers.1.name"`; the card is the **nearest common
-  ancestor** of an item's leaves, tagged `data-nocms-item="tiers.1"` in the same pass
-  (`content-anchors.ts` + `core.enumerateItemPaths`, object arrays only). The renderer and the
-  component stay untouched — items are derived from output structure, never declared.
+  tags each text leaf with `data-nocms-path="tiers.1.name"`; an item's element is the **list
+  container's child holding that item's leaves**, tagged `data-nocms-item` in the same pass
+  (`content-anchors.ts` + `core.enumerateItemPaths`). The renderer and the component stay untouched —
+  items are derived from output structure, never declared. `enumerateItemPaths` **recurses**: every
+  array at any depth is an item set — a tier card (`tiers.1`), the features inside it
+  (`tiers.1.features.0`), and string lists alike — and `ItemPath.key` is the array's full dotted
+  path. A nested item reorders by rewriting its **top-level** prop with the nested array spliced.
 
 - **A selection tier between component and leaf.** Selection is now component → item → text leaf;
   deepest-first, so a click on a card selects the item (its own outline + chip), a click on the
