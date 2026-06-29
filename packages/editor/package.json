@@ -18,7 +18,6 @@
     "@nocms/core": "workspace:*",
     "@nocms/renderer": "workspace:*",
     "@nocms/tokens": "workspace:*",
-    "@nocms/props-discovery": "workspace:*",
     "@nocms/components": "workspace:*",
     "@nocms/prose": "workspace:*",
     "@nocms/github": "workspace:*",

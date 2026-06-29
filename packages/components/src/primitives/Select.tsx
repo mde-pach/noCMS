@@ -16,8 +16,7 @@ export type SelectProps = v.InferInput<typeof SelectSchema> & {
 
 const FIELD = "flex flex-col gap-sm";
 
-// Options come from a comma-separated string so they're editable through a plain text control
-// (props-discovery has no list control).
+// Options come from a comma-separated string so they're editable through a plain text control.
 export function Select({
   name,
   label,
