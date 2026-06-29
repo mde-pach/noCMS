@@ -16,6 +16,15 @@ export interface ItemSelection {
   path: string;
 }
 
+/** A droppable array for an item drag — the source's own array (in-place reorder) or any other
+ *  same-shaped array in the document (a feature moving to another tier, or another Pricing). */
+export interface ItemTarget {
+  /** the array's owning component block */
+  component: IndexPath;
+  /** the array's dotted key, e.g. `tiers` or `tiers.1.features` */
+  key: string;
+}
+
 /** Split a `data-nocms-item` value into its array key and index; undefined if it isn't `key.index`
  *  with a numeric tail. Kept narrow on purpose — v1 items are top-level arrays only. */
 export function parseItemPath(raw: string): { key: string; index: number } | undefined {

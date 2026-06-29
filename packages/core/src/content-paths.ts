@@ -102,6 +102,57 @@ export function enumerateItemPaths(
   return out;
 }
 
+/**
+ * A structural signature of the element a list at `arrayKey` holds — two arrays are interchangeable
+ * (an item of one can be dropped into the other) iff their signatures are equal. Text kinds collapse
+ * to one token (a feature can move into any string list); a group expands to its sorted field
+ * signatures so only same-shaped object arrays match. Undefined when `arrayKey` isn't a list.
+ */
+export function arrayElementShape(
+  controls: ControlDescriptor[],
+  arrayKey: string,
+): string | undefined {
+  const list = controlAtPath(controls, arrayKey.split("."));
+  const element = list?.kind === "list" ? list.children?.[0] : undefined;
+  return element ? shapeSig(element) : undefined;
+}
+
+function controlAtPath(
+  controls: ControlDescriptor[],
+  segs: string[],
+): ControlDescriptor | undefined {
+  let ctrl: ControlDescriptor | undefined;
+  for (const seg of segs) {
+    if (/^\d+$/.test(seg)) {
+      // an array index descends into the list's element control
+      ctrl = ctrl?.kind === "list" ? ctrl.children?.[0] : undefined;
+    } else {
+      const pool = ctrl
+        ? ctrl.kind === "group"
+          ? ctrl.children
+          : undefined
+        : controls;
+      ctrl = pool?.find((c) => c.key === seg);
+    }
+    if (!ctrl) return undefined;
+  }
+  return ctrl;
+}
+
+function shapeSig(control: ControlDescriptor): string {
+  if (control.kind === "group") {
+    const fields = (control.children ?? [])
+      .map((c) => `${c.key}:${shapeSig(c)}`)
+      .sort()
+      .join(",");
+    return `{${fields}}`;
+  }
+  if (control.kind === "list") {
+    return `[${control.children?.[0] ? shapeSig(control.children[0]) : "?"}]`;
+  }
+  return TEXT_KINDS.has(control.kind) ? "text" : control.kind;
+}
+
 function collectItems(
   control: ControlDescriptor,
   value: unknown,

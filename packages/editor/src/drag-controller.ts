@@ -22,7 +22,7 @@ import {
   destinationIndex,
   resolveDrop,
 } from "./drag.js";
-import type { ItemSelection } from "./item-selection.js";
+import type { ItemSelection, ItemTarget } from "./item-selection.js";
 import type { MdxDocument } from "./mdx-document.js";
 import type { OverlayLayer } from "./overlays.js";
 import type { IndexPath } from "./position.js";
@@ -78,8 +78,10 @@ export interface DragControllerDeps {
   selectedItem: () => ItemSelection | undefined;
   /** the card element of an array item on the canvas. */
   itemElement: (item: ItemSelection) => Element | null;
-  /** reorder the item's array to put it at index `to`, then commit — the one prop write. */
-  reorderItems: (item: ItemSelection, to: number) => Promise<void>;
+  /** the arrays an item may land in — its own (reorder) plus same-shaped arrays elsewhere. */
+  itemTargets: (item: ItemSelection) => ItemTarget[];
+  /** move the item into `target` at index `to`, then commit. */
+  moveItem: (item: ItemSelection, target: ItemTarget, to: number) => Promise<void>;
   /** re-pin the selection chrome (highlight, toolbar, chip) after a cancelled or finished drag. */
   restore: () => void;
 }
@@ -199,30 +201,40 @@ export function createDragController(deps: DragControllerDeps): DragController {
     return result;
   }
 
-  // One zone: the array the item belongs to, its children the sibling item cards. A drop only ever
-  // reorders within this array, so there is a single droppable region.
-  function itemZones(item: ItemSelection): DropZone[] {
-    const itemEl = deps.itemElement(item);
-    const container = itemEl?.parentElement;
-    if (!itemEl || !container) return [];
-    const scope = itemEl.closest("[data-mdx-pos]") ?? container;
-    const children: ChildBox[] = [];
-    for (const el of scope.querySelectorAll(`[data-nocms-item^="${item.key}."]`)) {
-      const raw = (el as HTMLElement).dataset.nocmsItem ?? "";
-      const index = Number(raw.slice(raw.lastIndexOf(".") + 1));
-      if (Number.isInteger(index))
+  // The index of an element that is a *direct* element of the array `key` — `key.<digits>` exactly,
+  // never a deeper item (so the `tiers` array's zone holds tiers, not their nested features).
+  function directIndex(raw: string | undefined, key: string): number | undefined {
+    if (!raw || !raw.startsWith(`${key}.`)) return undefined;
+    const rest = raw.slice(key.length + 1);
+    return /^\d+$/.test(rest) ? Number(rest) : undefined;
+  }
+
+  // One zone per droppable target array: the source's own array (in-place reorder) and every
+  // same-shaped array elsewhere. Each zone's `path` is `[targetIndex]` — a handle the commit maps
+  // back to its `ItemTarget`. An empty target array has no measurable container, so it's skipped.
+  function itemZones(item: ItemSelection, targets: ItemTarget[]): DropZone[] {
+    const zones: DropZone[] = [];
+    targets.forEach((t, ti) => {
+      const compEl = elementAtPath(t.component);
+      if (!compEl) return;
+      const children: ChildBox[] = [];
+      let container: Element | null = null;
+      for (const el of compEl.querySelectorAll("[data-nocms-item]")) {
+        const index = directIndex((el as HTMLElement).dataset.nocmsItem, t.key);
+        if (index === undefined) continue;
+        if (!container) container = el.parentElement;
         children.push({ index, box: toContentBox(boundingRect(el)) });
-    }
-    if (children.length === 0) return [];
-    children.sort((a, b) => a.index - b.index);
-    return [
-      {
-        path: [],
+      }
+      if (!container || children.length === 0) return;
+      children.sort((a, b) => a.index - b.index);
+      zones.push({
+        path: [ti],
         axis: axisOf(container),
         box: toContentBox(boundingRect(container)),
         children,
-      },
-    ];
+      });
+    });
+    return zones;
   }
 
   function makeGhost(el: HTMLElement, event: PointerEvent): void {
@@ -386,15 +398,21 @@ export function createDragController(deps: DragControllerDeps): DragController {
   function beginItemDrag(event: PointerEvent): void {
     const item = deps.selectedItem();
     if (!item) return;
+    const targets = deps.itemTargets(item);
     start(event, {
       liftElement: () => deps.itemElement(item),
-      buildZones: () => itemZones(item),
+      buildZones: () => itemZones(item, targets),
       draggedPath: NO_EXCLUDE,
       commit: async (drop) => {
-        // The item stays in the array during the drag, so the gap is in pre-removal index space —
-        // the same left-shift a same-parent block reorder needs.
-        const to = destinationIndex(item.index, drop.index);
-        if (to !== undefined) await deps.reorderItems(item, to);
+        const target = targets[drop.parentPath[0] ?? -1];
+        if (!target) return;
+        const sameArray =
+          target.key === item.key && target.component.join() === item.component.join();
+        // Back into its own array: the item is still present during the drag, so the gap is in
+        // pre-removal space and shifts left (and a no-op cancels). Into another array: the gap is
+        // the direct landing index.
+        const to = sameArray ? destinationIndex(item.index, drop.index) : drop.index;
+        if (to !== undefined) await deps.moveItem(item, target, to);
       },
     });
   }

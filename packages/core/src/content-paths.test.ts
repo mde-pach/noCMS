@@ -1,6 +1,10 @@
 import * as v from "valibot";
 import { describe, expect, it } from "vitest";
-import { enumerateContentPaths, enumerateItemPaths } from "./content-paths";
+import {
+  arrayElementShape,
+  enumerateContentPaths,
+  enumerateItemPaths,
+} from "./content-paths";
 import { deriveControls } from "./controls";
 
 // Mirrors a real section schema (cf. components' Features): array of objects holding display
@@ -127,5 +131,33 @@ describe("enumerateItemPaths", () => {
   it("returns nothing for an empty array", () => {
     const value = { title: "x", columns: 2, variant: "page", items: [] };
     expect(enumerateItemPaths(controls, value)).toEqual([]);
+  });
+});
+
+describe("arrayElementShape", () => {
+  const tiers = deriveControls(
+    v.object({
+      tiers: v.array(v.object({ name: v.string(), features: v.array(v.string()) })),
+      tags: v.array(v.string()),
+    }),
+  );
+
+  it("matches sibling string lists across the tree (a feature fits any string list)", () => {
+    const a = arrayElementShape(tiers, "tiers.0.features");
+    const b = arrayElementShape(tiers, "tiers.1.features");
+    const c = arrayElementShape(tiers, "tags");
+    expect(a).toBe("text");
+    expect(b).toBe(a);
+    expect(c).toBe(a); // a feature can move into `tags` — same shape
+  });
+
+  it("object lists match only same-shaped object lists, not string lists", () => {
+    const tierShape = arrayElementShape(tiers, "tiers");
+    expect(tierShape).toContain("name:text");
+    expect(tierShape).not.toBe(arrayElementShape(tiers, "tags"));
+  });
+
+  it("is undefined for a non-array key", () => {
+    expect(arrayElementShape(tiers, "tiers.0.name")).toBeUndefined();
   });
 });

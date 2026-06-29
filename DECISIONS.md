@@ -1239,11 +1239,19 @@ edits the array directly. Reaffirms invariants #1 and #10; builds on the content
 
 - **Item drag is a second mode of the one controller, not a second renderer.** `createDragController`
   carries a `DragSession`: a *block* drag commits a `moveNode` (cross-container); an *item* drag is
-  scoped to its own array (one zone, sibling cards) and commits a single prop write —
-  `setStructuredProp` of the reordered array, the same write the props panel's up/down buttons make,
-  resolving the schema **default** array when the prop isn't stored yet (else a seed array would
-  no-op). v1 reorders within the array only; cross-array / extract-to-block is deferred. An item with
-  no text leaves can't be located this way and falls back to selecting its component.
+  commits a `setStructuredProp` (the same write the props panel's up/down buttons make), resolving
+  the schema **default** array when the prop isn't stored yet (else a seed array would no-op). An
+  item with no text leaves can't be located this way and falls back to selecting its component.
+
+- **Cross-array moves between same-shaped arrays.** An item drags into **any array whose element is
+  the same shape** — its own (in-place reorder) or another's. A pricing feature can move to another
+  tier's `features`, or to another Pricing instance's; a tier can move between two Pricing sections.
+  Compatibility is a structural signature of the array's element control (`core.arrayElementShape`:
+  text kinds collapse so any string list matches; object lists match only same-fielded ones), so
+  nothing crosses into a differently-shaped list. The drag builds one zone per compatible array
+  (`itemTargets`); the move removes the value from the source array and inserts it into the target,
+  one clone+write when they share a top-level prop on one node, else a write per node. *Extract to a
+  standalone block* is still deferred (that is a shape change, not a same-shape move).
 
 ### D25 — In-component region reordering: declared regions, not source-AST editing → **DEFERRED (direction; build pending).**
 Users want to rearrange a component's *internal* parts (the canonical ask: move the navbar's CTA

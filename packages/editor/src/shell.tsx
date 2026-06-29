@@ -10,7 +10,11 @@ import {
   type SavedDef,
   savedDefToBlock,
 } from "@nocms/components";
-import type { ControlDescriptor } from "@nocms/core";
+import {
+  arrayElementShape,
+  type ControlDescriptor,
+  enumerateItemPaths,
+} from "@nocms/core";
 import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
@@ -31,7 +35,11 @@ import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
 import type { InspectorProps } from "./inspector.js";
-import { type ItemSelection, parseItemPath } from "./item-selection.js";
+import {
+  type ItemSelection,
+  type ItemTarget,
+  parseItemPath,
+} from "./item-selection.js";
 import {
   getProp,
   getStructuredProp,
@@ -740,17 +748,41 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       root,
     );
 
-  // The resolved top-level prop value an item belongs to, falling back to the schema default when
-  // the prop isn't stored on the node — a section often renders its seed array with no attribute,
-  // and reading only stored attributes would miss it (a reorder would silently no-op).
-  function resolvedTop(item: ItemSelection): unknown {
-    const node = nodeAtIndexPath(docs.doc, item.component);
-    if (!node || !isJsxElement(node) || !node.name) return undefined;
-    const { topKey } = splitItemKey(item.key);
+  // A node's props the way the canvas renders them: stored attributes where present, else schema
+  // defaults — the resolution the props panel and content-anchor probe also use.
+  function resolveProps(
+    node: JsxElement,
+    controls: ControlDescriptor[],
+  ): Record<string, unknown> {
+    const props: Record<string, unknown> = {};
+    for (const control of controls) {
+      if (control.kind === "group" || control.kind === "list") {
+        props[control.key] =
+          getStructuredProp(node, control.key) ??
+          control.default ??
+          (control.kind === "list" ? [] : {});
+      } else {
+        const v = getProp(node, control.key);
+        props[control.key] = v !== undefined ? v : control.default;
+      }
+    }
+    return props;
+  }
+
+  // The resolved value of a node's top-level prop, falling back to the schema default when the prop
+  // isn't stored — a section often renders its seed array with no attribute, and reading only stored
+  // attributes would miss it (a reorder would silently no-op).
+  function resolvedTopValue(node: JsxElement, topKey: string): unknown {
     const stored = getStructuredProp(node, topKey);
     if (stored !== undefined) return stored;
-    const def = components[node.name];
+    const def = node.name ? components[node.name] : undefined;
     return def ? controlsOf(def).find((c) => c.key === topKey)?.default : undefined;
+  }
+
+  function resolvedTop(item: ItemSelection): unknown {
+    const node = nodeAtIndexPath(docs.doc, item.component);
+    if (!node || !isJsxElement(node)) return undefined;
+    return resolvedTopValue(node, splitItemKey(item.key).topKey);
   }
 
   // The array an item sits in, at any depth — for labelling and reordering.
@@ -758,6 +790,47 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const arr = navigate(resolvedTop(item), splitItemKey(item.key).rest);
     return Array.isArray(arr) ? arr : undefined;
   }
+
+  // Every component instance in the document, with its block path — for finding drop targets.
+  function forEachComponent(cb: (node: JsxElement, path: IndexPath) => void): void {
+    const walk = (node: Nodes, path: IndexPath): void => {
+      childrenOf(node).forEach((child, i) => {
+        const childPath = [...path, i];
+        if (isJsxElement(child) && child.name) cb(child, childPath);
+        walk(child, childPath);
+      });
+    };
+    walk(docs.doc, []);
+  }
+
+  // Drop targets for an item drag: its own array (in-place reorder) plus every other array in the
+  // document whose element is the *same shape* — so a feature can move to another tier's features or
+  // another Pricing's, but never into a differently-shaped list.
+  const itemTargets = (source: ItemSelection): ItemTarget[] => {
+    const srcNode = nodeAtIndexPath(docs.doc, source.component);
+    const srcDef =
+      srcNode && isJsxElement(srcNode) && srcNode.name
+        ? components[srcNode.name]
+        : undefined;
+    const srcShape = srcDef
+      ? arrayElementShape(controlsOf(srcDef), source.key)
+      : undefined;
+    if (!srcShape) return [];
+    const targets: ItemTarget[] = [];
+    forEachComponent((node, path) => {
+      const def = node.name ? components[node.name] : undefined;
+      if (!def) return;
+      const controls = controlsOf(def);
+      const keys = new Set(
+        enumerateItemPaths(controls, resolveProps(node, controls)).map((i) => i.key),
+      );
+      for (const key of keys) {
+        if (arrayElementShape(controls, key) === srcShape)
+          targets.push({ component: path, key });
+      }
+    });
+    return targets;
+  };
 
   // The chip text for an item: a string element verbatim (a feature), else its first non-empty text
   // field (a tier's name), else a positional fallback — legible without a declared label field.
@@ -796,28 +869,53 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     renderContentSelection();
   }
 
-  // Reorder an item within its array — the same write the props panel's up/down buttons make,
-  // driven from a canvas drag. The top-level prop is cloned and the (possibly nested) array spliced
-  // in place, then written back whole. The moved item stays selected at its new index.
-  const reorderItems = async (item: ItemSelection, to: number): Promise<void> => {
-    const node = nodeAtIndexPath(docs.doc, item.component);
-    const top = resolvedTop(item);
-    if (!node || !isJsxElement(node) || top === undefined) return;
-    const { topKey, rest } = splitItemKey(item.key);
-    const clone = structuredClone(top);
-    const arr = navigate(clone, rest);
-    if (!Array.isArray(arr)) return;
-    if (item.index < 0 || item.index >= arr.length || to < 0 || to >= arr.length)
+  // Move an item into `target` at `to` — the source's own array (in-place reorder, the props
+  // panel's up/down write) or a same-shaped array elsewhere (a feature to another tier, or another
+  // component). The item is removed from its source array and inserted into the target; when both
+  // share one top-level prop on one node it is a single clone+write, else each node's prop is
+  // rewritten. The moved item stays selected at its destination.
+  const moveItem = async (
+    source: ItemSelection,
+    target: ItemTarget,
+    to: number,
+  ): Promise<void> => {
+    const srcNode = nodeAtIndexPath(docs.doc, source.component);
+    const tgtNode = nodeAtIndexPath(docs.doc, target.component);
+    if (!srcNode || !tgtNode || !isJsxElement(srcNode) || !isJsxElement(tgtNode))
       return;
-    const [moved] = arr.splice(item.index, 1);
-    arr.splice(to, 0, moved);
-    setStructuredProp(node, topKey, clone);
+    const src = splitItemKey(source.key);
+    const tgt = splitItemKey(target.key);
+    const sameProp =
+      source.component.join() === target.component.join() && src.topKey === tgt.topKey;
+
+    // `removeFrom` mutates its clone and returns the lifted value; `insertInto` mutates and returns
+    // the clamped landing index. When source and target share one prop they share one clone so both
+    // edits land together; the source array stays referenced after the target navigation.
+    const srcTop = structuredClone(resolvedTopValue(srcNode, src.topKey));
+    const srcArr = navigate(srcTop, src.rest);
+    if (!Array.isArray(srcArr) || source.index < 0 || source.index >= srcArr.length)
+      return;
+    const tgtTop = sameProp
+      ? srcTop
+      : structuredClone(resolvedTopValue(tgtNode, tgt.topKey));
+    const [moved] = srcArr.splice(source.index, 1);
+    const tgtArr = navigate(tgtTop, tgt.rest);
+    if (!Array.isArray(tgtArr)) return;
+    const at = Math.max(0, Math.min(to, tgtArr.length));
+    tgtArr.splice(at, 0, moved);
+
+    setStructuredProp(srcNode, src.topKey, srcTop);
+    if (!sameProp) setStructuredProp(tgtNode, tgt.topKey, tgtTop);
     // `commit` (not `handleEdit`) re-parses the document so its source offsets re-sync with the
-    // re-rendered canvas. Item *and* block selection resolve a clicked DOM offset against this tree;
-    // a stale one (handleEdit leaves the mutated tree's offsets untouched) breaks all selection
-    // after the first reorder. It block-selects the component, so re-select the moved item.
-    await docs.commit(docs.serialize(), item.component);
-    selectItem({ ...item, index: to, path: `${item.key}.${to}` });
+    // re-rendered canvas — selection resolves a clicked DOM offset against this tree, and a stale
+    // one breaks all selection. It block-selects the component, so re-select the moved item.
+    await docs.commit(docs.serialize(), target.component);
+    selectItem({
+      component: target.component,
+      key: target.key,
+      index: at,
+      path: `${target.key}.${at}`,
+    });
   };
 
   function select(path: IndexPath | undefined, focus?: string): void {
@@ -1031,7 +1129,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     },
     selectedItem: () => selectedItem,
     itemElement,
-    reorderItems,
+    itemTargets,
+    moveItem,
     restore: () => {
       if (selectedItem) {
         renderItemSelection();
