@@ -1241,3 +1241,46 @@ edits the array directly. Reaffirms invariants #1 and #10; builds on the content
   resolving the schema **default** array when the prop isn't stored yet (else a seed array would
   no-op). v1 reorders within the array only; cross-array / extract-to-block is deferred. An item with
   no text leaves can't be located this way and falls back to selecting its component.
+
+### D25 — In-component region reordering: declared regions, not source-AST editing → **DEFERRED (direction; build pending).**
+Users want to rearrange a component's *internal* parts (the canonical ask: move the navbar's CTA
+button to the left of its links). The settled answer: this is in scope **only when the rearrangeable
+region is modeled as data** (a D22 **Frame**, a D15/D20 **slot**, or a D24 **array**), never by
+editing the component's source JSX/AST at runtime. Reaffirms invariants #1 (one renderer, no code
+generator) and the D14 / CLAUDE.md non-goal (no end-user authoring of arbitrary components). Full
+build brief: `docs/specs/in-component-region-reordering.md`. Builds on D20 (saved/composed +
+edit-master), D22 (Frame), D23 (per-element Style panel), D24 (item drag).
+
+- **Not all "parts" are data — that is the whole crux.** The editor reorders **document blocks**
+  (block drag, D22 ④) and **array items** (item drag, D24) because both are data it owns. The navbar's
+  CTA is **neither**: it is a separate scalar prop rendered in a **fixed JSX position** (`Navbar.tsx`:
+  `<nav>` renders `{links.map(...)}` then `{ctaLabel ? <Button/>}`). Its position lives in the
+  component's **code**, which the editor does not edit at runtime.
+
+- **Why not just edit the source AST (the user asked, fairly).** It is feasible (Onlook does it) but
+  it converts a *data editor with no build* into a *code editor with a compile step*: curated
+  components ship as **compiled bundles, not source** in a fork (D1), so editing needs eject-to-source
+  + an in-browser TS/JSX compiler + recompile-to-preview (kills instant edit, #3); JSX children are
+  code (loops/conditionals/spreads), so "well-scoped" is a fuzzy classifier that can mis-reorder;
+  and *preview = publish* (#1) would need two compilers in lockstep. Out of scope by #1/D14/D20 — a
+  deliberate future fork toward a visual code tool, not something a drag handle should sneak in.
+
+- **The Style panel (D23) is the precedent, and it stays on the right side of the line.** Per-element
+  class editing writes the selected element's **`class` attribute on a placed block in the document**
+  (`StyleSectionContext.getClass/setClass` → normal serialize+repaint), host-injected so the editor
+  stays styling-agnostic. It edits an **instance attribute**, never the component's internal blueprint
+  — same boundary this decision draws for structure.
+
+- **Instance vs definition is the user's own framing.** Reordering a Frame/slot's children that are
+  **document nodes** is *already* the block drag, scoped to that container — and a composed
+  component's slot contents are per-instance MDX (D20), so **in-instance slot reorder largely works
+  today**. Reordering a region that belongs to a component's **definition** (a composed master's
+  layout) is an **edit-master** op (D20) — it changes every instance and needs an explicit, clearly
+  labeled **"Edit component"** scope (scope-of-effect banner, distinct accent, repo persistence —
+  D20-deferred). Parts reorder *within* a component, never *out*; leaving is an explicit **detach**
+  (D20), not a drag.
+
+- **Navbar, resolved two ways (pick at build time).** (A) Re-author the component so its `<nav>` is a
+  Frame / ordered "actions" slot → the CTA moves via normal instance slot/Frame reorder, no master
+  edit. (B) Leave curated internals code-defined; only slot/Frame/array-modeled (or composed) regions
+  reorder. B is the rule; A is how you opt a given component in.
