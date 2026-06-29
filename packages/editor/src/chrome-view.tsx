@@ -8,6 +8,7 @@
 import type { VNode } from "preact";
 import {
   type Appearance,
+  type Breakpoint,
   type BreakpointId,
   type PublishStatus,
   TopBar,
@@ -19,6 +20,7 @@ import { PublishPopover } from "./publish.js";
 export interface EditorChromeProps {
   siteHost: string;
   pageName: string;
+  breakpoints: Breakpoint[];
   breakpoint: BreakpointId;
   appearance: Appearance;
   dirty: boolean;
@@ -42,6 +44,7 @@ export function EditorChrome(props: EditorChromeProps): VNode {
       <TopBar
         siteHost={props.siteHost}
         pageName={props.pageName}
+        breakpoints={props.breakpoints}
         breakpoint={props.breakpoint}
         onBreakpoint={props.onBreakpoint}
         appearance={props.appearance}

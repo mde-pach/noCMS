@@ -22,7 +22,7 @@ import {
   mountCanvas,
   offsetFromElement,
 } from "./canvas.js";
-import type { BreakpointId } from "./chrome.js";
+import { type Breakpoint, DEFAULT_BREAKPOINTS } from "./chrome.js";
 import { createChromeController } from "./chrome-controller.js";
 import { EditorChrome } from "./chrome-view.js";
 import { anchorComponents } from "./content-anchors.js";
@@ -62,19 +62,6 @@ import { EDITOR_CSS, FONTS_HREF } from "./theme.js";
 import { TokensPanel } from "./tokens-panel.js";
 import { moveNode } from "./tree-edit.js";
 
-// A breakpoint resizes the *whole page* (`#app`, via `--nocms-page-width`), not just the content
-// column — so the header and nav reflow exactly as they would at that real viewport width, the way
-// a device actually renders the site. L4 ("Fit") fills the available stage and is the faithful
-// default (what visitors see, minus the docked rail); the narrower steps are real device widths,
-// centred on the editor backdrop so the page reads as a device preview.
-const BREAKPOINT_WIDTH: Record<BreakpointId, string> = {
-  L0: "390px",
-  L1: "600px",
-  L2: "834px",
-  L3: "1280px",
-  L4: "100%",
-};
-
 export interface EditorOptions {
   /** DOM node the editor mounts into; the shell owns its contents. */
   target: Element;
@@ -89,6 +76,10 @@ export interface EditorOptions {
   data?: Record<string, unknown>;
   /** flat token source; when present, the design panel themes the canvas live. */
   tokens?: string;
+  /** the viewports the top-bar switcher offers; the first is the initial selection. The active id
+   *  is reported to `renderStyleSection` as `viewport`, so the site's Style panel authors styles for
+   *  the breakpoint being previewed. Defaults to device widths (`DEFAULT_BREAKPOINTS`). */
+  breakpoints?: Breakpoint[];
   /** fired with the serialized MDX after every edit — the seam to save/commit. */
   onChange?: (mdx: string) => void;
   /** fired with the flat token source after a theme edit — the seam to save/commit. */
@@ -121,6 +112,9 @@ export interface StyleSectionContext {
    *  tag-relevant controls, since `name` is the JSX/component name, not the painted element. Falls
    *  back to `name` when the node isn't painted yet. */
   tag: string;
+  /** The active viewport id (the top-bar breakpoint the canvas is previewing). The panel authors
+   *  styles for this breakpoint, so canvas width and the styled variant stay one choice. */
+  viewport: string;
   getClass: () => string;
   setClass: (cls: string) => void;
 }
@@ -281,9 +275,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // The top-bar state (breakpoint, appearance, dirty, publish) — its own concern; mutations
   // repaint the chrome tree. The actions it triggers (reset, open navigator/publish) are wired
   // into the chrome view by `paint`.
+  const breakpoints = options.breakpoints ?? DEFAULT_BREAKPOINTS;
   const chrome = createChromeController({
     surface,
-    breakpointWidth: BREAKPOINT_WIDTH,
+    breakpoints,
     onBreakpointChange: () => trackOverlays(360),
     repaint: () => paint(),
   });
@@ -388,6 +383,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
             element: node,
             name: node.name,
             tag: (selectedPath && rootTagAtPath(selectedPath)) || node.name,
+            viewport: chrome.snapshot().breakpoint,
             getClass: () => String(getProp(node, "class") ?? ""),
             setClass: (cls) => {
               if (cls) setProp(node, "class", cls);
@@ -443,6 +439,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       <EditorChrome
         siteHost={options.siteHost ?? "nocms.github.io"}
         pageName={options.pageName ?? "Home"}
+        breakpoints={breakpoints}
         breakpoint={c.breakpoint}
         appearance={c.appearance}
         dirty={c.dirty}

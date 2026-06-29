@@ -14,7 +14,9 @@ export {
 } from "./catalog.js";
 export {
   type Appearance,
+  type Breakpoint,
   type BreakpointId,
+  DEFAULT_BREAKPOINTS,
   type PublishStatus,
   TopBar,
   type TopBarProps,

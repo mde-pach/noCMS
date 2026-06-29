@@ -10,6 +10,7 @@ import {
   SignInGate,
   type StyleSectionContext,
 } from "@nocms/editor";
+import { VIEWPORTS } from "@nocms/style-controls";
 import { render } from "preact";
 import { StylePanel } from "./poc/style-panel";
 import { ensureTailwindPreview } from "./tailwind-preview";
@@ -18,9 +19,20 @@ import { ensureTailwindPreview } from "./tailwind-preview";
 // `class`; this panel — the Tailwind catalog's capability controls, scoped to the mode bar's
 // viewport×state variant — generates utility classes onto it. Editing `class` re-renders the
 // component (which forwards `className`), and the in-page Tailwind engine compiles the result live.
-function StyleSection({ tag, getClass, setClass }: StyleSectionContext) {
-  return <StylePanel tag={tag} getClass={getClass} setClass={setClass} />;
+function StyleSection({ tag, viewport, getClass, setClass }: StyleSectionContext) {
+  return (
+    <StylePanel tag={tag} viewport={viewport} getClass={getClass} setClass={setClass} />
+  );
 }
+
+// The top-bar viewport switcher *is* the styling breakpoint (canvas width and the variant the Style
+// panel authors are one choice). The site supplies the Tailwind viewports so the editor stays
+// styling-agnostic; the panel maps the active id back to a `sm:`/`md:` prefix.
+const BREAKPOINTS = VIEWPORTS.map((v) => ({
+  id: v.key,
+  label: v.label,
+  width: `${v.width}px`,
+}));
 
 const SIGNED_IN_KEY = "nocms-dev-signed-in";
 const EDITOR_CSS_ID = "nocms-editor-css";
@@ -92,6 +104,7 @@ function start({ contentHost, mdx, tokens, registry }: EnterEditOptions): void {
     mdx,
     components: registry,
     tokens,
+    breakpoints: BREAKPOINTS,
     onChange: (next) => console.info("[nocms] content edited", next.length, "chars"),
     onTokensChange: () => console.info("[nocms] theme edited"),
     renderStyleSection: (ctx) => <StyleSection {...ctx} />,

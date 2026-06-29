@@ -11,37 +11,39 @@ import { applyClass } from "./catalog";
 
 const ACCENT = "#3b5bdb";
 
-// The mode the user is editing — a viewport × state pair — persists across selections (and across the
-// panel unmounting when nothing is selected), so switching elements keeps you "in Hover" the way Figma
-// keeps the active state. Module scope, not component state, is what survives the unmount.
-let mode: { vp: ViewportKey; st: StateKey } = { vp: "base", st: "default" };
+// The interaction state being authored persists across selections (Figma keeps the active state);
+// module scope survives the panel unmounting when nothing is selected. The viewport axis is *not*
+// here — it's the editor's top-bar breakpoint, passed in as `viewport`, so canvas width and the
+// styled breakpoint are a single choice.
+let stateMode: StateKey = "default";
 
 interface StylePanelProps {
   /** the rendered DOM root tag of the selection (e.g. `"section"`), used to pick tag-relevant
    *  controls. The editor resolves this from the painted element, not the JSX/component name. */
   tag: string;
+  /** active editor viewport id (a Tailwind viewport key) — the breakpoint being previewed. */
+  viewport: string;
   getClass: () => string;
   setClass: (cls: string) => void;
 }
 
-// The site's element-level styling panel. The mode bar picks the variant (`md:hover:`); every control
-// below reads and writes classes *for that variant*, so one element carries a full responsive +
-// interaction-state ruleset and the engine compiles each.
-export function StylePanel({ tag, getClass, setClass }: StylePanelProps) {
-  const [vp, setVp] = useState<ViewportKey>(mode.vp);
-  const [st, setSt] = useState<StateKey>(mode.st);
-  const variant = variantOf(vp, st);
+// The site's element-level styling panel. The styled variant is (top-bar viewport × local state);
+// every control reads and writes classes *for that variant*, so one element carries a full
+// responsive + interaction-state ruleset and the engine compiles each.
+export function StylePanel({ tag, viewport, getClass, setClass }: StylePanelProps) {
+  const [st, setSt] = useState<StateKey>(stateMode);
+  const variant = variantOf(viewport as ViewportKey, st);
   const className = getClass();
+  const vpLabel = VIEWPORTS.find((v) => v.key === viewport)?.label;
 
-  const pick = (next: Partial<{ vp: ViewportKey; st: StateKey }>) => {
-    mode = { vp: next.vp ?? vp, st: next.st ?? st };
-    if (next.vp) setVp(next.vp);
-    if (next.st) setSt(next.st);
+  const pick = (next: StateKey) => {
+    stateMode = next;
+    setSt(next);
   };
 
   return (
     <div>
-      <ModeBar vp={vp} st={st} onPick={pick} />
+      <ModeBar st={st} viewportLabel={vpLabel} onPick={pick} />
       <CapabilityBrowser
         tag={tag}
         className={className}
@@ -55,25 +57,25 @@ export function StylePanel({ tag, getClass, setClass }: StylePanelProps) {
 }
 
 function ModeBar({
-  vp,
   st,
+  viewportLabel,
   onPick,
 }: {
-  vp: ViewportKey;
   st: StateKey;
-  onPick: (next: Partial<{ vp: ViewportKey; st: StateKey }>) => void;
+  viewportLabel: string | undefined;
+  onPick: (next: StateKey) => void;
 }) {
+  const isBase = !viewportLabel || viewportLabel === "Base";
   return (
     <section style={bar}>
-      <Segments
-        items={VIEWPORTS.map((v) => ({ key: v.key, label: v.label }))}
-        active={vp}
-        onPick={(key) => onPick({ vp: key as ViewportKey })}
-      />
+      <div style={hint}>
+        Styling <strong style={{ color: ACCENT }}>{viewportLabel ?? "Base"}</strong>
+        {isBase ? " · all screens" : " and up"}
+      </div>
       <Segments
         items={STATES.map((s) => ({ key: s.key, label: s.label }))}
         active={st}
-        onPick={(key) => onPick({ st: key as StateKey })}
+        onPick={(key) => onPick(key as StateKey)}
       />
     </section>
   );
@@ -107,11 +109,12 @@ function Segments({
 const bar = {
   display: "flex",
   flexDirection: "column",
-  gap: 5,
+  gap: 6,
   paddingBottom: 10,
   marginBottom: 10,
   borderBottom: "1px solid #ececf2",
 } as const;
+const hint = { fontSize: 11, color: "#888" } as const;
 const seg = {
   fontSize: 11,
   padding: "3px 7px",

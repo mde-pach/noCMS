@@ -1,15 +1,31 @@
 import type { VNode } from "preact";
 import { CheckIcon, ChevronDown, MenuIcon, PublishIcon } from "./icons.js";
 
-export type BreakpointId = "L0" | "L1" | "L2" | "L3" | "L4";
+// A breakpoint is one viewport the canvas can render at: an opaque id (the site's, e.g. a Tailwind
+// key), a label for the top bar, and the page width it sizes the canvas to. The editor stays
+// styling-agnostic — it never interprets the id, only sizes by `width` and reports the active id to
+// the site's Style panel, which maps it to its own variant grammar.
+export interface Breakpoint {
+  id: string;
+  label: string;
+  width: string;
+}
+export type BreakpointId = string;
 export type Appearance = "light" | "dark";
 export type PublishStatus = "idle" | "publishing" | "published" | "error";
 
-const BREAKPOINTS: BreakpointId[] = ["L0", "L1", "L2", "L3", "L4"];
+export const DEFAULT_BREAKPOINTS: Breakpoint[] = [
+  { id: "L0", label: "L0", width: "390px" },
+  { id: "L1", label: "L1", width: "600px" },
+  { id: "L2", label: "L2", width: "834px" },
+  { id: "L3", label: "L3", width: "1280px" },
+  { id: "L4", label: "Fit", width: "100%" },
+];
 
 export interface TopBarProps {
   siteHost: string;
   pageName: string;
+  breakpoints: Breakpoint[];
   breakpoint: BreakpointId;
   onBreakpoint: (bp: BreakpointId) => void;
   appearance: Appearance;
@@ -64,6 +80,7 @@ function PublishButton({
 export function TopBar({
   siteHost,
   pageName,
+  breakpoints,
   breakpoint,
   onBreakpoint,
   appearance,
@@ -100,16 +117,16 @@ export function TopBar({
       <div class="nc-spacer" />
 
       <div class="nc-segmented" role="group" aria-label="Breakpoint">
-        {BREAKPOINTS.map((bp) => (
+        {breakpoints.map((bp) => (
           <button
-            key={bp}
+            key={bp.id}
             type="button"
             class="nc-seg"
             style="flex:0 0 auto"
-            aria-pressed={bp === breakpoint}
-            onClick={() => onBreakpoint(bp)}
+            aria-pressed={bp.id === breakpoint}
+            onClick={() => onBreakpoint(bp.id)}
           >
-            {bp}
+            {bp.label}
           </button>
         ))}
       </div>

@@ -4,7 +4,7 @@
 // the shell repaints the one declarative chrome tree from `snapshot()`. Keeping it render-free is
 // what lets the top bar live in that single tree instead of its own imperative render call.
 
-import type { Appearance, BreakpointId, PublishStatus } from "./chrome.js";
+import type { Appearance, Breakpoint, BreakpointId, PublishStatus } from "./chrome.js";
 
 export interface ChromeSnapshot {
   breakpoint: BreakpointId;
@@ -28,7 +28,8 @@ export interface ChromeController {
 export interface ChromeControllerDeps {
   /** the editing surface — appearance is reflected on its `data-appearance`. */
   surface: HTMLElement;
-  breakpointWidth: Record<BreakpointId, string>;
+  /** the viewports the canvas can render at; the first is the initial selection. */
+  breakpoints: Breakpoint[];
   /** the page width transitions on a breakpoint change; the shell re-pins overlays meanwhile. */
   onBreakpointChange: () => void;
   /** repaint the chrome tree (the shell renders it from `snapshot()`). */
@@ -36,27 +37,23 @@ export interface ChromeControllerDeps {
 }
 
 export function createChromeController(deps: ChromeControllerDeps): ChromeController {
-  const { surface, breakpointWidth, onBreakpointChange, repaint } = deps;
-  let breakpoint: BreakpointId = "L4";
+  const { surface, breakpoints, onBreakpointChange, repaint } = deps;
+  const widthOf = (id: BreakpointId): string =>
+    breakpoints.find((b) => b.id === id)?.width ?? "100%";
+  let breakpoint: BreakpointId = breakpoints[0]?.id ?? "";
   let appearance: Appearance = "light";
   let dirty = false;
   let publishStatus: PublishStatus = "idle";
   let publishTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // The default width is set immediately so the page is at "Fit" before the first paint.
-  document.documentElement.style.setProperty(
-    "--nocms-page-width",
-    breakpointWidth[breakpoint],
-  );
+  // The default width is set immediately so the page is sized before the first paint.
+  document.documentElement.style.setProperty("--nocms-page-width", widthOf(breakpoint));
 
   return {
     snapshot: () => ({ breakpoint, appearance, dirty, publishStatus }),
     setBreakpoint(bp) {
       breakpoint = bp;
-      document.documentElement.style.setProperty(
-        "--nocms-page-width",
-        breakpointWidth[bp],
-      );
+      document.documentElement.style.setProperty("--nocms-page-width", widthOf(bp));
       repaint();
       onBreakpointChange();
     },
