@@ -13,8 +13,8 @@ import {
   contentPathsFromControls,
   enumerateItemPaths,
 } from "@nocms/core";
-import { sentinelFor } from "@nocms/renderer";
 import { type ComponentType, h, render } from "preact";
+import { sentinelFor } from "./anchor-probe.js";
 import {
   getProp,
   getStructuredProp,

@@ -6,9 +6,9 @@
 
 import { Features, FeaturesSchema } from "@nocms/components";
 import { enumerateContentPaths } from "@nocms/core";
-import { probeContentAnchors } from "@nocms/renderer";
 import { h } from "preact";
 import * as v from "valibot";
+import { probeContentAnchors } from "../src/anchor-probe.js";
 
 const props = v.getDefaults(FeaturesSchema) as Record<string, unknown>;
 
