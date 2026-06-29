@@ -25,14 +25,9 @@ export type ControlKind =
   | "date"
   | "group"
   | "list"
-  // Layout inspector kinds (D22): a direction toggle (row/column/grid) and a 2-axis
-  // alignment matrix. Both are flat scalar props rendered as one visual widget.
-  | "layout-direction"
-  | "layout-align"
-  // A prop the panel never renders on its own — it is driven by a sibling widget
-  // (e.g. `justify` is set by the `layout-align` matrix alongside `align`).
-  | "hidden"
-  // Open set: plugins register kinds beyond the built-ins above.
+  // Open set: a host maps a `v.metadata({ control })` hint to any kind beyond the built-ins above
+  // and renders it itself — the editor's layout widgets and plugin controls ride this. The string
+  // literals exist only for autocomplete; an unknown kind is valid and the host owns its rendering.
   | (string & {});
 
 /** A control hides until another field holds a given value. */
@@ -57,7 +52,8 @@ export interface ControlDescriptor {
   children?: ControlDescriptor[];
 }
 
-/** Built-in kinds; the host renders these natively. Unknown kinds fall back. */
+/** The kinds @nocms/controls derives natively. A host may render additional open-set kinds (mapped
+ *  from a `v.metadata({ control })` hint) that are deliberately not listed here. */
 export const KNOWN_CONTROL_KINDS: ReadonlySet<string> = new Set([
   "text",
   "textarea",
@@ -73,9 +69,6 @@ export const KNOWN_CONTROL_KINDS: ReadonlySet<string> = new Set([
   "date",
   "group",
   "list",
-  "layout-direction",
-  "layout-align",
-  "hidden",
 ]);
 
 function humanize(key: string): string {
