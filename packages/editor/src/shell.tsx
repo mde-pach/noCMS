@@ -770,6 +770,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     selectedPath = item.component; // the inspector shows the owning component...
     focusedContentPath = item.path; // ...with this item's row expanded
     focusNonce += 1;
+    overlays.clearHover();
     canvas.highlight(undefined);
     paint();
     renderToolbar();
@@ -801,9 +802,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     // never lingers onto the next block.
     focusedContentPath = focus;
     if (focus) focusNonce += 1;
+    // A selected block's name is owned by its toolbar pill; the hover label for the same block is
+    // redundant, so clear it (no mousemove fires on the click that selected it to clear it later).
+    overlays.clearHover();
     canvas.highlight(path);
     paint();
-    // The chip is painted first: the toolbar measures it to dock beside it.
     renderSelectionLabel();
     renderToolbar();
     renderContentSelection();
