@@ -2,41 +2,8 @@ import * as v from "valibot";
 import { cx } from "../cx";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
+import { FooterColumn, SEED_COLUMNS } from "./seeds";
 import { hairlineTop, mutedInk, surfaceBg, surfaceField } from "./shared";
-
-const FooterLink = v.object({
-  label: v.string(),
-  href: v.pipe(v.string(), v.metadata({ control: "url" })),
-});
-
-const FooterColumn = v.object({
-  heading: v.string(),
-  links: v.optional(v.array(FooterLink)),
-});
-
-const SEED_COLUMNS: v.InferInput<typeof FooterColumn>[] = [
-  {
-    heading: "Product",
-    links: [
-      { label: "Features", href: "#features" },
-      { label: "Pricing", href: "#pricing" },
-    ],
-  },
-  {
-    heading: "Resources",
-    links: [
-      { label: "Docs", href: "#docs" },
-      { label: "GitHub", href: "https://github.com" },
-    ],
-  },
-  {
-    heading: "Legal",
-    links: [
-      { label: "License", href: "#license" },
-      { label: "Privacy", href: "#privacy" },
-    ],
-  },
-];
 
 export const FooterSchema = v.object({
   siteName: v.optional(v.string(), "noCMS"),

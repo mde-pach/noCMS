@@ -1,13 +1,23 @@
 import type { ComponentChildren } from "preact";
-import * as v from "valibot";
 import { cx } from "../cx";
+import type { SurfaceRole } from "../schema-builders";
+
+export {
+  imageField,
+  imageProp,
+  linkField,
+  optionalRichText,
+  optionalUrl,
+  richText,
+  SURFACE_ROLES,
+  type SurfaceRole,
+  surfaceField,
+  urlProp,
+} from "../schema-builders";
 
 // Sections pick a background by token *role*, not a raw color, so a theme swap restyles every
 // band coherently. Only the real color tokens (brand-500, text, bg) are referenced;
 // muted/surface are mixed from them, never hardcoded.
-export const SURFACE_ROLES = ["page", "surface", "subtle", "brand"] as const;
-export type SurfaceRole = (typeof SURFACE_ROLES)[number];
-
 export const surfaceBg: Record<SurfaceRole, string> = {
   page: "bg-bg",
   surface: "bg-[color-mix(in_srgb,var(--color-text)_4%,var(--color-bg))]",
@@ -29,20 +39,6 @@ export const mutedInk = "text-current/65";
 /** Hairline border tinted from the current foreground (full box / top edge). */
 export const hairline = "border border-current/14";
 export const hairlineTop = "border-t border-t-current/14";
-
-export const surfaceField = (role: SurfaceRole) =>
-  v.optional(v.pipe(v.picklist(SURFACE_ROLES), v.metadata({ control: "color" })), role);
-
-export const richText = () => v.pipe(v.string(), v.metadata({ control: "richtext" }));
-
-export const optionalRichText = (fallback?: string) =>
-  fallback === undefined ? v.optional(richText()) : v.optional(richText(), fallback);
-
-export const linkField = (href = "#") =>
-  v.optional(v.pipe(v.string(), v.metadata({ control: "url" })), href);
-
-export const imageField = () =>
-  v.optional(v.pipe(v.string(), v.metadata({ control: "image" })));
 
 const PAD = {
   sm: "py-lg",

@@ -1,10 +1,11 @@
 import type { ComponentChildren } from "preact";
 import * as v from "valibot";
 import { cx } from "../cx";
+import { optionalUrl } from "../schema-builders";
 
 export const CardSchema = v.object({
   title: v.optional(v.string()),
-  href: v.optional(v.pipe(v.string(), v.metadata({ control: "url" }))),
+  href: optionalUrl(),
 });
 
 export type CardProps = v.InferInput<typeof CardSchema> & {

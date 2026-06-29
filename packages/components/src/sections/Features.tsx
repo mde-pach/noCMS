@@ -3,31 +3,8 @@ import { cx } from "../cx";
 import { Card } from "../primitives/Card";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
+import { FeatureItem, SEED_ITEMS } from "./seeds";
 import { Band, mutedInk, optionalRichText, surfaceField } from "./shared";
-
-const FeatureItem = v.object({
-  icon: v.optional(v.string()),
-  title: v.string(),
-  body: v.optional(v.string()),
-});
-
-const SEED_ITEMS: v.InferInput<typeof FeatureItem>[] = [
-  {
-    icon: "◆",
-    title: "The repo is the database",
-    body: "Content, history, and drafts live in git. No backend to run, nothing to pay for.",
-  },
-  {
-    icon: "✎",
-    title: "Edit in-site, publish on click",
-    body: "A WYSIWYG editor ships with every site. Preview is exactly what publishes.",
-  },
-  {
-    icon: "✦",
-    title: "Theme without a rebuild",
-    body: "Tokens are runtime CSS variables — restyle live, never wait on a build.",
-  },
-];
 
 export const FeaturesSchema = v.object({
   title: optionalRichText("Everything you need, nothing you don't"),

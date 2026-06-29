@@ -1,9 +1,10 @@
 import * as v from "valibot";
 import { cx } from "../cx";
+import { imageProp } from "../schema-builders";
 
 // `src` carries the `image` meta-type so the editor gives it a media picker, not a text box.
 export const ImageSchema = v.object({
-  src: v.pipe(v.string(), v.metadata({ control: "image" })),
+  src: imageProp(),
   alt: v.string(),
   width: v.optional(v.number()),
   height: v.optional(v.number()),

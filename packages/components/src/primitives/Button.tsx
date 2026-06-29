@@ -1,9 +1,10 @@
 import * as v from "valibot";
 import { cx } from "../cx";
+import { linkField } from "../schema-builders";
 
 export const ButtonSchema = v.object({
   label: v.string(),
-  href: v.optional(v.pipe(v.string(), v.metadata({ control: "url" })), "#"),
+  href: linkField(),
   variant: v.optional(v.picklist(["primary", "secondary"]), "primary"),
 });
 

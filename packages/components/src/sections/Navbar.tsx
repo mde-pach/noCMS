@@ -1,19 +1,8 @@
 import * as v from "valibot";
 import { cx } from "../cx";
 import { Button } from "../primitives/Button";
+import { NavLink, SEED_LINKS } from "./seeds";
 import { linkField } from "./shared";
-
-const NavLink = v.object({
-  label: v.string(),
-  href: v.pipe(v.string(), v.metadata({ control: "url" })),
-});
-
-const SEED_LINKS: v.InferInput<typeof NavLink>[] = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Edit this page", href: "?edit" },
-];
 
 // `brand`/`brandMark` render as "brand<accent>brandMark</accent>" so the wordmark keeps its
 // two-tone look while staying plain editable text. The links are an array, so the editor's list

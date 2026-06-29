@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { cx } from "../cx";
+import { FieldWrapper } from "./FieldWrapper";
 
 export const InputSchema = v.object({
   name: v.string(),
@@ -17,8 +17,6 @@ export type InputProps = v.InferInput<typeof InputSchema> & {
   className?: string;
 };
 
-const FIELD = "flex flex-col gap-sm";
-
 export function Input({
   name,
   label,
@@ -29,9 +27,8 @@ export function Input({
   className,
 }: InputProps) {
   return (
-    <label class={cx(FIELD, className, cls)}>
-      {label ? <span>{label}</span> : null}
+    <FieldWrapper label={label} className={className} cls={cls}>
       <input name={name} type={type} placeholder={placeholder} required={required} />
-    </label>
+    </FieldWrapper>
   );
 }

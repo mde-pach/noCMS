@@ -3,33 +3,8 @@ import { cx } from "../cx";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
 import { Image } from "../primitives/Image";
+import { Quote, SEED_QUOTES } from "./seeds";
 import { Band, hairline, mutedInk, optionalRichText, surfaceField } from "./shared";
-
-const Quote = v.object({
-  quote: v.pipe(v.string(), v.metadata({ control: "richtext" })),
-  name: v.string(),
-  role: v.optional(v.string()),
-  avatar: v.optional(v.pipe(v.string(), v.metadata({ control: "image" }))),
-});
-
-const SEED_QUOTES: v.InferInput<typeof Quote>[] = [
-  {
-    quote: "I shipped my portfolio in an afternoon and I own every byte of it.",
-    name: "Ada L.",
-    role: "Designer",
-  },
-  {
-    quote:
-      "No dashboard to log into, no bill at the end of the month. It's just my repo.",
-    name: "Grace H.",
-    role: "Indie dev",
-  },
-  {
-    quote: "Editing in-site and seeing the exact published result is the whole game.",
-    name: "Linus T.",
-    role: "Writer",
-  },
-];
 
 export const TestimonialsSchema = v.object({
   title: optionalRichText("Loved by people who hate maintenance"),
