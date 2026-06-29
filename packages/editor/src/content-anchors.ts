@@ -13,7 +13,7 @@ import {
   contentPathsFromControls,
   enumerateItemPaths,
   type ItemPath,
-} from "@nocms/core";
+} from "@nocms/controls";
 import { sentinelFor } from "@nocms/renderer";
 import { type ComponentType, h, render } from "preact";
 import {

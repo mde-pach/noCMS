@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { type ControlDescriptor, deriveControls } from "@nocms/core";
+import { type ControlDescriptor, deriveControls } from "@nocms/controls";
 import * as v from "valibot";
 import { describe, expect, test, vi } from "vitest";
 import { createContentEditor } from "./content-edit.js";

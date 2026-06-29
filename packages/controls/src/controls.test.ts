@@ -1,8 +1,7 @@
+import { type CollectionDef, schemaForCollection } from "@nocms/core";
 import * as v from "valibot";
 import { describe, expect, test } from "vitest";
 import { deriveControls } from "./controls";
-import type { CollectionDef } from "./index";
-import { schemaForCollection } from "./schema";
 
 describe("deriveControls — base types", () => {
   test("maps primitives to their controls", () => {

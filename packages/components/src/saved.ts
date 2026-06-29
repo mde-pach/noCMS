@@ -1,4 +1,4 @@
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import { type ComponentChild, h, type VNode } from "preact";
 import {
   type AnyComponent,

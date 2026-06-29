@@ -3,7 +3,7 @@
 // single attribute; `group`/`list` bind to a structured attribute the editor round-trips as JSON
 // (`items={[{…}]}`), so array/object content (feature cards, tiers, footer columns) is editable too.
 
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {

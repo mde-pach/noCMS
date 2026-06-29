@@ -3,7 +3,7 @@
 // so direct-on-page editing and the panel are two faces of one value, kept in sync as you type.
 // These props are plain strings, so this is plain contenteditable, not the prose editor.
 
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { CanvasHandle } from "./canvas.js";
 import type { DocumentStore } from "./document-store.js";
 import {

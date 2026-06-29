@@ -1,4 +1,4 @@
-import { deriveControls } from "@nocms/core";
+import { deriveControls } from "@nocms/controls";
 import { describe, expect, test } from "vitest";
 import {
   ButtonSchema,

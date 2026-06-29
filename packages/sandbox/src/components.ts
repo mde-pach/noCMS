@@ -1,6 +1,6 @@
 import type { BlockDef, ComponentManifest, ComponentPack } from "@nocms/components";
 import { manifestOf } from "@nocms/components";
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import { type ComponentType, h } from "preact";
 
 /** Crosses postMessage, so every field must be serializable — no schema, no component. */

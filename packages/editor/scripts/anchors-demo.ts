@@ -5,7 +5,7 @@
  */
 
 import { Features, FeaturesSchema } from "@nocms/components";
-import { enumerateContentPaths } from "@nocms/core";
+import { enumerateContentPaths } from "@nocms/controls";
 import { probeContentAnchors } from "@nocms/renderer";
 import { h } from "preact";
 import * as v from "valibot";

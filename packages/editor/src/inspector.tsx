@@ -4,7 +4,7 @@
 // selected and passes the data + callbacks; the design panel itself is passed in as `brandPanel`
 // because the shell owns the live token state.
 
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
 import type { JsxElement } from "./jsx-attributes.js";
 import { PropsPanel } from "./props-panel.js";

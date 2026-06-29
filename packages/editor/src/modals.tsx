@@ -5,7 +5,7 @@
 // not the centred modal).
 
 import type { ComponentManifest } from "@nocms/components";
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
 import { InsertSheet } from "./catalog.js";
 import type { PropValue } from "./jsx-attributes.js";

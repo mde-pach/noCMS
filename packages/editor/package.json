@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nocms/controls": "workspace:*",
     "@nocms/core": "workspace:*",
     "@nocms/renderer": "workspace:*",
     "@nocms/tokens": "workspace:*",

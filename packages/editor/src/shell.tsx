@@ -14,7 +14,7 @@ import {
   arrayElementShape,
   type ControlDescriptor,
   enumerateItemPaths,
-} from "@nocms/core";
+} from "@nocms/controls";
 import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";

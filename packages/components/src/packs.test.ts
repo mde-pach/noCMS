@@ -1,4 +1,4 @@
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import { expect, test } from "vitest";
 import {
   type ComponentPack,

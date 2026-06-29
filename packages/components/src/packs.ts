@@ -1,4 +1,4 @@
-import { type ControlDescriptor, deriveControls } from "@nocms/core";
+import { type ControlDescriptor, deriveControls } from "@nocms/controls";
 import type { ComponentType } from "preact";
 import type { GenericSchema } from "valibot";
 

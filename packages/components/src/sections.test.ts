@@ -1,4 +1,4 @@
-import { type ControlDescriptor, deriveControls } from "@nocms/core";
+import { type ControlDescriptor, deriveControls } from "@nocms/controls";
 import { type ComponentType, h } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, test } from "vitest";

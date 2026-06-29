@@ -1,4 +1,4 @@
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
 import { useMemo, useState } from "preact/hooks";
 import { CloseIcon } from "./icons.js";

@@ -2,7 +2,7 @@
 // component. Click any content in the page → the exact prop path is selected and editable.
 // The component (Features) is untouched and agnostic: it only ever receives plain strings.
 import { Features, FeaturesSchema } from "@nocms/components";
-import { enumerateContentPaths } from "@nocms/core";
+import { enumerateContentPaths } from "@nocms/controls";
 import { type ComponentType, h, render } from "preact";
 import * as v from "valibot";
 

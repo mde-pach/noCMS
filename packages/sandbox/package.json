@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@nocms/components": "workspace:*",
+    "@nocms/controls": "workspace:*",
     "@nocms/core": "workspace:*",
     "preact": "^10.27.0"
   }

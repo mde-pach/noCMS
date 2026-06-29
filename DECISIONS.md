@@ -1305,3 +1305,24 @@ edit-master), D22 (Frame), D23 (per-element Style panel), D24 (item drag).
   Frame / ordered "actions" slot → the CTA moves via normal instance slot/Frame reorder, no master
   edit. (B) Leave curated internals code-defined; only slot/Frame/array-modeled (or composed) regions
   reorder. B is the rule; A is how you opt a given component in.
+
+### D26 — Control derivation is its own package; the foundation stops carrying editor concerns → **RESOLVED (building).**
+The schema→control mapper and the content-path walkers had accreted inside `@nocms/core` (the shared
+vocabulary), so every core consumer transitively pulled in editor introspection; meanwhile a parallel,
+dead TypeScript-source control parser still shipped as `@nocms/props-discovery`. An audit across all 14
+packages showed the same fault line in `core` and `renderer` (editor concerns leaking into the
+foundation) — this is the first cut. Reaffirms invariant #10 and the D9 consolidation; sharpens the
+CLAUDE.md claim that `core` is *only* shared vocabulary.
+
+- **`@nocms/controls`** (new) owns `deriveControls` (valibot props/field schema → a serializable
+  `ControlDescriptor` tree), the valibot-internals reader (kept package-internal), and the control-tree
+  walkers (`enumerateContentPaths` / `enumerateItemPaths` / `arrayElementShape` / `contentPathsFromControls`).
+  One schema→control mapper for both component props and collection fields (D9); depends on nothing but
+  valibot. `@nocms/components`, `@nocms/editor`, `@nocms/sandbox`, and the starter consume it directly;
+  `@nocms/core` no longer re-exports any of it. Vendor bundles regenerate to point at it.
+- **`@nocms/props-discovery` deleted** — superseded by D9 schema introspection; zero production importers.
+- **Decided, not yet built:** a shared *widget vocabulary* in `@nocms/controls` unifying the props panel
+  and a to-be-extracted `@nocms/style-controls` (promote the `poc/` Tailwind catalog + capability engine
+  out of the starter, headless); relocate renderer's editor-only `content-anchors` / `editable` into the
+  editor domain. Layout kinds (`layout-direction` / `layout-align` / `hidden`) stay in the kind union for
+  now — move to an open-set registry when the style panel lands.
