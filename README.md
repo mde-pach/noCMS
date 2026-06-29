@@ -30,13 +30,17 @@ packages/
   core              shared types + content collection schema (valibot)
   renderer          the single MDX→Preact engine (browser preview + Node prerender)
   tokens            flat token file ↔ CSS variables ↔ DTCG interop export
-  props-discovery   parse component TS types → editor controls
-  components        curated, props-discoverable component library
+  controls          valibot schema → editor controls + content-path enumeration
+  components        curated, schema-discoverable component library
+  style-controls    headless Tailwind v4 styling engine → Style panel controls
   editor            in-site WYSIWYG + visual layout + live token theming
   github            REST/GraphQL client; branch-per-session commits
   auth              client-side PKCE flow + short-lived token lifecycle
   build             Vite + Preact SSG publish pipeline (prerender + islands)
   derive            batch tier: search index, i18n bundles, manifests, feeds
+  router            content-derived route table + client-side navigation
+  prose             in-place rich-text editing (ProseMirror ↔ inline MDX)
+  session           sign-in → load → branch-per-session → commit → publish
   sandbox           plugin sandbox host (iframe + capability-scoped postMessage API)
 apps/
   relay             the only infra: stateless PKCE code↔token exchange

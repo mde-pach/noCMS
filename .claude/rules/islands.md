@@ -22,7 +22,7 @@ The flow has three stages: **declare → prerender marker → hydrate**.
 A component is an island because of *what it is*, declared once on its `@nocms/components`
 registry entry: `{ component, island: true }`. Not per usage. There is no MDX annotation
 (`<Counter client:load/>`) — that would scatter the decision across call sites and add an
-annotation DSL, against the component-defined philosophy props-discovery already follows.
+annotation DSL, against the component-defined philosophy `@nocms/controls` already follows.
 
 Consequence: **every** instance of an island hydrates. Per-instance static opt-out is a future
 escape hatch, not v1.
