@@ -2,9 +2,9 @@
 // matching rendered values against the DOM: a click resolves that offset back to its mdast node.
 
 import type { ComponentMap } from "@nocms/renderer";
-import { renderEditableToVNode } from "@nocms/renderer";
 import type { Nodes } from "mdast";
 import { render } from "preact";
+import { renderEditableToVNode } from "./editable.js";
 import { type MdxDocument, parseMdx } from "./mdx-document.js";
 import { nodeAtIndexPath, nodeAtOffset } from "./position.js";
 

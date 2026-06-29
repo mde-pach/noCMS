@@ -14,8 +14,8 @@ import {
   enumerateItemPaths,
   type ItemPath,
 } from "@nocms/controls";
-import { sentinelFor } from "@nocms/renderer";
 import { type ComponentType, h, render } from "preact";
+import { sentinelFor } from "./anchor-probe.js";
 import {
   getProp,
   getStructuredProp,

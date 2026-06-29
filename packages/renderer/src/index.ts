@@ -43,14 +43,6 @@ export async function renderToHtml(input: RenderInput): Promise<string> {
 }
 
 export {
-  type Anchor,
-  type AnchorInput,
-  probeContentAnchors,
-  sentinelFor,
-} from "./content-anchors.js";
-export { renderEditableToVNode } from "./editable.js";
-
-export {
   collectIslands,
   deserializeIslandProps,
   hydrateIslands,

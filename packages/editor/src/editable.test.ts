@@ -1,6 +1,7 @@
+import { renderToHtml, renderToStaticHtml } from "@nocms/renderer";
 import { type ComponentType, h } from "preact";
 import { describe, expect, test } from "vitest";
-import { renderEditableToVNode, renderToHtml, renderToStaticHtml } from "./index.js";
+import { renderEditableToVNode } from "./editable.js";
 
 const Box: ComponentType<Record<string, unknown>> = ({ title, children }) =>
   h("div", { class: "box", "data-title": title as string }, children as never);

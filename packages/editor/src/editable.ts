@@ -6,10 +6,10 @@
 // `display:contents` carrier that holds the position without affecting layout.
 
 import { type EvaluateOptions, evaluate } from "@mdx-js/mdx";
+import type { ComponentMap, RenderInput } from "@nocms/renderer";
 import { type ComponentType, h, type VNode } from "preact";
 import * as jsxDevRuntime from "preact/jsx-dev-runtime";
 import remarkFrontmatter from "remark-frontmatter";
-import type { ComponentMap, RenderInput } from "./index.js";
 
 const POS_ATTR = "data-mdx-pos";
 

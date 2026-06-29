@@ -1,7 +1,7 @@
 import { h, type VNode } from "preact";
 import { renderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
-import { type AnchorInput, probeContentAnchors, sentinelFor } from "./content-anchors";
+import { type AnchorInput, probeContentAnchors, sentinelFor } from "./anchor-probe";
 
 // Fixtures stand in for curated components: each is agnostic — it receives plain strings and
 // renders them in its own idiom. The probe never tells them anything.
