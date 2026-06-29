@@ -268,23 +268,30 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 /* the block name tag shown above a hovered or selected block — same tag for both, lifted off the
    top edge by a small gap so it never sits on the border or over the content. */
 .nc-name-tag {
-  position: absolute; z-index: 45; transform: translateY(calc(-100% - 5px));
+  position: absolute; z-index: 45; transform: translate(5px, calc(-100% - 5px));
   background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
   font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
   border-radius: 6px; pointer-events: none; white-space: nowrap;
   box-shadow: 0 2px 6px rgba(26,25,22,0.18);
 }
 /* Flipped below its element (set by the shell when there's no room above): the tag hangs under the
-   top edge instead of over it, so an element at the top of the page still shows its tag. */
-.nc-name-tag--below { transform: translateY(5px); }
-.nc-name-tag--hover { opacity: 0.9; }
+   top edge instead of over it, so an element at the top of the page still shows its tag. The 5px
+   left inset matches the gap kept off the top/bottom edge. */
+.nc-name-tag--below { transform: translate(5px, 5px); }
+/* A bare hover label rests at the same faint opacity as the selection chrome and stays there — it's
+   an ambient hint. Lifting to full opacity on hover is reserved for the selected pill, whose actions
+   are deliberate. */
+.nc-name-tag--hover { opacity: 0.6; }
 /* The selected block's tag doubles as the drag handle: it accepts the pointer (the rest of the
    tag layer stays click-through), shows a grab cursor, and carries a grip glyph. touch-action:none
-   lets a touch-drag start without the page scrolling. */
+   lets a touch-drag start without the page scrolling. It rests faint so the content beneath it
+   reads through, and lifts to full opacity on hover — its actions are deliberate, not ambient. */
 .nc-name-tag--grab {
   pointer-events: auto; cursor: grab; touch-action: none;
   display: inline-flex; align-items: center; gap: 4px;
+  opacity: 0.6; transition: opacity .12s ease;
 }
+.nc-name-tag--grab:hover { opacity: 1; }
 .nc-name-tag--grab:active { cursor: grabbing; }
 .nc-name-tag-grip { opacity: 0.7; margin-left: -1px; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
@@ -430,17 +437,38 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 
 /* ---------- selection toolbar ---------- */
 .nocms-toolbar-host { position: absolute; z-index: 30; display: none; }
+/* Selection and edit chrome share one pill, in the brand accent — the same colour the hover name tag
+   uses, so hovering a block and selecting it read as one component gaining actions, not two. */
 .nocms-toolbar {
-  display: inline-flex; gap: 1px; align-items: center; background: var(--nc-text); border-radius: 9px;
-  padding: 5px; box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+  display: inline-flex; gap: 1px; align-items: center; background: var(--nc-accent); border-radius: 9px;
+  padding: 5px; box-shadow: 0 2px 10px rgba(26,25,22,0.22);
 }
 .nocms-toolbar button {
   width: 26px; height: 24px; border: 0; background: transparent; color: #fff; cursor: pointer;
   display: flex; align-items: center; justify-content: center; border-radius: 6px; padding: 0;
 }
-.nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
-.nocms-toolbar button:disabled { opacity: 0.3; cursor: default; }
-.nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: #3a3833; margin: 0 3px; }
+.nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+.nocms-toolbar button:disabled { opacity: 0.35; cursor: default; }
+.nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: rgba(255,255,255,0.3); margin: 0 3px; }
+/* The block's name carried as a leading segment of the toolbar/format bar, so the chrome reads as
+   one pill (name + actions) rather than a separate chip beside a bar. */
+.nocms-toolbar .nc-tool-label {
+  font-family: var(--nc-font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #fff; opacity: 0.75; white-space: nowrap;
+}
+/* On the selection toolbar the name segment is also the drag handle (grip + name) that lifts the
+   block; touch-action:none lets a touch-drag start without scrolling the page. */
+.nocms-toolbar .nc-tool-handle {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 4px 0 5px;
+  user-select: none; -webkit-user-select: none;
+}
+.nocms-toolbar .nc-tool-handle[role="button"] { cursor: grab; touch-action: none; }
+.nocms-toolbar .nc-tool-handle[role="button"]:active { cursor: grabbing; }
+.nocms-toolbar .nc-tool-grip { color: #fff; opacity: 0.55; }
+/* Floating selection/edit chrome rests faint so the content beneath shows through, and lifts to
+   full opacity once the pointer reaches it — its actions are deliberate, not ambient. */
+.nocms-toolbar--float { opacity: 0.6; transition: opacity .12s ease; }
+.nocms-toolbar--float:hover { opacity: 1; }
 
 /* ---------- overlays / modal ---------- */
 .nc-scrim { position: fixed; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 1002; overflow-y: auto; }

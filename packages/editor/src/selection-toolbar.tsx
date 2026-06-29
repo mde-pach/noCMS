@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowUp,
   DuplicateIcon,
+  GripIcon,
   SectionIcon,
   SettingsIcon,
   TrashIcon,
@@ -13,6 +14,9 @@ import {
 
 export interface SelectionToolbarProps {
   label: string;
+  /** when given, the leading name segment becomes the drag handle (grip + name) that lifts the
+   *  block to move it — so the label and the actions are one pill, not a chip beside a bar. */
+  onGrab?: (event: PointerEvent) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onMoveUp: () => void;
@@ -32,6 +36,7 @@ const act = (fn: () => void) => (event: MouseEvent) => {
 
 export function SelectionToolbar({
   label,
+  onGrab,
   canMoveUp,
   canMoveDown,
   onMoveUp,
@@ -42,7 +47,21 @@ export function SelectionToolbar({
   onSaveAsComponent,
 }: SelectionToolbarProps): VNode {
   return (
-    <div class="nocms-toolbar" role="toolbar" aria-label={`${label} actions`}>
+    <div
+      class="nocms-toolbar nocms-toolbar--float"
+      role="toolbar"
+      aria-label={`${label} actions`}
+    >
+      <span
+        class="nc-tool-handle"
+        role={onGrab ? "button" : undefined}
+        title={onGrab ? "Drag to move" : undefined}
+        onPointerDown={onGrab}
+      >
+        <GripIcon size={9} class="nc-tool-grip" />
+        <span class="nc-tool-label">{label}</span>
+      </span>
+      <span class="nc-tool-sep" />
       <button
         type="button"
         class="nocms-tool-up"

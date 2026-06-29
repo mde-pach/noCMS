@@ -198,6 +198,32 @@ describe("mountEditor", () => {
     handle.dispose();
   });
 
+  test("a second click on the selected block edits it in place (no double-click)", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+
+    const handle = await mountEditor({
+      target,
+      mdx: `Click twice to edit.\n`,
+      components,
+    });
+
+    // The first click selects the block (overlay shows) but leaves the text alone.
+    const para = target.querySelector("p");
+    para?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(target.querySelector(".ProseMirror")).toBeNull();
+    expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+
+    // A second click on the already-selected block drops straight into the editor.
+    target
+      .querySelector("p")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(target.querySelector(".ProseMirror")).not.toBeNull();
+    expect(handle.proseView()).toBeDefined();
+
+    handle.dispose();
+  });
+
   test("double-click an inline component edits just it, not the row of them", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);

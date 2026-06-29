@@ -17,12 +17,14 @@ export interface ContentEditor {
   isActive(): boolean;
   /** true when `el` is inside the live editable — the canvas leaves those clicks alone. */
   containsEl(el: Element): boolean;
-  /** make `el` (a content leaf at dotted `path`) editable, writing back to `node`'s props. */
+  /** make `el` (a content leaf at dotted `path`) editable, writing back to `node`'s props. `at` is
+   *  the click point — the caret lands there, so a single click edits where the user pointed. */
   start(
     el: HTMLElement,
     node: JsxElement,
     path: string,
     controls: ControlDescriptor[],
+    at?: { x: number; y: number },
   ): void;
   /** finalize: snapshot the edit to history and repaint the canvas. */
   commit(): Promise<void>;
@@ -76,6 +78,26 @@ function writeContentProp(
   setStructuredProp(node, top, next);
 }
 
+/** A collapsed caret range at viewport coordinates, across the two browser APIs (WebKit/Blink's
+ *  `caretRangeFromPoint`, Firefox's `caretPositionFromPoint`); `undefined` when neither resolves. */
+function caretRangeAtPoint(x: number, y: number): Range | undefined {
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (
+      x: number,
+      y: number,
+    ) => { offsetNode: Node; offset: number } | null;
+  };
+  const range = doc.caretRangeFromPoint?.(x, y);
+  if (range) return range;
+  const pos = doc.caretPositionFromPoint?.(x, y);
+  if (!pos) return undefined;
+  const r = document.createRange();
+  r.setStart(pos.offsetNode, pos.offset);
+  r.collapse(true);
+  return r;
+}
+
 export function createContentEditor(deps: ContentEditorDeps): ContentEditor {
   const { docs, canvas, onStart, refreshPanel, markDirty } = deps;
   let session:
@@ -105,7 +127,7 @@ export function createContentEditor(deps: ContentEditorDeps): ContentEditor {
     isActive: () => session !== undefined,
     containsEl: (el) => session?.el.contains(el) ?? false,
 
-    start(el, node, path, controls) {
+    start(el, node, path, controls, at) {
       canvas.highlight(undefined);
       el.classList.add("nocms-content-editing");
       el.setAttribute("contenteditable", "plaintext-only");
@@ -132,11 +154,18 @@ export function createContentEditor(deps: ContentEditorDeps): ContentEditor {
         changed: false,
       };
       el.focus();
-      const range = document.createRange();
-      range.selectNodeContents(el);
       const selection = window.getSelection();
       selection?.removeAllRanges();
-      selection?.addRange(range);
+      // A single click drops the caret where the user pointed; without a point (keyboard entry, a
+      // test) fall back to selecting the whole value so the first keystroke replaces it.
+      const caret = at ? caretRangeAtPoint(at.x, at.y) : undefined;
+      if (caret && el.contains(caret.startContainer)) {
+        selection?.addRange(caret);
+      } else {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        selection?.addRange(range);
+      }
       onStart();
     },
 

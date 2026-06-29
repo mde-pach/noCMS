@@ -2,6 +2,9 @@ import type { VNode } from "preact";
 import { BoldIcon, ItalicIcon, LinkIcon } from "./icons.js";
 
 export interface FormatBarProps {
+  /** the edited block's name, shown as a leading label so the bar reads as the same chrome the
+   *  selection chip did — one pill, not a chip stacked under a toolbar. */
+  label?: string;
   onBold: () => void;
   onItalic: () => void;
   onLink: () => void;
@@ -15,9 +18,19 @@ const act = (fn: () => void) => (event: MouseEvent) => {
   fn();
 };
 
-export function FormatBar({ onBold, onItalic, onLink }: FormatBarProps): VNode {
+export function FormatBar({ label, onBold, onItalic, onLink }: FormatBarProps): VNode {
   return (
-    <div class="nocms-toolbar" role="toolbar" aria-label="Text formatting">
+    <div
+      class="nocms-toolbar nocms-toolbar--float"
+      role="toolbar"
+      aria-label="Text formatting"
+    >
+      {label ? (
+        <>
+          <span class="nc-tool-label">{label}</span>
+          <span class="nc-tool-sep" />
+        </>
+      ) : null}
       <button type="button" title="Bold" aria-label="Bold" onMouseDown={act(onBold)}>
         <BoldIcon size={13} />
       </button>

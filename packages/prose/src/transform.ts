@@ -37,8 +37,13 @@ function inlineToPM(
   for (const node of nodes) {
     switch (node.type) {
       case "text": {
+        // A soft line break inside a paragraph is a literal "\n" in the mdast text; markdown and the
+        // published page collapse it to a space (white-space: normal). The editor renders with
+        // pre-wrap, which would instead honor it as a hard break and reflow the text mid-edit — so
+        // collapse soft breaks here, and the editor wraps exactly like the page (preview == publish).
+        const value = node.value.replace(/[^\S\n]*\n[^\S\n]*/g, " ");
         // PM forbids empty text nodes; an empty mdast text carries nothing to preserve.
-        if (node.value.length > 0) out.push(schema.text(node.value, marks));
+        if (value.length > 0) out.push(schema.text(value, marks));
         break;
       }
       case "inlineCode": {
