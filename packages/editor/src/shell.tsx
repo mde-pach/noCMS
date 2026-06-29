@@ -587,6 +587,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     render(
       <SelectionToolbar
         label={label}
+        onGrab={(event) => drag.beginDrag(event)}
         canMoveUp={from > 0}
         canMoveDown={from < count - 1}
         onMoveUp={() => void moveSelected(-1)}
@@ -604,27 +605,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       />,
       toolbarHost,
     );
-    if (el) positionToolbarBesideChip(el);
+    if (el) positionToolbar(el);
   }
 
-  // The toolbar shares the selection's name chip's corner — it sits just to its right, vertically
-  // centered on it, so the chip and the actions read as one cluster (the single place to act on the
-  // selection). The chip is measured live (it carries a transform), so this must run after the chip
-  // is painted; `select` and the drag `restore` render the chip first for that reason.
-  function positionToolbarBesideChip(el: Element): void {
-    const sr = surface.getBoundingClientRect();
-    const chip = overlays.labelHost.firstElementChild as HTMLElement | null;
+  // The selection chrome is one pill — the block's name (and drag grip) lead the action buttons —
+  // pinned just above the block's top-left, with the same 5px inset the name tag keeps off the edge.
+  function positionToolbar(el: Element): void {
     const tbH =
       (toolbarHost.firstElementChild as HTMLElement | null)?.getBoundingClientRect()
-        .height ?? 0;
-    if (chip) {
-      const cr = chip.getBoundingClientRect();
-      toolbarHost.style.left = `${cr.right - sr.left + surface.scrollLeft + 8}px`;
-      toolbarHost.style.top = `${cr.top + cr.height / 2 - sr.top + surface.scrollTop - tbH / 2}px`;
-      return;
-    }
-    toolbarHost.style.left = `${surfaceLeft(el)}px`;
-    toolbarHost.style.top = `${Math.max(surfaceTop(el) - 17, 6)}px`;
+        .height ?? 28;
+    toolbarHost.style.left = `${surfaceLeft(el) + 5}px`;
+    toolbarHost.style.top = `${Math.max(surfaceTop(el) - tbH - 5, 6)}px`;
   }
 
   const handleHover = (event: MouseEvent): void => {
@@ -676,10 +667,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showHover(el ?? undefined, label);
   };
 
-  // The block's name tag, anchored just above the selection's top-left so it labels the
-  // selection without ever overlapping the content inside it.
+  // A selected array item carries its own chip (its label + drag handle) — it has no toolbar to
+  // fold into. A selected block's name lives in the toolbar pill instead, so it draws no standalone
+  // chip; this just clears any stale one.
   function renderSelectionLabel(): void {
-    // An item's chip replaces the block chip and is its own drag handle (reorders the array).
     if (selectedItem && !proseSession.isActive()) {
       const itemEl = itemElement(selectedItem);
       if (itemEl) {
@@ -689,22 +680,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         return;
       }
     }
-    const node = selectedPath ? nodeAtIndexPath(docs.doc, selectedPath) : undefined;
-    const el = selectedPath ? elementAtPath(selectedPath) : null;
-    if (
-      selectedItem ||
-      !node ||
-      !selectedPath ||
-      selectedPath.length === 0 ||
-      proseSession.isActive() ||
-      !el
-    ) {
-      overlays.showSelectionLabel(undefined, undefined);
-      return;
-    }
-    const label = nodeLabel(node);
-    // The chip is the drag handle: grabbing it lifts the block to move it (D22 drag-to-arrange).
-    overlays.showSelectionLabel(el, label, (event) => drag.beginDrag(event));
+    overlays.showSelectionLabel(undefined, undefined);
   }
 
   // The DOM element of the anchored content leaf, scoped to the selected block so an identical
@@ -1039,19 +1015,22 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onSelect: handleSelect,
     onPainted: (content, doc) => {
       anchorComponents(content, doc, components);
-      // The repaint replaced the anchored nodes; re-pin the content box and any item chrome to the
-      // fresh ones (the item's card is re-tagged by anchorComponents above).
+      // The repaint replaced the anchored nodes; re-pin every overlay to the fresh boxes — the
+      // toolbar pill carries the selection's name + drag handle, so it must re-pin too.
       renderContentSelection();
       renderItemSelection();
       renderSelectionLabel();
+      renderToolbar();
     },
-    // The selection chip lives in the overlay layer (a child of the canvas) and is the drag
-    // handle; a click on it must not reach the canvas, which would read it as empty space and
-    // deselect the block being grabbed.
+    // The selection chrome (toolbar pill, format bar, item chip) lives over the canvas and owns the
+    // drag handle; a click on it must not reach the canvas, which would read it as empty space and
+    // deselect or commit out from under the gesture.
     suppressWhen: (el) =>
       proseSession.containsEl(el) ||
       contentEditor.containsEl(el) ||
-      overlays.labelHost.contains(el),
+      overlays.labelHost.contains(el) ||
+      toolbarHost.contains(el) ||
+      formatHost.contains(el),
   });
   surface.append(toolbarHost, formatHost);
 

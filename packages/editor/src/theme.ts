@@ -278,7 +278,10 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
    top edge instead of over it, so an element at the top of the page still shows its tag. The 5px
    left inset matches the gap kept off the top/bottom edge. */
 .nc-name-tag--below { transform: translate(5px, 5px); }
-.nc-name-tag--hover { opacity: 0.9; }
+/* A bare hover label rests at the same faint opacity as the selection chrome and stays there — it's
+   an ambient hint. Lifting to full opacity on hover is reserved for the selected pill, whose actions
+   are deliberate. */
+.nc-name-tag--hover { opacity: 0.6; }
 /* The selected block's tag doubles as the drag handle: it accepts the pointer (the rest of the
    tag layer stays click-through), shows a grab cursor, and carries a grip glyph. touch-action:none
    lets a touch-drag start without the page scrolling. It rests faint so the content beneath it
@@ -445,12 +448,21 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 .nocms-toolbar button:disabled { opacity: 0.3; cursor: default; }
 .nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: #3a3833; margin: 0 3px; }
-/* The block's name carried as a leading segment of the format bar, so editing chrome reads as one
-   pill (label + actions) rather than a chip stacked under a toolbar — matching the selection chip. */
+/* The block's name carried as a leading segment of the toolbar/format bar, so the chrome reads as
+   one pill (name + actions) rather than a separate chip beside a bar. */
 .nocms-toolbar .nc-tool-label {
   font-family: var(--nc-font-mono); font-size: 10.5px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: #fff; opacity: 0.75; padding: 0 4px; white-space: nowrap;
+  text-transform: uppercase; color: #fff; opacity: 0.75; white-space: nowrap;
 }
+/* On the selection toolbar the name segment is also the drag handle (grip + name) that lifts the
+   block; touch-action:none lets a touch-drag start without scrolling the page. */
+.nocms-toolbar .nc-tool-handle {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 4px 0 5px;
+  user-select: none; -webkit-user-select: none;
+}
+.nocms-toolbar .nc-tool-handle[role="button"] { cursor: grab; touch-action: none; }
+.nocms-toolbar .nc-tool-handle[role="button"]:active { cursor: grabbing; }
+.nocms-toolbar .nc-tool-grip { color: #fff; opacity: 0.55; }
 /* Floating selection/edit chrome rests faint so the content beneath shows through, and lifts to
    full opacity once the pointer reaches it — its actions are deliberate, not ambient. */
 .nocms-toolbar--float { opacity: 0.6; transition: opacity .12s ease; }
