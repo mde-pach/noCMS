@@ -204,7 +204,10 @@ describe("props control matrix — one test per kind", () => {
     expect(onPickImage).toHaveBeenCalledWith("src");
   });
 
-  test("image (nested in a group): falls through to a text input that writes", () => {
+  // Intent: a nested image is still editable and writes its src into the parent object. The media
+  // picker is a top-level affordance (it needs `onPickImage`), so nested falls to a text field — v1
+  // implementation, not the contract.
+  test("image (nested in a group): renders an editable control that writes the src", () => {
     const el = jsxElement(`<Fixture media={{"src":"/a.png"}} />\n`);
     mount(
       el,
@@ -216,10 +219,7 @@ describe("props control matrix — one test per kind", () => {
         }),
       ),
     );
-    const f = field(container, "src");
-    expect(f.tagName).toBe("INPUT");
-    expect(f.type).toBe("text");
-    input(f, "/b.png");
+    input(field(container, "src"), "/b.png");
     expect(getStructuredProp(el, "media")).toEqual({ src: "/b.png" });
   });
 
@@ -265,7 +265,9 @@ describe("props control matrix — one test per kind", () => {
     expect(getProp(el, "prose")).toBe("**bold**");
   });
 
-  test("reference: falls back to a text input and writes", () => {
+  // Intent: a reference control is an editable field that writes the chosen reference. v1 has no
+  // reference *picker* yet, so it's a text field — that's an implementation detail, not the contract.
+  test("reference: renders an editable control that writes the value", () => {
     const el = jsxElement(`<Fixture rel="" />\n`);
     mount(
       el,
@@ -273,10 +275,7 @@ describe("props control matrix — one test per kind", () => {
         v.object({ rel: v.pipe(v.string(), v.metadata({ control: "reference" })) }),
       ),
     );
-    const f = field(container, "rel");
-    expect(f.tagName).toBe("INPUT");
-    expect(f.type).toBe("text");
-    input(f, "posts/hello");
+    input(field(container, "rel"), "posts/hello");
     expect(getProp(el, "rel")).toBe("posts/hello");
   });
 
@@ -365,23 +364,24 @@ const isWritableText = (c: ControlDescriptor): boolean =>
   c.kind === "date" ||
   c.kind === "reference";
 
-function firstWritableText(
-  controls: ControlDescriptor[],
-): ControlDescriptor | undefined {
-  return controls.find((c) => !c.advanced && isWritableText(c));
-}
+const writeValue = (c: ControlDescriptor): string =>
+  c.kind === "date"
+    ? "2026-06-29"
+    : c.kind === "url"
+      ? `https://x.test/${c.key}`
+      : `${c.key}-edited`;
 
-describe("every core component's controls render and accept a write", () => {
+describe("every core component's controls are reachable and write", () => {
   for (const [name, def] of Object.entries(registry) as [string, BlockDef][]) {
-    test(`${name}: renders a field per visible top-level control`, () => {
+    test(`${name}: every visible control renders a reachable widget; text-like ones write`, () => {
       const controls = controlsOf(def);
       const el = jsxElement(`<${name}/>\n`);
       expect(() => mount(el, controls)).not.toThrow();
       expect(container.querySelector(".nocms-props")).not.toBeNull();
 
-      // One nc-field per visible, non-grouping top-level control (groups/lists own their own
-      // markup; hidden controls render nothing; showIf controls only show when their gate matches).
-      const visibleScalar = controls.filter(
+      // Visible top-level scalars: groups/lists own their own markup; hidden render nothing; showIf
+      // controls only appear when their gate matches; advanced fold under "More".
+      const visible = controls.filter(
         (c) =>
           c.kind !== "hidden" &&
           c.kind !== "group" &&
@@ -389,18 +389,26 @@ describe("every core component's controls render and accept a write", () => {
           !c.advanced &&
           !c.showIf,
       );
-      const fields = container.querySelectorAll(".nc-rail-pad > .nc-field");
-      expect(fields.length).toBeGreaterThanOrEqual(visibleScalar.length);
 
-      const text = firstWritableText(controls);
-      if (text) {
-        const f = container.querySelector(`[name="${text.key}"]`) as
-          | HTMLInputElement
-          | HTMLTextAreaElement
-          | null;
-        expect(f, `${name}.${text.key} should render an editable field`).not.toBeNull();
-        input(f as HTMLElement, "edited");
-        expect(getProp(el, text.key)).toBe("edited");
+      // Every such control must surface a reachable widget. Most are keyed by prop name; the
+      // align matrix is a 2-axis grid that co-writes align+justify, so it has no single `name`.
+      for (const c of visible) {
+        const widget =
+          c.kind === "layout-align"
+            ? container.querySelector(".nc-align-matrix")
+            : container.querySelector(`[name="${c.key}"]`);
+        expect(
+          widget,
+          `${name}.${c.key} (${c.kind}) should render a reachable widget`,
+        ).not.toBeNull();
+      }
+
+      // Every text-like control on the component must write its value to the right key.
+      for (const c of visible.filter(isWritableText)) {
+        const f = container.querySelector(`[name="${c.key}"]`) as HTMLElement;
+        const val = writeValue(c);
+        input(f, val);
+        expect(getProp(el, c.key), `${name}.${c.key} should write`).toBe(val);
       }
     });
   }
