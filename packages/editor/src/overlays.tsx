@@ -156,8 +156,13 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
     render(nameTag(el, label, false, onGrab), labelHost);
   }
 
-  // The content selection box and the lighter hover tint share geometry; only the class differs.
-  function contentBox(host: HTMLElement, cls: string, el: Element | undefined): void {
+  // A class-only-differs box sized to an element in surface space — the selection box, the
+  // lighter content hover tint, and an array item's outline all share this geometry.
+  function positionedBox(
+    host: HTMLElement,
+    cls: string,
+    el: Element | undefined,
+  ): void {
     if (!el) {
       render(null, host);
       return;
@@ -175,26 +180,11 @@ export function createOverlayLayer(surface: HTMLElement): OverlayLayer {
   }
 
   const showContentSelection = (el: Element | undefined): void =>
-    contentBox(contentHost, "nocms-content-sel", el);
+    positionedBox(contentHost, "nocms-content-sel", el);
   const showContentHover = (el: Element | undefined): void =>
-    contentBox(contentHoverHost, "nocms-content-hover", el);
-
-  function showItemSelection(el: Element | undefined): void {
-    if (!el) {
-      render(null, itemHost);
-      return;
-    }
-    const top = surfaceTop(el);
-    const left = surfaceLeft(el);
-    const rect = boundingRect(el);
-    render(
-      <div
-        class="nocms-item-sel"
-        style={`top:${top}px;left:${left}px;width:${rect.width}px;height:${rect.height}px`}
-      />,
-      itemHost,
-    );
-  }
+    positionedBox(contentHoverHost, "nocms-content-hover", el);
+  const showItemSelection = (el: Element | undefined): void =>
+    positionedBox(itemHost, "nocms-item-sel", el);
 
   function showDropIndicator(indicator: DropIndicator | undefined): void {
     if (!indicator) {

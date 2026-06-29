@@ -10,11 +10,7 @@ import {
   type SavedDef,
   savedDefToBlock,
 } from "@nocms/components";
-import {
-  arrayElementShape,
-  type ControlDescriptor,
-  enumerateItemPaths,
-} from "@nocms/controls";
+import type { ControlDescriptor } from "@nocms/controls";
 import type { ProseEditorHandle } from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
@@ -35,14 +31,10 @@ import { createDocumentStore } from "./document-store.js";
 import { createDragController } from "./drag-controller.js";
 import { readFrontmatter } from "./frontmatter.js";
 import type { InspectorProps } from "./inspector.js";
-import {
-  type ItemSelection,
-  type ItemTarget,
-  parseItemPath,
-} from "./item-selection.js";
+import { createItemController } from "./item-controller.js";
+import type { ItemSelection, ItemTarget } from "./item-selection.js";
 import {
   getProp,
-  getStructuredProp,
   isJsxElement,
   type JsxElement,
   type PropValue,
@@ -164,6 +156,38 @@ function isTextEntry(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+interface EditorHosts {
+  chromeRoot: HTMLElement;
+  toolbarHost: HTMLElement;
+  formatHost: HTMLElement;
+  dispose(): void;
+}
+
+/** The chrome host (one declarative tree, appended to body) plus the two positioned toolbar/format
+ *  hosts the shell appends to the surface after mount. `dispose` unmounts and removes all three. */
+function createHosts(): EditorHosts {
+  const chromeRoot = document.createElement("div");
+  chromeRoot.className = "nocms-editor";
+  const toolbarHost = document.createElement("div");
+  toolbarHost.className = "nocms-toolbar-host";
+  const formatHost = document.createElement("div");
+  formatHost.className = "nocms-toolbar-host";
+  document.body.append(chromeRoot);
+  return {
+    chromeRoot,
+    toolbarHost,
+    formatHost,
+    dispose() {
+      render(null, chromeRoot);
+      render(null, toolbarHost);
+      render(null, formatHost);
+      toolbarHost.remove();
+      formatHost.remove();
+      chromeRoot.remove();
+    },
+  };
+}
+
 /**
  * Mount the in-site editor into `target`. Resolves once the canvas has rendered.
  * Saving/publishing (repo + auth) wires onto `onChange` and is out of scope here.
@@ -222,15 +246,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
 
   // The fixed chrome is one declarative tree painted into `chromeRoot` (top bar + rail + modal +
   // popover). The toolbar/format hosts are the positioned, geometry-tracked overlays in the
-  // content surface, so they stay separate.
-  const chromeRoot = document.createElement("div");
-  chromeRoot.className = "nocms-editor";
-  const toolbarHost = document.createElement("div");
-  toolbarHost.className = "nocms-toolbar-host";
-  const formatHost = document.createElement("div");
-  formatHost.className = "nocms-toolbar-host";
+  // content surface, so they stay separate (the shell appends them to the surface after mount).
+  const hosts = createHosts();
+  const { chromeRoot, toolbarHost, formatHost } = hosts;
   const overlays = createOverlayLayer(surface);
-  document.body.append(chromeRoot);
 
   // Runtime theming: a single <style> the design panel rewrites live (no rebuild).
   const themeStyle = document.createElement("style");
@@ -287,6 +306,24 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       ? null
       : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
+
+  // Pure item/array resolution (an object-array element's address, backing array, label, and drop
+  // targets). The shell keeps the mutating side (selection, drag, reorder) and calls in here.
+  const items = createItemController({
+    components,
+    getDoc: () => docs.doc,
+    elementAtPath,
+  });
+  const {
+    splitItemKey,
+    navigate,
+    resolvedTopValue,
+    itemLabel,
+    sameItem,
+    itemAt,
+    itemElement,
+    itemTargets,
+  } = items;
 
   // One declarative chrome tree (see chrome-view), painted from a state snapshot.
   const brandPanel = (): ReturnType<typeof TokensPanel> | null => {
@@ -709,147 +746,6 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showContentSelection(contentElement() ?? undefined);
   }
 
-  // Array items — a card derived from an object-array prop, selectable and draggable on the canvas
-  // (deepest-first: a card sits below its component). Detection is `data-nocms-item`, tagged by the
-  // content-anchor pass; the item reorders within its own array prop, not the document tree.
-  function itemAt(el: Element): ItemSelection | undefined {
-    const itemEl = el.closest<HTMLElement>("[data-nocms-item]");
-    const raw = itemEl?.dataset.nocmsItem;
-    const parsed = raw ? parseItemPath(raw) : undefined;
-    if (!itemEl || !raw || !parsed) return undefined;
-    const compEl = itemEl.closest("[data-mdx-pos]");
-    const offset = compEl ? Number(compEl.getAttribute("data-mdx-pos")) : Number.NaN;
-    if (Number.isNaN(offset)) return undefined;
-    const chain = nodeAtOffset(docs.doc, offset);
-    const compNode = chain.findLast(
-      (n) => isJsxElement(n) && n.position?.start.offset === offset,
-    );
-    const component = compNode ? indexPathOf(chain, compNode) : undefined;
-    if (!component) return undefined;
-    return { component, key: parsed.key, index: parsed.index, path: raw };
-  }
-
-  function itemElement(item: ItemSelection): Element | null {
-    return (
-      elementAtPath(item.component)?.querySelector(
-        `[data-nocms-item="${item.path}"]`,
-      ) ?? null
-    );
-  }
-
-  // An item's key is a dotted path; it is reordered by rewriting its *top-level* prop (the first
-  // segment) with the nested array spliced, since `setStructuredProp` writes whole attributes. A
-  // nested feature `tiers.0.features.2` rewrites `tiers`; a top-level `tiers.1` rewrites `tiers`.
-  const splitItemKey = (key: string): { topKey: string; rest: string[] } => {
-    const segs = key.split(".");
-    return { topKey: segs[0] ?? key, rest: segs.slice(1) };
-  };
-  const navigate = (root: unknown, segs: string[]): unknown =>
-    segs.reduce<unknown>(
-      (cur, s) => (cur == null ? undefined : (cur as Record<string, unknown>)[s]),
-      root,
-    );
-
-  // A node's props the way the canvas renders them: stored attributes where present, else schema
-  // defaults — the resolution the props panel and content-anchor probe also use.
-  function resolveProps(
-    node: JsxElement,
-    controls: ControlDescriptor[],
-  ): Record<string, unknown> {
-    const props: Record<string, unknown> = {};
-    for (const control of controls) {
-      if (control.kind === "group" || control.kind === "list") {
-        props[control.key] =
-          getStructuredProp(node, control.key) ??
-          control.default ??
-          (control.kind === "list" ? [] : {});
-      } else {
-        const v = getProp(node, control.key);
-        props[control.key] = v !== undefined ? v : control.default;
-      }
-    }
-    return props;
-  }
-
-  // The resolved value of a node's top-level prop, falling back to the schema default when the prop
-  // isn't stored — a section often renders its seed array with no attribute, and reading only stored
-  // attributes would miss it (a reorder would silently no-op).
-  function resolvedTopValue(node: JsxElement, topKey: string): unknown {
-    const stored = getStructuredProp(node, topKey);
-    if (stored !== undefined) return stored;
-    const def = node.name ? components[node.name] : undefined;
-    return def ? controlsOf(def).find((c) => c.key === topKey)?.default : undefined;
-  }
-
-  function resolvedTop(item: ItemSelection): unknown {
-    const node = nodeAtIndexPath(docs.doc, item.component);
-    if (!node || !isJsxElement(node)) return undefined;
-    return resolvedTopValue(node, splitItemKey(item.key).topKey);
-  }
-
-  // The array an item sits in, at any depth — for labelling and reordering.
-  function resolvedArray(item: ItemSelection): unknown[] | undefined {
-    const arr = navigate(resolvedTop(item), splitItemKey(item.key).rest);
-    return Array.isArray(arr) ? arr : undefined;
-  }
-
-  // Every component instance in the document, with its block path — for finding drop targets.
-  function forEachComponent(cb: (node: JsxElement, path: IndexPath) => void): void {
-    const walk = (node: Nodes, path: IndexPath): void => {
-      childrenOf(node).forEach((child, i) => {
-        const childPath = [...path, i];
-        if (isJsxElement(child) && child.name) cb(child, childPath);
-        walk(child, childPath);
-      });
-    };
-    walk(docs.doc, []);
-  }
-
-  // Drop targets for an item drag: its own array (in-place reorder) plus every other array in the
-  // document whose element is the *same shape* — so a feature can move to another tier's features or
-  // another Pricing's, but never into a differently-shaped list.
-  const itemTargets = (source: ItemSelection): ItemTarget[] => {
-    const srcNode = nodeAtIndexPath(docs.doc, source.component);
-    const srcDef =
-      srcNode && isJsxElement(srcNode) && srcNode.name
-        ? components[srcNode.name]
-        : undefined;
-    const srcShape = srcDef
-      ? arrayElementShape(controlsOf(srcDef), source.key)
-      : undefined;
-    if (!srcShape) return [];
-    const targets: ItemTarget[] = [];
-    forEachComponent((node, path) => {
-      const def = node.name ? components[node.name] : undefined;
-      if (!def) return;
-      const controls = controlsOf(def);
-      const keys = new Set(
-        enumerateItemPaths(controls, resolveProps(node, controls)).map((i) => i.key),
-      );
-      for (const key of keys) {
-        if (arrayElementShape(controls, key) === srcShape)
-          targets.push({ component: path, key });
-      }
-    });
-    return targets;
-  };
-
-  // The chip text for an item: a string element verbatim (a feature), else its first non-empty text
-  // field (a tier's name), else a positional fallback — legible without a declared label field.
-  function itemLabel(item: ItemSelection): string {
-    const val = resolvedArray(item)?.[item.index];
-    if (typeof val === "string" && val.trim()) return val.trim().slice(0, 28);
-    if (val && typeof val === "object") {
-      for (const v of Object.values(val as Record<string, unknown>)) {
-        if (typeof v === "string" && v.trim()) return v.trim().slice(0, 28);
-      }
-    }
-    return `${item.key} ${item.index + 1}`;
-  }
-
-  const sameItem = (a: ItemSelection, b: ItemSelection): boolean =>
-    a.path === b.path && a.component.join() === b.component.join();
-
   function renderItemSelection(): void {
     if (!selectedItem || proseSession.isActive()) {
       overlays.showItemSelection(undefined);
@@ -858,18 +754,40 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showItemSelection(itemElement(selectedItem) ?? undefined);
   }
 
+  // Re-pin the selection overlays after a selection or a reflow. Each `renderX` writes a disjoint
+  // host, so the fixed order here is equivalent at every call site; the flags pick exactly which
+  // affordances a given site re-renders — an item-selected site shows the item box (and suppresses
+  // the block toolbar/content box it doesn't own), a block-selected site the toolbar + content box.
+  function renderSelectionChrome(opts: {
+    highlight: IndexPath | undefined;
+    clearHover?: boolean;
+    paint?: boolean;
+    toolbar?: boolean;
+    item?: boolean;
+    content?: boolean;
+  }): void {
+    if (opts.clearHover) overlays.clearHover();
+    canvas.highlight(opts.highlight);
+    if (opts.paint) paint();
+    if (opts.toolbar) renderToolbar();
+    renderSelectionLabel();
+    if (opts.item) renderItemSelection();
+    if (opts.content) renderContentSelection();
+  }
+
   function selectItem(item: ItemSelection): void {
     selectedItem = item;
     selectedPath = item.component; // the inspector shows the owning component...
     focusedContentPath = item.path; // ...with this item's row expanded
     focusNonce += 1;
-    overlays.clearHover();
-    canvas.highlight(undefined);
-    paint();
-    renderToolbar();
-    renderSelectionLabel();
-    renderItemSelection();
-    renderContentSelection();
+    renderSelectionChrome({
+      highlight: undefined,
+      clearHover: true,
+      paint: true,
+      toolbar: true,
+      item: true,
+      content: true,
+    });
   }
 
   // Move an item into `target` at `to` — the source's own array (in-place reorder, the props
@@ -931,12 +849,13 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (focus) focusNonce += 1;
     // A selected block's name is owned by its toolbar pill; the hover label for the same block is
     // redundant, so clear it (no mousemove fires on the click that selected it to clear it later).
-    overlays.clearHover();
-    canvas.highlight(path);
-    paint();
-    renderSelectionLabel();
-    renderToolbar();
-    renderContentSelection();
+    renderSelectionChrome({
+      highlight: path,
+      clearHover: true,
+      paint: true,
+      toolbar: true,
+      content: true,
+    });
   }
 
   const handleSelect = async (
@@ -1247,15 +1166,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     // mid-drag must not re-pin them and fight the gesture.
     if (drag.isDragging()) return;
     if (selectedItem) {
-      canvas.highlight(undefined);
-      renderItemSelection();
-      renderSelectionLabel();
+      renderSelectionChrome({ highlight: undefined, item: true });
       return;
     }
-    canvas.highlight(selectedPath);
-    renderToolbar();
-    renderSelectionLabel();
-    renderContentSelection();
+    renderSelectionChrome({ highlight: selectedPath, toolbar: true, content: true });
   };
   let trackRaf: number | undefined;
   function trackOverlays(ms: number): void {
@@ -1298,16 +1212,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       if (trackRaf !== undefined) cancelAnimationFrame(trackRaf);
       drag.endDrag();
       canvas.dispose();
-      render(null, chromeRoot);
-      render(null, toolbarHost);
-      render(null, formatHost);
       overlays.dispose();
       document.documentElement.classList.remove("nocms-editing");
       document.documentElement.style.removeProperty("--nocms-page-width");
       surface.classList.remove("nocms-canvas");
-      toolbarHost.remove();
-      formatHost.remove();
-      chromeRoot.remove();
+      hosts.dispose();
       if (ownsStyle) style.remove();
       themeStyle.remove();
       if (ownsFonts) fontsLink.remove();
