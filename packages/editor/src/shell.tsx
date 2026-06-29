@@ -754,20 +754,32 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showContentSelection(contentElement() ?? undefined);
   }
 
-  // Panel → page: focusing a control in the props panel lights up its matching leaf on the canvas
-  // (the same content box a page click draws). Only the overlay moves — no repaint, no canvas scroll
-  // — so syncing from the panel never steals the field's focus back nor shifts the page being edited.
+  // Panel → page: focusing a control in the props panel lights up its counterpart on the canvas — a
+  // leaf's text, an array item's card, or an object's card. Only an overlay moves: no repaint, no
+  // canvas scroll, so syncing from the panel never steals the field's focus back nor shifts the page
+  // being edited. A leaf reuses the tracked content box (so a later repaint keeps it); an item/object
+  // card is a transient hint (it clears on the next canvas paint), since selection still lives on the
+  // page itself.
   function activateFromPanel(path: string | undefined): void {
-    if (!selectedPath || path === focusedContentPath) return;
-    // Skip a group/item path that names no rendered leaf (it owns no content box); the existing
-    // selection chrome already marks those, and clearing it would only flicker.
-    if (
-      path &&
-      !elementAtPath(selectedPath)?.querySelector(`[data-nocms-path="${path}"]`)
-    )
+    if (!selectedPath || !path) return;
+    const block = elementAtPath(selectedPath);
+    if (!block) return;
+    const find = (attr: string): Element | null =>
+      block.querySelector(`[${attr}="${path.replace(/"/g, '\\"')}"]`);
+
+    if (find("data-nocms-path")) {
+      if (path === focusedContentPath) return;
+      focusedContentPath = path;
+      renderContentSelection();
       return;
-    focusedContentPath = path;
-    renderContentSelection();
+    }
+    const item = find("data-nocms-item");
+    if (item) {
+      overlays.showItemSelection(item);
+      return;
+    }
+    const object = find("data-nocms-object");
+    if (object) overlays.showContentSelection(object);
   }
 
   function renderItemSelection(): void {
