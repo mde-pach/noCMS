@@ -1,6 +1,8 @@
 import type { SiteConfig } from "@nocms/core";
 import { describe, expect, it } from "vitest";
-import { normalizeBase, routeToFilePath, runtimeConfigMarkup } from "./build-site";
+import { runtimeConfigMarkup } from "./collect";
+import { normalizeBase } from "./sources";
+import { routeToFilePath } from "./writer";
 
 describe("routeToFilePath", () => {
   it("emits clean-URL directory index files", () => {
