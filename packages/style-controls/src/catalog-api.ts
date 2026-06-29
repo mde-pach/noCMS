@@ -6,12 +6,6 @@ import type { Catalog, ColorFamily, Feature } from "./types";
 // catalog so the host injects it (a virtual module in the build, a fixture in tests) and this stays
 // pure and environment-free.
 
-const COLOR_FEATURE: Record<string, string> = {
-  "bg-": "background-color",
-  "text-": "color",
-  "border-": "border-color",
-};
-
 export interface CatalogApi {
   CATALOG: Catalog;
   COLORS: ColorFamily[];
@@ -42,6 +36,17 @@ export interface CatalogApi {
 export function createCatalogApi(catalog: Catalog): CatalogApi {
   const FEATURE = new Map(catalog.features.map((f) => [f.id, f]));
   const featureOf = core.makeFeatureOf(catalog.features);
+  // A real colour key (`red-500`, `brand-600`) to probe a target prefix with: `colorFeatureId`
+  // resolves `${prefix}${key}` through the same `featureOf` the engine uses, so it returns the
+  // colour feature for *any* target the configurator offers (including overloaded `text-`, whose
+  // colour feature isn't keyed by a clean `text-` prefix) — never a hand-kept list that drifts.
+  const sampleColorKey = ((): string => {
+    for (const fam of catalog.colors) {
+      const shade = fam.shades.find((s) => s.shade) ?? fam.shades[0];
+      if (shade) return shade.shade ? `${fam.name}-${shade.shade}` : fam.name;
+    }
+    return "red-500";
+  })();
   return {
     CATALOG: catalog,
     COLORS: catalog.colors,
@@ -75,6 +80,6 @@ export function createCatalogApi(catalog: Catalog): CatalogApi {
       }
       return out;
     },
-    colorFeatureId: (prefix) => COLOR_FEATURE[prefix] ?? "",
+    colorFeatureId: (prefix) => featureOf(`${prefix}${sampleColorKey}`) ?? "",
   };
 }

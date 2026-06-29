@@ -193,12 +193,23 @@ describe("color controls compose valid classes for every target × family", () =
     }
   });
 
-  it("colorFeatureId resolves the colour features the catalog API exposes", () => {
-    expect(api.colorFeatureId("bg-")).toBe("background-color");
-    expect(api.colorFeatureId("text-")).toBe("color");
-    expect(api.colorFeatureId("border-")).toBe("border-color");
-    for (const fid of ["background-color", "color", "border-color"])
-      expect(byId.has(fid), fid).toBe(true);
+  // Spec: every colour target the configurator offers must resolve to a real catalog feature, so
+  // applying a second colour *replaces* the first (no accumulation) and the panel can read the
+  // current value back. This holds the engine to what the UI promises, not to its current map.
+  it.each(
+    COLOR_TARGETS.map((t) => [t.prefix, t.label] as const),
+  )("%s (%s) target dedups and reads back", (prefix) => {
+    const fid = api.colorFeatureId(prefix);
+    expect(fid, `colorFeatureId('${prefix}') must resolve a feature`).not.toBe("");
+    expect(byId.has(fid), `feature '${fid}' exists in catalog`).toBe(true);
+
+    const a = composeColor(prefix, tokenKeys(), 100);
+    const b = composeColor(prefix, paletteKeys(), 100);
+    const after = apply(apply("", a, fid), b, fid);
+    expect(after.split(/\s+/).filter(Boolean), "second colour replaces first").toEqual([
+      b,
+    ]);
+    expect(current(after, fid), "current colour reads back").toBe(b);
   });
 });
 
