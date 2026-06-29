@@ -1,5 +1,4 @@
 import { type ComponentRegistry } from "@nocms/components";
-import { type SiteConfig } from "@nocms/core";
 import type { ComponentChildren, ComponentType } from "preact";
 export interface BuildOptions {
     root: string;
@@ -17,9 +16,5 @@ export interface BuildOptions {
         base?: string;
     }>;
 }
-export declare function routeToFilePath(routePath: string): string;
-/** Non-empty and slash-terminated, so `${base}asset` always joins correctly. */
-export declare function normalizeBase(base: string): string;
 /** Renders every route through the one renderer so the published HTML cannot diverge from the editor preview. */
 export declare function buildSite(options: BuildOptions): Promise<void>;
-export declare function runtimeConfigMarkup(config: SiteConfig, base: string): string;

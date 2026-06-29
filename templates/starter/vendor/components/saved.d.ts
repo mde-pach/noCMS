@@ -1,4 +1,4 @@
-import type { ControlDescriptor } from "@nocms/core";
+import type { ControlDescriptor } from "@nocms/controls";
 import { type BlockDef, type ComponentPack, type ComponentRegistry, type PropPrimitive } from "./packs";
 /** A saved component declared by specializing one existing block. Fully serializable data. */
 export interface SavedComponentDef {

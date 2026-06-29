@@ -1,11 +1,9 @@
-function X(R){return R.startsWith("--")?R:`--${R.replace(/\./g,"-")}`}function _(R,K){let x=K.map(([U,F])=>`  ${X(U)}: ${F};`).join(`
-`);return`${R} {
+function D(f){return f.startsWith("--")?f:`--${f.replace(/\./g,"-")}`}function Q(f,F){let x=F.map(([K,R])=>`  ${D(K)}: ${R};`).join(`
+`);return`${f} {
 ${x}
 }
-`}function V(R){let K=_(":root",R.map((F)=>[F.name,F.value])),x=new Map;for(let F of R)for(let[j,z]of Object.entries(F.modes??{})){let H=x.get(j)??[];H.push([F.name,z]),x.set(j,H)}let U=[...x].map(([F,j])=>_(`[data-theme="${F}"]`,j));return[K,...U].join(`
-`)}function W(R){switch(R.split(".")[0]){case"color":return"color";case"space":case"text":case"radius":case"size":case"border":return"dimension";case"font":return"fontFamily";default:return}}function $(R){let K={};for(let x of R){let U=x.name.split("."),F=K;for(let O of U.slice(0,-1)){let Q=F[O];if(typeof Q!=="object"||Q===null)F[O]={};F=F[O]}let j=U[U.length-1],z={$value:x.value},H=W(x.name);if(H)z.$type=H;if(x.modes&&Object.keys(x.modes).length>0)z.$extensions={"com.nocms.modes":{...x.modes}};F[j]=z}return K}function L(R){let K=[];for(let x of R){K.push(`${x.name}: ${x.value}`);for(let[U,F]of Object.entries(x.modes??{}))K.push(`${x.name}@${U}: ${F}`);for(let[U,F]of Object.entries(x.breakpoints??{}))K.push(`${x.name}@${U}: ${F}`)}return`${K.join(`
-`)}
-`}var A=["bg","surface","text","muted","primary","on-primary","border","accent"],B={space:["1","2","3","4","5","6"],text:["sm","base","lg","xl","2xl"],radius:["sm","md","lg","full"],shadow:["sm","md","lg"]},D=["dark"],G=new Set(D);function Z(R){return G.has(R)}function M(){let R=A.map((K)=>`color.${K}`);for(let[K,x]of Object.entries(B))for(let U of x)R.push(`${K}.${U}`);return R}function I(R){let K=new Set(R.map((x)=>x.name));return M().filter((x)=>!K.has(x))}var P=`# Color roles — the named contract components bind to.
+`}function L(f){let F=Q(":root",f.map((R)=>[R.name,R.value])),x=new Map;for(let R of f)for(let[U,z]of Object.entries(R.modes??{})){let A=x.get(U)??[];A.push([R.name,z]),x.set(U,A)}let K=[...x].map(([R,U])=>Q(`[data-theme="${R}"]`,U));return[F,...K].join(`
+`)}var M=`# Color roles — the named contract components bind to.
 color.bg: #ffffff
 color.bg@dark: #0b1120
 color.surface: #f8fafc
@@ -48,8 +46,10 @@ radius.full: 9999px
 shadow.sm: 0 1px 2px rgba(0, 0, 0, 0.06)
 shadow.md: 0 4px 12px rgba(0, 0, 0, 0.1)
 shadow.lg: 0 12px 32px rgba(0, 0, 0, 0.16)
-`;class Y extends Error{line;constructor(R,K){super(`token parse error (line ${K}): ${R}`);this.line=K;this.name="TokenParseError"}}var N=/^([^:@]+?)(?:@([^:]+))?\s*:\s*(.+)$/;function T(R){let K=new Map,x=[];return R.split(/\r?\n/).forEach((U,F)=>{let j=U.trim();if(!j||j.startsWith("#"))return;let z=N.exec(j);if(!z||z[1]===void 0||z[3]===void 0)throw new Y(`expected "name: value", got "${j}"`,F+1);let H=z[1].trim(),O=z[2]?.trim(),Q=z[3].trim();if(!H)throw new Y("empty token name",F+1);let J=K.get(H);if(!J)J={name:H,value:""},K.set(H,J),x.push(H);if(O&&Z(O)){if(!J.modes)J.modes={};J.modes[O]=Q}else if(O){if(!J.breakpoints)J.breakpoints={};J.breakpoints[O]=Q}else J.value=Q}),x.map((U)=>K.get(U))}var C={space:"spacing"};function E(R){return`@theme inline {
-${R.map((x)=>{let U=x.name.split("."),F=U[0]??"";return`  --${C[F]??F}-${U.slice(1).join("-")}: var(${X(x.name)});`}).join(`
+`;function V(f){switch(f.split(".")[0]){case"color":return"color";case"space":case"text":case"radius":case"size":case"border":return"dimension";case"font":return"fontFamily";default:return}}function W(f){let F={};for(let x of f){let K=x.name.split("."),R=F;for(let _ of K.slice(0,-1)){let j=R[_];if(typeof j!=="object"||j===null)R[_]={};R=R[_]}let U=K[K.length-1],z={$value:x.value},A=V(x.name);if(A)z.$type=A;if(x.modes&&Object.keys(x.modes).length>0)z.$extensions={"com.nocms.modes":{...x.modes}};R[U]=z}return F}function $(f){let F=[];for(let x of f){F.push(`${x.name}: ${x.value}`);for(let[K,R]of Object.entries(x.modes??{}))F.push(`${x.name}@${K}: ${R}`);for(let[K,R]of Object.entries(x.breakpoints??{}))F.push(`${x.name}@${K}: ${R}`)}return`${F.join(`
+`)}
+`}var X=["bg","surface","text","muted","primary","on-primary","border","accent"],Y={space:["1","2","3","4","5","6"],text:["sm","base","lg","xl","2xl"],radius:["sm","md","lg","full"],shadow:["sm","md","lg"]},Z=["dark"],c=new Set(Z);function J(f){return c.has(f)}function B(){let f=X.map((F)=>`color.${F}`);for(let[F,x]of Object.entries(Y))for(let K of x)f.push(`${F}.${K}`);return f}function G(f){let F=new Set(f.map((x)=>x.name));return B().filter((x)=>!F.has(x))}class H extends Error{line;constructor(f,F){super(`token parse error (line ${F}): ${f}`);this.line=F;this.name="TokenParseError"}}var I=/^([^:@]+?)(?:@([^:]+))?\s*:\s*(.+)$/;function T(f){let F=new Map,x=[];return f.split(/\r?\n/).forEach((K,R)=>{let U=K.trim();if(!U||U.startsWith("#"))return;let z=I.exec(U);if(!z||z[1]===void 0||z[3]===void 0)throw new H(`expected "name: value", got "${U}"`,R+1);let A=z[1].trim(),_=z[2]?.trim(),j=z[3].trim();if(!A)throw new H("empty token name",R+1);let O=F.get(A);if(!O)O={name:A,value:""},F.set(A,O),x.push(A);if(_&&J(_)){if(!O.modes)O.modes={};O.modes[_]=j}else if(_){if(!O.breakpoints)O.breakpoints={};O.breakpoints[_]=j}else O.value=j}),x.map((K)=>F.get(K))}var p={space:"spacing"};function N(f){return`@theme inline {
+${f.map((x)=>{let K=x.name.split("."),R=K[0]??"";return`  --${p[R]??R}-${K.slice(1).join("-")}: var(${D(x.name)});`}).join(`
 `)}
 }
-`}export{E as toTailwindTheme,$ as toDtcg,V as toCssVariables,T as parseTokens,I as missingContractTokens,Z as isMode,L as formatTokens,X as cssVarName,M as contractTokenNames,Y as TokenParseError,B as RAMPS,D as MODES,P as DEFAULT_TOKENS,A as COLOR_ROLES};
+`}export{N as toTailwindTheme,W as toDtcg,L as toCssVariables,T as parseTokens,G as missingContractTokens,J as isMode,$ as formatTokens,D as cssVarName,B as contractTokenNames,H as TokenParseError,Y as RAMPS,Z as MODES,M as DEFAULT_TOKENS,X as COLOR_ROLES};

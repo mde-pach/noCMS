@@ -1,4 +1,4 @@
-import { type ControlDescriptor } from "@nocms/core";
+import { type ControlDescriptor } from "@nocms/controls";
 import type { ComponentType } from "preact";
 import type { GenericSchema } from "valibot";
 export type AnyComponent = ComponentType<Record<string, unknown>>;

@@ -44,12 +44,23 @@
       "name": "@nocms/components",
       "version": "0.0.0",
       "dependencies": {
+        "@nocms/controls": "workspace:*",
         "@nocms/core": "workspace:*",
         "preact": "^10.27.0",
         "valibot": "^1.4.1",
       },
       "devDependencies": {
         "preact-render-to-string": "^6.6.0",
+      },
+    },
+    "packages/controls": {
+      "name": "@nocms/controls",
+      "version": "0.0.0",
+      "dependencies": {
+        "valibot": "^1.4.1",
+      },
+      "devDependencies": {
+        "@nocms/core": "workspace:*",
       },
     },
     "packages/core": {
@@ -74,6 +85,7 @@
       "dependencies": {
         "@nocms/auth": "workspace:*",
         "@nocms/components": "workspace:*",
+        "@nocms/controls": "workspace:*",
         "@nocms/core": "workspace:*",
         "@nocms/github": "workspace:*",
         "@nocms/prose": "workspace:*",
@@ -140,6 +152,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@nocms/components": "workspace:*",
+        "@nocms/controls": "workspace:*",
         "@nocms/core": "workspace:*",
         "preact": "^10.27.0",
       },
@@ -174,6 +187,7 @@
       },
       "devDependencies": {
         "@mdx-js/rollup": "^3.1.0",
+        "@nocms/controls": "workspace:*",
         "@nocms/core": "workspace:*",
         "@nocms/derive": "workspace:*",
         "@nocms/editor": "workspace:*",
@@ -318,6 +332,8 @@
     "@nocms/build": ["@nocms/build@workspace:packages/build"],
 
     "@nocms/components": ["@nocms/components@workspace:packages/components"],
+
+    "@nocms/controls": ["@nocms/controls@workspace:packages/controls"],
 
     "@nocms/core": ["@nocms/core@workspace:packages/core"],
 
