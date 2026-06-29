@@ -112,6 +112,45 @@ function itemSummary(
   return `Item ${index + 1}`;
 }
 
+/** A row of `.nc-segmented` buttons — the inline picker for a small option set (a layout direction,
+ *  a ≤3-option select). `renderOption` supplies an icon-led label; its absence is a plain text seg. */
+function SegmentedControl({
+  label,
+  name,
+  options,
+  current,
+  commit,
+  renderOption,
+}: {
+  label: string;
+  name: string;
+  options: string[];
+  current: string;
+  commit: CommitValue;
+  renderOption?: (opt: string) => VNode;
+}): VNode {
+  return (
+    <div class="nc-field">
+      <MonoLabel>{label}</MonoLabel>
+      <div class="nc-segmented" role="group" aria-label={label}>
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            name={name}
+            value={opt}
+            class={renderOption ? "nc-seg nc-seg-icon" : "nc-seg"}
+            aria-pressed={current === opt}
+            onClick={() => commit(opt)}
+          >
+            {renderOption ? renderOption(opt) : opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface ControlViewProps {
   control: ControlDescriptor;
   value: unknown;
@@ -234,25 +273,19 @@ function ControlView({
       grid: <GridIcon />,
     };
     return (
-      <div class="nc-field">
-        <MonoLabel>{control.label}</MonoLabel>
-        <div class="nc-segmented" role="group" aria-label={control.label}>
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              name={control.key}
-              value={opt}
-              class="nc-seg nc-seg-icon"
-              aria-pressed={current === opt}
-              onClick={() => commit(opt)}
-            >
-              {icon[opt] ?? null}
-              <span>{opt}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <SegmentedControl
+        label={control.label}
+        name={control.key}
+        options={options}
+        current={current}
+        commit={commit}
+        renderOption={(opt) => (
+          <>
+            {icon[opt] ?? null}
+            <span>{opt}</span>
+          </>
+        )}
+      />
     );
   }
 
@@ -261,24 +294,13 @@ function ControlView({
     const current = asString(value) || (control.default as string) || "";
     if (options.length > 0 && options.length <= 3) {
       return (
-        <div class="nc-field">
-          <MonoLabel>{control.label}</MonoLabel>
-          <div class="nc-segmented" role="group" aria-label={control.label}>
-            {options.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                name={control.key}
-                value={opt}
-                class="nc-seg"
-                aria-pressed={current === opt}
-                onClick={() => commit(opt)}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-        </div>
+        <SegmentedControl
+          label={control.label}
+          name={control.key}
+          options={options}
+          current={current}
+          commit={commit}
+        />
       );
     }
     return (

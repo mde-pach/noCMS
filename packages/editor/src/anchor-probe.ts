@@ -8,6 +8,7 @@
 
 import type { VNode } from "preact";
 import { renderToString } from "preact-render-to-string";
+import { setPath } from "./path-utils.js";
 
 export interface AnchorInput {
   /** dotted path into the props value, e.g. `items.2.title` */
@@ -59,17 +60,6 @@ export function probeContentAnchors(
       ? { path, found: false }
       : { path, found: true, enclosingTag: enclosingTag(html, at) };
   });
-}
-
-function setPath(root: Record<string, unknown>, path: string, value: string): void {
-  const keys = path.split(".");
-  let cur: Record<string, unknown> = root;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const next = cur[keys[i] as string];
-    if (!next || typeof next !== "object") return;
-    cur = next as Record<string, unknown>;
-  }
-  cur[keys[keys.length - 1] as string] = value;
 }
 
 /** The tag name of the element immediately enclosing `index` in the HTML string. */
