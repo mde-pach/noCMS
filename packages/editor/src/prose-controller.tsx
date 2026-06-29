@@ -23,15 +23,15 @@ export interface ProseController {
   view(): ProseEditorHandle["view"] | undefined;
   /** true when `el` is inside the live prose widget — the canvas leaves those clicks alone. */
   containsEl(el: Element): boolean;
-  /** begin editing `host`'s text in `el` (at index-path `path`). `inline` scopes the editor to a
-   *  single inline component (a Badge) so it edits in place rather than as a block. `at` is the
-   *  click point — the caret lands there, so a single click edits where the user pointed. */
+  /** begin editing `host`'s text in `el` (at index-path `path`). `opts.inline` scopes the editor to
+   *  a single inline component (a Badge) so it edits in place rather than as a block. `opts.at` is
+   *  the click point — the caret lands there, so a single click edits where the user pointed.
+   *  `opts.label` is the block's name, shown as the leading segment of the format bar. */
   start(
     host: ProseHost,
     el: Element,
     path: IndexPath,
-    inline?: boolean,
-    at?: { x: number; y: number },
+    opts?: { inline?: boolean; at?: { x: number; y: number }; label?: string },
   ): void;
   /** end the session, snapshot to history, repaint; resolves to the edited block's path. */
   commit(): Promise<IndexPath | undefined>;
@@ -54,11 +54,18 @@ export interface ProseControllerDeps {
 export function createProseController(deps: ProseControllerDeps): ProseController {
   const { formatHost, overlays, canvas, docs, onChange, markDirty, onStart } = deps;
   let session:
-    | { handle: ProseEditorHandle; el: Element; path: IndexPath; inline: boolean }
+    | {
+        handle: ProseEditorHandle;
+        el: Element;
+        path: IndexPath;
+        inline: boolean;
+        label?: string;
+      }
     | undefined;
 
   // The format bar floats just above the text being edited; its mark intents route through the
-  // same prose marks the keymap uses, so there is one editing model.
+  // same prose marks the keymap uses, so there is one editing model. It carries the block's name as
+  // a leading label so it reads as one pill — the editing twin of the selection chip + toolbar.
   function showFormatBar(el: Element): void {
     formatHost.style.top = `${Math.max(overlays.surfaceTop(el) - 42, 6)}px`;
     formatHost.style.left = `${overlays.surfaceLeft(el)}px`;
@@ -66,6 +73,7 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
     const view = () => session?.handle.view;
     render(
       <FormatBar
+        label={session?.label}
         onBold={() => {
           const v = view();
           if (v) toggleProseMark(v, "strong");
@@ -94,9 +102,13 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
     view: () => session?.handle.view,
     containsEl: (el) => session?.el.contains(el) ?? false,
 
-    start(host, el, path, inline = false, at) {
+    start(host, el, path, opts = {}) {
+      const { inline = false, at, label } = opts;
       canvas.highlight(undefined);
       overlays.clearHover();
+      // The block's name moves into the format bar, so drop the standalone selection chip — else it
+      // lingers stacked under the bar.
+      overlays.showSelectionLabel(undefined, undefined);
       if (inline) el.classList.add("nocms-prose-inline");
       el.replaceChildren();
       const handle = mountProseEditor(el, {
@@ -109,7 +121,7 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
       });
       if (at) handle.caretAt(at.x, at.y);
       else handle.view.focus();
-      session = { handle, el, path, inline };
+      session = { handle, el, path, inline, label };
       onStart();
       showFormatBar(el);
     },

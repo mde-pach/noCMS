@@ -141,6 +141,12 @@ function childrenOf(node: Nodes | undefined): Nodes[] {
   return node && "children" in node ? (node as Parent).children : [];
 }
 
+/** The display name shown on a block's chip/label: its JSX component name, or its mdast type
+ *  (paragraph, heading) for plain prose. */
+function nodeLabel(node: Nodes): string {
+  return "name" in node && node.name ? String(node.name) : node.type;
+}
+
 /** A keystroke landing in a text field or the prose view must not trigger a block-level
  *  shortcut (delete, reorder) — that is the field's own input. */
 function isTextEntry(target: EventTarget | null): boolean {
@@ -399,7 +405,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const sel = selectedPath?.length === 1 ? selectedPath[0] : undefined;
     return docs.doc.children.flatMap((node, index) => {
       if (node.type === "yaml") return [];
-      const label = "name" in node && node.name ? String(node.name) : node.type;
+      const label = nodeLabel(node);
       return [{ label, index, selected: index === sel }];
     });
   }
@@ -572,7 +578,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const parentPath = selectedPath.slice(0, -1);
     const from = selectedPath[selectedPath.length - 1] ?? 0;
     const count = docs.childCountAt(parentPath);
-    const label = "name" in node && node.name ? String(node.name) : node.type;
+    const label = nodeLabel(node);
     const saveDef = isJsxElement(node) && node.name ? components[node.name] : undefined;
     const saveable = saveDef !== undefined && controlsOf(saveDef).length > 0;
     const el = elementAtPath(selectedPath);
@@ -666,7 +672,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       blockOffset === undefined
         ? null
         : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
-    const label = "name" in node && node.name ? String(node.name) : node.type;
+    const label = nodeLabel(node);
     overlays.showHover(el ?? undefined, label);
   };
 
@@ -696,7 +702,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       overlays.showSelectionLabel(undefined, undefined);
       return;
     }
-    const label = "name" in node && node.name ? String(node.name) : node.type;
+    const label = nodeLabel(node);
     // The chip is the drag handle: grabbing it lifts the block to move it (D22 drag-to-arrange).
     overlays.showSelectionLabel(el, label, (event) => drag.beginDrag(event));
   }
@@ -891,7 +897,11 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           ? null
           : renderedAt(inline.position.start.offset);
       if (inlinePath && inlineEl) {
-        proseSession.start(inline, inlineEl, inlinePath, true, at);
+        proseSession.start(inline, inlineEl, inlinePath, {
+          inline: true,
+          at,
+          label: nodeLabel(inline),
+        });
         return true;
       }
     }
@@ -906,7 +916,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         ? null
         : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
     if (!blockEl) return false;
-    proseSession.start(block, blockEl, indexPath, false, at);
+    proseSession.start(block, blockEl, indexPath, { at, label: nodeLabel(block) });
     return true;
   };
 

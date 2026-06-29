@@ -43,7 +43,7 @@ export function SelectionToolbar({
 }: SelectionToolbarProps): VNode {
   return (
     <div
-      class="nocms-toolbar nocms-toolbar--selection"
+      class="nocms-toolbar nocms-toolbar--float"
       role="toolbar"
       aria-label={`${label} actions`}
     >

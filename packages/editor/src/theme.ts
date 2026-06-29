@@ -445,10 +445,16 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 .nocms-toolbar button:disabled { opacity: 0.3; cursor: default; }
 .nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: #3a3833; margin: 0 3px; }
-/* The selection toolbar sits beside the block's name tag (one cluster to act on the selection), and
-   rests faint so the content beneath shows through until the pointer reaches it. */
-.nocms-toolbar--selection { opacity: 0.6; transition: opacity .12s ease; }
-.nocms-toolbar--selection:hover { opacity: 1; }
+/* The block's name carried as a leading segment of the format bar, so editing chrome reads as one
+   pill (label + actions) rather than a chip stacked under a toolbar — matching the selection chip. */
+.nocms-toolbar .nc-tool-label {
+  font-family: var(--nc-font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #fff; opacity: 0.75; padding: 0 4px; white-space: nowrap;
+}
+/* Floating selection/edit chrome rests faint so the content beneath shows through, and lifts to
+   full opacity once the pointer reaches it — its actions are deliberate, not ambient. */
+.nocms-toolbar--float { opacity: 0.6; transition: opacity .12s ease; }
+.nocms-toolbar--float:hover { opacity: 1; }
 
 /* ---------- overlays / modal ---------- */
 .nc-scrim { position: fixed; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 1002; overflow-y: auto; }
