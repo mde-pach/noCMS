@@ -11,27 +11,15 @@ import {
   type StyleSectionContext,
 } from "@nocms/editor";
 import { render } from "preact";
-import { CapabilityBrowser } from "./poc/capabilities";
-import { applyClass } from "./poc/catalog";
+import { StylePanel } from "./poc/style-panel";
 import { ensureTailwindPreview } from "./tailwind-preview";
 
 // The site owns its styling system (invariant #2): the editor exposes the selected element's
-// `class`; this panel — the Tailwind catalog's capability controls — generates utility classes onto
-// it. Editing `class` re-renders the component (which forwards `className`), and the in-page Tailwind
-// engine compiles the result live.
+// `class`; this panel — the Tailwind catalog's capability controls, scoped to the mode bar's
+// viewport×state variant — generates utility classes onto it. Editing `class` re-renders the
+// component (which forwards `className`), and the in-page Tailwind engine compiles the result live.
 function StyleSection({ name, getClass, setClass }: StyleSectionContext) {
-  const className = getClass();
-  const variant = "";
-  return (
-    <CapabilityBrowser
-      tag={name}
-      className={className}
-      variant={variant}
-      onApply={(cls, featureId) =>
-        setClass(applyClass(className, cls, featureId, variant))
-      }
-    />
-  );
+  return <StylePanel name={name} getClass={getClass} setClass={setClass} />;
 }
 
 const SIGNED_IN_KEY = "nocms-dev-signed-in";
