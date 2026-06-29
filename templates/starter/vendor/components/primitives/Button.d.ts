@@ -3,7 +3,7 @@ export declare const ButtonSchema: v.ObjectSchema<{
     readonly label: v.StringSchema<undefined>;
     readonly href: v.OptionalSchema<v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.MetadataAction<string, {
         readonly control: "url";
-    }>]>, "#">;
+    }>]>, string>;
     readonly variant: v.OptionalSchema<v.PicklistSchema<["primary", "secondary"], undefined>, "primary">;
 }, undefined>;
 export type ButtonProps = v.InferInput<typeof ButtonSchema> & {

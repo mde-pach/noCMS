@@ -14,7 +14,7 @@ export declare const PricingSchema: v.ObjectSchema<{
         readonly ctaLabel: v.OptionalSchema<v.StringSchema<undefined>, "Choose plan">;
         readonly ctaHref: v.OptionalSchema<v.SchemaWithPipe<readonly [v.StringSchema<undefined>, v.MetadataAction<string, {
             readonly control: "url";
-        }>]>, "#">;
+        }>]>, string>;
         readonly highlighted: v.OptionalSchema<v.BooleanSchema<undefined>, false>;
     }, undefined>, undefined>, {
         name: string;
