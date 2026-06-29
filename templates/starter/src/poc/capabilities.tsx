@@ -1,5 +1,10 @@
+import {
+  CAP,
+  type Capability,
+  COLOR_TARGETS,
+  relevantFor,
+} from "@nocms/style-controls";
 import { useMemo, useState } from "preact/hooks";
-import { CAP, type Capability, COLOR_TARGETS, relevantFor } from "@nocms/style-controls";
 import {
   currentClass,
   FEATURE,

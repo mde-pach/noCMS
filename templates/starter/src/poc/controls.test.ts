@@ -1,18 +1,22 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
-import { buildCatalog } from "@nocms/style-controls/build";
-import { CAPABILITIES, COLOR_TARGETS, relevantFor, type Catalog, type Feature } from "@nocms/style-controls";
 import {
   applyClass,
+  CAPABILITIES,
+  type Catalog,
+  COLOR_TARGETS,
   composeColor,
   currentClass,
+  type Feature,
   type FeatureLike,
   makeFeatureOf,
   parseColorClass,
   preferNamed,
+  relevantFor,
   widgetFor,
 } from "@nocms/style-controls";
+import { buildCatalog } from "@nocms/style-controls/build";
+import { beforeAll, describe, expect, it } from "vitest";
 
 // Integration tests: build the *real* engine catalog (same as the Vite plugin), then drive every
 // control's logic against it. Catches dead capability references, bad dedupe, broken round-trips,
