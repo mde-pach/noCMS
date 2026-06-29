@@ -82,6 +82,28 @@ const area = (b: Box): number => (b.right - b.left) * (b.bottom - b.top);
 const startsWith = (path: readonly number[], prefix: readonly number[]): boolean =>
   prefix.length <= path.length && prefix.every((v, i) => v === path[i]);
 
+// Outer band — a fraction of a child's own extent, measured along its parent's flow — within which a
+// point over a child *container* targets the sibling gap *before/after* it rather than dropping
+// *inside* it. A child container flush against its parent's edge otherwise swallows every point near
+// that edge, so the parent's first/last gap is unreachable: you could only ever drop into the edge
+// child, never beside it. Keeping it under half leaves the child's centre for a genuine drop-inside.
+const EDGE_BAND = 0.35;
+
+/** The nearest measured ancestor of `zone` among `zones` — the container one level out — or undefined
+ *  for a top-level zone. Its own subtree exclusion is inherited: an ancestor of a non-excluded zone is
+ *  itself non-excluded. */
+function nearestAncestor(
+  zones: readonly DropZone[],
+  zone: DropZone,
+): DropZone | undefined {
+  let best: DropZone | undefined;
+  for (const z of zones) {
+    if (z.path.length >= zone.path.length || !startsWith(zone.path, z.path)) continue;
+    if (!best || z.path.length > best.path.length) best = z;
+  }
+  return best;
+}
+
 /** The gap a point falls into among `children` flowing along `axis`, in the container's index
  *  space (so a leading unmeasured sibling like frontmatter is never a target). Mirrors `dropGapAt`
  *  but reads the coordinate off the axis. Children are assumed in document (index) order. */
@@ -143,8 +165,10 @@ function lineFor(zone: DropZone, gap: number): DropTarget["line"] {
 /**
  * The drop a point resolves to: the deepest container whose box holds the point and that is not
  * inside the dragged subtree (you cannot drop a node into itself or its own descendant). Ties on
- * depth break to the smaller box — the more specific region. Returns undefined when the point is
- * over no droppable container.
+ * depth break to the smaller box — the more specific region. Near that container's leading/trailing
+ * edge the resolution escapes one level out to the sibling gap beside it, so a flush edge child
+ * doesn't make its parent's first/last gap unreachable. Returns undefined when the point is over no
+ * droppable container.
  */
 export function resolveDrop(
   zones: readonly DropZone[],
@@ -164,11 +188,31 @@ export function resolveDrop(
     }
   }
   if (!best) return undefined;
-  const index = gapAlong(best.children, best.axis, x, y);
+  let target = best;
+  let index = gapAlong(best.children, best.axis, x, y);
+  // Edge escape: near the deepest container's leading/trailing edge (along its parent's flow), resolve
+  // to the parent gap beside it instead of inside it — so a sibling can land before the first / after
+  // the last child of a container that abuts its parent's edge.
+  const parent = nearestAncestor(zones, best);
+  if (parent) {
+    const childIndex = best.path[parent.path.length] ?? index;
+    const vertical = parent.axis === "vertical";
+    const lo = vertical ? best.box.top : best.box.left;
+    const hi = vertical ? best.box.bottom : best.box.right;
+    const along = vertical ? y : x;
+    const band = (hi - lo) * EDGE_BAND;
+    if (along - lo <= band) {
+      target = parent;
+      index = childIndex;
+    } else if (hi - along <= band) {
+      target = parent;
+      index = childIndex + 1;
+    }
+  }
   return {
-    parentPath: best.path,
+    parentPath: target.path,
     index,
-    line: lineFor(best, index),
-    container: best.box,
+    line: lineFor(target, index),
+    container: target.box,
   };
 }

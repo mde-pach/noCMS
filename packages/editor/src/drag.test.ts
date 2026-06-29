@@ -125,6 +125,54 @@ describe("resolveDrop", () => {
     expect(target?.line.x).toBe(100);
   });
 
+  // A row Grid ([1]) of three card *containers* filling it edge to edge — the first card's left is
+  // the grid's left, so without an edge escape the grid's first/last gap can't be reached: every
+  // point near the edge sits inside a card and would drop *into* it.
+  const grid: DropZone = {
+    path: [1],
+    axis: "horizontal",
+    box: box(0, 0, 300, 100),
+    children: [
+      { index: 0, box: box(0, 0, 100, 100) },
+      { index: 1, box: box(100, 0, 200, 100) },
+      { index: 2, box: box(200, 0, 300, 100) },
+    ],
+  };
+  const card0: DropZone = {
+    path: [1, 0],
+    axis: "vertical",
+    box: box(0, 0, 100, 100),
+    children: [],
+  };
+  const card2: DropZone = {
+    path: [1, 2],
+    axis: "vertical",
+    box: box(200, 0, 300, 100),
+    children: [],
+  };
+
+  test("near a first child's leading edge escapes to the grid's gap 0", () => {
+    // x=10 is inside card0 but within its left band -> insert before card0 in the grid.
+    const target = resolveDrop([grid, card0, card2], 10, 50, [9]);
+    expect(target?.parentPath).toEqual([1]);
+    expect(target?.index).toBe(0);
+    expect(target?.line.orientation).toBe("vertical");
+    expect(target?.line.x).toBe(0);
+  });
+
+  test("near a last child's trailing edge escapes to the grid's final gap", () => {
+    // x=295 is inside card2 but within its right band -> insert after card2 in the grid.
+    const target = resolveDrop([grid, card0, card2], 295, 50, [9]);
+    expect(target?.parentPath).toEqual([1]);
+    expect(target?.index).toBe(3);
+  });
+
+  test("the centre of a child container still drops inside it", () => {
+    const target = resolveDrop([grid, card0, card2], 50, 50, [9]);
+    expect(target?.parentPath).toEqual([1, 0]);
+    expect(target?.index).toBe(0);
+  });
+
   test("an empty container accepts at index 0 with a centered line", () => {
     const empty: DropZone = {
       path: [2],
