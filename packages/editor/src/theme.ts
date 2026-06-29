@@ -105,14 +105,26 @@ html.nocms-editing #app {
 .nc-input::placeholder, .nc-textarea::placeholder { color: var(--nc-text-3); }
 .nc-textarea { overflow: hidden; }
 
-/* The control mirroring the current canvas selection: tinted and ringed like a selection, so a leaf,
-   a nested group, or an array-item row reads as "this is what you're editing on the page". The
-   floating outline leaves breathing room without nudging the layout as the highlight moves. */
-.nc-field.is-active, .nc-group.is-active, .nc-list-item.is-active {
+/* Selection mirror. The precise control that maps to the canvas selection reads as selected: a leaf's
+   widget alone (never its label), or an object / array-item card. The float-out outline rings the
+   control without nudging the layout as the selection moves. */
+.nc-active {
+  outline: 1.5px solid var(--nc-accent);
+  outline-offset: 3px; border-radius: var(--nc-radius);
+  transition: outline-color .12s;
+}
+.nc-group.is-active, .nc-list-item.is-active {
   background: color-mix(in srgb, var(--nc-accent) 8%, transparent);
-  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 38%, transparent);
-  outline-offset: 4px; border-radius: var(--nc-radius);
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 45%, transparent);
+  outline-offset: 3px;
   transition: background .12s, outline-color .12s;
+}
+/* The containers a selected leaf nests in carry only a faint grouping tint, so the nesting is legible
+   without competing with the actual selection. */
+.nc-group.is-ancestor, .nc-list-item.is-ancestor, .nc-list-field.is-ancestor {
+  outline: 1px solid color-mix(in srgb, var(--nc-accent) 20%, transparent);
+  outline-offset: 3px; border-radius: var(--nc-radius);
+  transition: outline-color .12s;
 }
 
 /* segmented control */
@@ -438,7 +450,7 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 
 /* group + advanced */
 .nc-group { border: 1px solid var(--nc-border-faint); border-radius: 11px; padding: 14px; margin-bottom: 18px; background: var(--nc-surface-muted); }
-.nc-group-title { font-family: var(--nc-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nc-text); margin-bottom: 14px; }
+.nc-group-title { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--nc-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nc-text); margin-bottom: 14px; }
 .nc-group .nc-field:last-child { margin-bottom: 0; }
 .nc-row { display: flex; align-items: center; justify-content: space-between; }
 .nc-row-label { font-size: 12.5px; color: var(--nc-text-2); }

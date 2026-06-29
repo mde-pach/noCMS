@@ -217,30 +217,35 @@ describe("PropsPanel active highlight", () => {
     );
   };
 
-  test("marks the focused leaf's field active and tags it with its path", () => {
+  test("marks the focused leaf's widget — not its field/label — active, and tags the field", () => {
     renderWith({ path: "label", nonce: 1 });
+    // The input itself is ringed; the wrapping field (which carries the label) is not.
+    expect(field(container, "label").classList.contains("nc-active")).toBe(true);
     const wrap = field(container, "label").closest(".nc-field");
-    expect(wrap?.classList.contains("is-active")).toBe(true);
+    expect(wrap?.classList.contains("nc-active")).toBe(false);
     expect(wrap?.getAttribute("data-nocms-control")).toBe("label");
   });
 
-  test("only the targeted field is active", () => {
+  test("only the targeted widget is active", () => {
     renderWith({ path: "label", nonce: 1 });
-    expect(container.querySelectorAll(".nc-field.is-active").length).toBe(1);
+    expect(container.querySelectorAll(".nc-active").length).toBe(1);
   });
 
-  test("selecting a nested object highlights its group", () => {
+  test("selecting a nested object highlights its group card", () => {
     renderWith({ path: "meta", nonce: 1 });
     const group = container.querySelector(".nc-group");
     expect(group?.classList.contains("is-active")).toBe(true);
     expect(group?.getAttribute("data-nocms-control")).toBe("meta");
   });
 
-  test("a leaf inside a group still highlights its enclosing group", () => {
+  test("a leaf inside a group gives the enclosing group only a faint ancestor tint", () => {
     renderWith({ path: "meta.id", nonce: 1 });
-    expect(container.querySelector(".nc-group")?.classList.contains("is-active")).toBe(
-      true,
-    );
+    const group = container.querySelector(".nc-group");
+    // The group is context, not the selection: ancestor (subtle), never active (strong).
+    expect(group?.classList.contains("is-ancestor")).toBe(true);
+    expect(group?.classList.contains("is-active")).toBe(false);
+    // The actual selection is the leaf's input.
+    expect(field(container, "id").classList.contains("nc-active")).toBe(true);
   });
 
   test("selecting an array item highlights and tags its row", async () => {
