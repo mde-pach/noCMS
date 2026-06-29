@@ -17,6 +17,12 @@ const Stack: ComponentType<Record<string, unknown>> = (props) =>
   h("div", { class: "stack" }, props.children as never);
 const Tag: ComponentType<Record<string, unknown>> = (props) =>
   h("span", { class: "tag" }, props.children as never);
+const Figure: ComponentType<Record<string, unknown>> = (props) =>
+  h(
+    "figure",
+    { class: "figure" },
+    h("img", { class: "fimg", src: props.src as string }),
+  );
 
 const asComponent = (c: ComponentType<Record<string, unknown>>) =>
   c as unknown as ComponentRegistry[string]["component"];
@@ -30,6 +36,10 @@ const components: ComponentRegistry = {
   Image: { component: asComponent(Image) },
   Stack: { component: asComponent(Stack), slots: ["children"] },
   Tag: { component: asComponent(Tag), schema: v.object({}) },
+  Figure: {
+    component: asComponent(Figure),
+    schema: v.object({ src: v.pipe(v.string(), v.metadata({ control: "image" })) }),
+  },
 };
 
 // Each test disposes its handle, but a failing assertion can leave chrome on the body; clear it
@@ -115,6 +125,89 @@ describe("mountEditor", () => {
     target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.querySelector(".nocms-props-title")).toBeNull();
     expect(target.querySelector(".nocms-overlay")).toBeNull();
+
+    handle.dispose();
+  });
+
+  test("editing page title + description persists to frontmatter via onChange", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+
+    const handle = await mountEditor({
+      target,
+      mdx: `---\ntitle: Old Title\ndescription: Old desc\n---\n\n<Button label="Go" />\n`,
+      components,
+      onChange,
+    });
+
+    // Nothing selected → the page rail shows the title/description seeded from frontmatter.
+    const title = panelField("page.title");
+    const description = panelField("page.description");
+    expect(title.value).toBe("Old Title");
+    expect(description.value).toBe("Old desc");
+
+    title.value = "Fresh Title";
+    title.dispatchEvent(new Event("input", { bubbles: true }));
+    description.value = "Fresh description";
+    description.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // The edits reach the saved document — onChange carries MDX whose frontmatter is updated in
+    // place (the old values replaced, not duplicated).
+    const mdx = onChange.mock.calls.at(-1)?.[0] as string;
+    expect(mdx).toContain("title: Fresh Title");
+    expect(mdx).toContain("description: Fresh description");
+    expect(mdx).not.toContain("Old Title");
+    expect(mdx).not.toContain("Old desc");
+
+    handle.dispose();
+  });
+
+  test("picking an image from the media library writes the src and renders it", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const onChange = vi.fn();
+
+    const handle = await mountEditor({
+      target,
+      mdx: `<Figure src="/old.png" />\n`,
+      components,
+      onChange,
+    });
+
+    // Select the figure → its image control offers a "Replace" affordance.
+    target
+      .querySelector(".figure")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const replace = panelField("src");
+    expect(replace.tagName).toBe("BUTTON");
+    replace.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // The media library opens; choose a specific tile, then confirm.
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll(".nc-media-tile").length).toBeGreaterThan(1);
+    });
+    const tiles = [...document.querySelectorAll(".nc-media-tile")];
+    tiles[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Selecting is local state; wait for it to commit so "Insert" confirms the chosen tile, not the
+    // default one its handler closed over at first render.
+    await vi.waitFor(() => {
+      expect(
+        document.querySelectorAll(".nc-media-tile")[1]?.getAttribute("aria-pressed"),
+      ).toBe("true");
+    });
+    document
+      .querySelector(".nc-media-sheet .nc-btn-primary")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // The picked URL reaches the prop, the canvas re-renders with it, and onChange carries it —
+    // not just "the callback fired".
+    await vi.waitFor(() => {
+      expect(
+        (target.querySelector(".fimg") as HTMLImageElement | null)?.getAttribute("src"),
+      ).toContain("team");
+    });
+    expect(onChange.mock.calls.at(-1)?.[0]).toContain("text=team");
 
     handle.dispose();
   });

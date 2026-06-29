@@ -42,6 +42,31 @@ export function boundingRect(el: Element): DOMRect {
   return new DOMRect(left, top, right - left, bottom - top);
 }
 
+// A component carrier renders no box of its own — it's the `<span style="display:contents">` that
+// editable.ts wraps a component in to hold its source offset. That inline marker is the authoritative
+// signal (and is readable without a layout engine); computed style is the fallback for any other
+// contents element.
+function isBoxlessCarrier(el: Element): boolean {
+  if ((el as HTMLElement).style?.display === "contents") return true;
+  try {
+    return getComputedStyle(el).display === "contents";
+  } catch {
+    return false;
+  }
+}
+
+/** The tag of the element that actually paints for `el`. A component is annotated on a boxless
+ *  carrier, so descend through such carriers to the first element that renders — its tag is what a
+ *  styling panel keys controls off, and what a selection overlay boxes. An intrinsic carries its own
+ *  offset, so it's returned as-is. `undefined` when there's nothing to resolve. */
+export function paintedRootTag(el: Element | null | undefined): string | undefined {
+  let cur = el ?? null;
+  while (cur && isBoxlessCarrier(cur) && cur.firstElementChild) {
+    cur = cur.firstElementChild;
+  }
+  return cur?.tagName.toLowerCase();
+}
+
 export interface CanvasSelection {
   /** source offset of the clicked element's nearest annotated ancestor */
   offset: number;

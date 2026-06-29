@@ -6,9 +6,50 @@ import {
   type CanvasSelection,
   mountCanvas,
   offsetFromElement,
+  paintedRootTag,
   selectionAtElement,
 } from "./canvas.js";
 import { parseMdx } from "./mdx-document.js";
+
+// The Style panel keys its controls off the painted root tag of the selection. A *component* is
+// annotated on a `display:contents` carrier (editable.ts wraps it in a `<span style="display:contents">`),
+// so the real element to style is *inside* that carrier — this is the resolution that decides whether
+// selecting a `<Hero/>` shows section controls or (wrongly) span controls.
+describe("paintedRootTag", () => {
+  function frag(html: string): Element {
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    return root.firstElementChild as Element;
+  }
+
+  test("descends a component carrier to its real root tag", () => {
+    const carrier = frag(
+      `<span data-mdx-pos="0" style="display:contents"><section><h1>Hi</h1></section></span>`,
+    );
+    expect(paintedRootTag(carrier)).toBe("section");
+  });
+
+  test("returns an intrinsic element's own tag (no carrier)", () => {
+    expect(paintedRootTag(frag(`<h1 data-mdx-pos="0">Hi</h1>`))).toBe("h1");
+  });
+
+  test("resolves the real root through nested carriers", () => {
+    const carrier = frag(
+      `<span style="display:contents"><span style="display:contents"><a href="#">go</a></span></span>`,
+    );
+    expect(paintedRootTag(carrier)).toBe("a");
+  });
+
+  test("reports the painted root even when it isn't a styling-typical tag", () => {
+    const carrier = frag(`<span style="display:contents"><header>nav</header></span>`);
+    expect(paintedRootTag(carrier)).toBe("header");
+  });
+
+  test("returns undefined for nothing to resolve", () => {
+    expect(paintedRootTag(null)).toBeUndefined();
+    expect(paintedRootTag(undefined)).toBeUndefined();
+  });
+});
 
 describe("offsetFromElement", () => {
   test("walks to the nearest annotated ancestor", () => {
