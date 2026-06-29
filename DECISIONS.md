@@ -1237,6 +1237,16 @@ edits the array directly. Reaffirms invariants #1 and #10; builds on the content
   component's padding selects the component, a double-click edits text. The item chip is its own drag
   handle, and selecting an item expands its row in the inspector — canvas and panel stay one source.
 
+- **Selection chrome & navigation (shared with block selection).** The **drag handle is the
+  selection pill's name segment** for a block (D23's unified pill — grip + name + actions in one
+  pill, no separate grip button) and the **item chip** for an item; both **flip below** their
+  element when there's no room above (an element at the page top). The whole overlay layer
+  (hover/selection/item boxes, drop line, chip) sits in a **z-index band above sticky site content**
+  — e.g. a `z-index:10` navbar — but below the editor chrome, so nothing hides behind the page's own
+  header. **Escape "zooms out"** the selection one level — text leaf → item → component → parent
+  container → nothing — so a container that's hard to click directly (everything under the cursor is
+  deeper) is reachable by stepping up.
+
 - **Item drag is a second mode of the one controller, not a second renderer.** `createDragController`
   carries a `DragSession`: a *block* drag commits a `moveNode` (cross-container); an *item* drag is
   commits a `setStructuredProp` (the same write the props panel's up/down buttons make), resolving
