@@ -200,6 +200,18 @@ export const LinkIcon = ({ size = 13, class: c }: IconProps): VNode =>
 export const HeadingIcon = ({ size = 13, class: c }: IconProps): VNode =>
   svg(size, c, <path d="M3.5 3v10M10.5 3v10M3.5 8h7" />);
 
+export const CodeIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M5.5 4.5L2.5 8l3 3.5M10.5 4.5L13.5 8l-3 3.5" />);
+
+export const BulletListIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M6 4h8M6 8h8M6 12h8M2.5 4h.01M2.5 8h.01M2.5 12h.01" />);
+
+export const NumberedListIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M6 4h8M6 8h8M6 12h8M2 3v2.5M1.4 9.5h1.2L1.4 12h1.4" />);
+
+export const QuoteIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M3 4h3v3.5a2 2 0 0 1-2 2M10 4h3v3.5a2 2 0 0 1-2 2" />);
+
 export const GitHubIcon = ({ size = 18, class: c }: IconProps): VNode => (
   <svg
     width={size}

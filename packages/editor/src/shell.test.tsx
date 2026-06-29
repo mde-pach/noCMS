@@ -378,7 +378,7 @@ describe("mountEditor", () => {
     handle.dispose();
   });
 
-  test("selecting a block with no schema shows the empty state", async () => {
+  test("selecting a prose block shows the block-format panel with its kind active", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
 
@@ -390,9 +390,36 @@ describe("mountEditor", () => {
 
     const heading = target.querySelector("h1");
     heading?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // A heading is selectable but has no component schema → empty state, with overlay.
-    expect(document.querySelector(".nocms-empty")).not.toBeNull();
+    // A heading has no component schema, but it is a prose block: the inspector offers its
+    // formatting (not the old "no properties" dead-end), and the canvas overlay still pins it.
+    const pressed = document.querySelector('.nc-prose-block[aria-pressed="true"]');
+    expect(pressed?.getAttribute("aria-label")).toBe("Heading 1");
+    expect(document.querySelector(".nocms-empty")).toBeNull();
     expect(target.querySelector(".nocms-overlay")).not.toBeNull();
+
+    handle.dispose();
+  });
+
+  test("reformatting a prose block rewrites the document", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+
+    const handle = await mountEditor({
+      target,
+      mdx: `A plain paragraph.\n`,
+      components,
+    });
+
+    target
+      .querySelector("p")
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Click the "Heading 2" option in the panel.
+    const h2 = document.querySelector('.nc-prose-block[aria-label="Heading 2"]');
+    (h2 as HTMLElement | null)?.click();
+
+    await vi.waitFor(() => {
+      expect(target.querySelector("h2")?.textContent).toBe("A plain paragraph.");
+    });
 
     handle.dispose();
   });

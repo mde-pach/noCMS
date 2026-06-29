@@ -8,6 +8,8 @@ import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
 import type { JsxElement } from "./jsx-attributes.js";
 import { PropsPanel } from "./props-panel.js";
+import type { BlockKind } from "./prose-block.js";
+import { ProseFormat } from "./prose-format.js";
 import { PageRail } from "./rail.js";
 
 export interface InspectorProps {
@@ -24,6 +26,9 @@ export interface InspectorProps {
   styleSection: VNode | null;
   /** true when a block is selected but exposes no editable props. */
   selectedEmpty: boolean;
+  /** present when the selected block is a prose block (paragraph/heading/list/quote): its current
+   *  kind + a callback to reformat it. Shown instead of the empty state. */
+  prose: { kind: BlockKind; onSetBlock: (kind: BlockKind) => void } | null;
   onEdit: () => void;
   onPickImage: (key: string) => void;
   /** a control in the props panel gained focus — light up its matching leaf on the page. */
@@ -53,6 +58,14 @@ export function Inspector(props: InspectorProps): VNode {
           onPickImage={props.onPickImage}
           onActivate={props.onActivate}
         />
+        {props.styleSection}
+      </>
+    );
+  }
+  if (props.prose) {
+    return (
+      <>
+        <ProseFormat kind={props.prose.kind} onSetBlock={props.prose.onSetBlock} />
         {props.styleSection}
       </>
     );

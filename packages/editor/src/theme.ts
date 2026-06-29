@@ -127,6 +127,17 @@ html.nocms-editing #app {
   transition: outline-color .12s;
 }
 
+/* prose block-format picker: a wrap of small square buttons, the active block kind pressed in accent. */
+.nc-prose-blocks { display: flex; flex-wrap: wrap; gap: 4px; }
+.nc-prose-block {
+  width: 34px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nc-border); border-radius: var(--nc-radius); background: var(--nc-surface);
+  color: var(--nc-text-2); cursor: pointer; padding: 0; transition: background .12s, color .12s, border-color .12s;
+}
+.nc-prose-block:hover { border-color: var(--nc-accent); color: var(--nc-text); }
+.nc-prose-block[aria-pressed="true"] { background: var(--nc-accent); border-color: var(--nc-accent); color: #fff; }
+.nc-prose-glyph { font-family: var(--nc-font-mono); font-size: 11px; font-weight: 600; }
+
 /* segmented control */
 .nc-segmented { display: flex; gap: 2px; background: var(--nc-field); border-radius: 999px; padding: 3px; }
 .nc-seg {

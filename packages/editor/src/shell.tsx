@@ -54,6 +54,7 @@ import {
   nodeAtIndexPath,
   nodeAtOffset,
 } from "./position.js";
+import { type BlockKind, blockKindOf, setBlock } from "./prose-block.js";
 import { createProseController } from "./prose-controller.js";
 import { isInlineTextComponent, isProseEditable } from "./prose-edit.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
@@ -385,11 +386,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
             },
           })
         : null;
+    const proseKind = selected === null ? blockKindOf(node) : undefined;
+    const prose =
+      proseKind && selectedPath
+        ? { kind: proseKind, onSetBlock: (kind: BlockKind) => setProseBlock(kind) }
+        : null;
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     return {
       selected,
       styleSection,
       selectedEmpty: node !== undefined && selected === null,
+      prose,
       onEdit: handleEdit,
       onPickImage: (key) => node && openMedia(node as JsxElement, key),
       onActivate: activateFromPanel,
@@ -874,6 +881,15 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       path: `${target.key}.${at}`,
     });
   };
+
+  // Reformat the selected prose block (paragraph ↔ heading ↔ list ↔ quote). The node is rewritten
+  // in place, then committed like any structural edit so the canvas re-renders and selection re-pins
+  // — the block stays selected at the same path, now showing its new kind.
+  function setProseBlock(kind: BlockKind): void {
+    if (!selectedPath) return;
+    if (!setBlock(docs.doc, selectedPath, kind)) return;
+    void docs.commit(docs.serialize(), selectedPath);
+  }
 
   function select(path: IndexPath | undefined, focus?: string): void {
     selectedItem = undefined;
