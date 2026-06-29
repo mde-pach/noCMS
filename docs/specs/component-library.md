@@ -144,7 +144,7 @@ specs the panels that edit these; this spec only fixes the *contract the compone
 ## Relationship to existing seams
 
 - `@nocms/components` — the registry this catalog populates (island flags per the rules above).
-- `@nocms/props-discovery` — derives each component's controls from its valibot schema (D9).
+- `@nocms/controls` — derives each component's controls from its valibot schema (D9, D26).
 - `@nocms/renderer` — renders the tree and hydrates only islands (invariant #1).
 - `@nocms/tokens` — the token contract every component's styling resolves to.
 - `@nocms/editor` — the insert palette + section library browser specced in `authoring-shell.md`.

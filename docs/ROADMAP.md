@@ -61,8 +61,8 @@ surface + the core mapper rework + component buildout**, not green-field engine 
   flattens `media`/`markdown`/`reference` to bare `v.string()`, losing the intent controls need.
 - `core`: content conventions — route mapper skips `content/globals/`; `nav.*` frontmatter
   vocabulary (`label`/`order`/`parent`/`hidden`); collection defs read from `nocms.config.json`.
-- `props-discovery`: rework from TS-source parsing → valibot schema introspection, consuming
-  `deriveControls`. (Updates invariant #10's realization.)
+- `controls`: **done (D26)** — extracted `@nocms/controls`, the valibot schema-introspection mapper
+  (`deriveControls`); the TS-source-parsing `props-discovery` was deleted. (Realizes invariant #10.)
 **Demo:** feed a component's valibot schema in, get correct controls out (incl. a token-bound
 `color`, a `range`, a nested group). Unit-level, but it's the spine.
 

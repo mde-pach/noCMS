@@ -23,7 +23,7 @@ of invariant #1 (one renderer) and #4 (the repo is the database).
 | Layer | Audience | What they touch | Backed by |
 |---|---|---|---|
 | **L0 Content** | Anyone | Inline text, swap an image, fill a field | `editor` prose, `core` fields |
-| **L1 Compose** | Creator | Add/reorder sections & components, set props | `editor` canvas, `props-discovery` |
+| **L1 Compose** | Creator | Add/reorder sections & components, set props | `editor` canvas, `controls` |
 | **L2 Design** | Brand owner | Tokens-as-bricks, themes, responsive | `tokens` |
 | **L3 Structure** | Power user | Content types, collections, nav/IA, templates | `core`, `router` |
 | **L4 Extend** | Developer | Raw MDX, custom components, plugins, git/PRs | `sandbox`, `github` |
@@ -127,12 +127,12 @@ step.
    on the L2 token model from the start, not ad-hoc colors reconciled later.
 
 2. **Land — `/design-sync` into the repo.** Bring the chosen direction into the codebase,
-   where it is made conformant: Preact components with typed props (so `props-discovery`
+   where it is made conformant: Preact components with a valibot props schema (so `@nocms/controls`
    derives the right controls), **token-only theming** (never hardcoded values), and the
    correct island-vs-static split so preview === prerender.
 
 3. **Gate — the fixed conformance bar.** Whatever produced the artifact, it ships only if it
-   passes: typecheck · `props-discovery` derives sane controls · token-only theming · a
+   passes: typecheck · `@nocms/controls` derives sane controls · token-only theming · a
    preview===prerender check. The generator can change; this acceptance test does not.
 
 The split is a *pipeline*, not a lane choice: Claude Design explores and prototypes →

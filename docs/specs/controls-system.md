@@ -3,8 +3,9 @@
 The technical keystone of D9: how a component's (or collection field's) **valibot schema** is
 introspected into the editor controls that drive the props panel and collection entry forms. This
 is an architecture spec, not a UX one — the UX of the panel lives in `authoring-shell.md` §4. It
-supersedes the TS-parsing `Control`/`discoverControls` in `@nocms/props-discovery` (invariant #10,
-rewritten per D9) and unifies with the existing `FieldDef` path in `@nocms/core`.
+supersedes the TS-parsing `Control`/`discoverControls` (the since-deleted `@nocms/props-discovery`;
+invariant #10, rewritten per D9) and unifies with the existing `FieldDef` path. The mapper lives in
+`@nocms/controls` (extracted from `@nocms/core` per D26).
 
 > **North star:** one pure function, `deriveControls(schema) → ControlDescriptor[]`, is the single
 > source of every control in the product. Components and collections both reach it through valibot,
@@ -112,8 +113,9 @@ schema wins (config can hide, not invent). This preserves the no-drift guarantee
 
 ## 6. One mapper, two callers
 
-The mapper lives in `@nocms/core` (both component props and collection fields need it — invariant:
-shared things belong in core). Both callers reach it **through valibot**, so there is one derivation:
+The mapper lives in `@nocms/controls` (extracted from `core` per D26; both component props and
+collection fields need it, but it carries editor introspection that does not belong in the shared
+vocabulary). Both callers reach it **through valibot**, so there is one derivation:
 
 - **Component props** declare a valibot schema directly; the prop type is `v.InferOutput`. Call
   `deriveControls(ComponentSchema)`.
@@ -167,10 +169,10 @@ host privileges by adding a control.
 
 ## Relationship to existing seams
 
-- `@nocms/core` — **home of `deriveControls`** and the `ControlDescriptor` model; already owns
-  `FieldDef`, `schemaForField`, `schemaForCollection` (enriched per §6).
-- `@nocms/props-discovery` — reworked from TS-parsing to a thin wrapper over `deriveControls` for
-  component schemas; keeps the field-config overlay (§5).
+- `@nocms/controls` — **home of `deriveControls`** and the `ControlDescriptor` model, plus the
+  content-path walkers (D26). Consumes valibot; depends on nothing else.
+- `@nocms/core` — owns `FieldDef`, `schemaForField`, `schemaForCollection` (enriched per §6); the
+  vocabulary the schemas are built from.
 - `@nocms/editor` — renders descriptors in the props panel (`authoring-shell.md` §4) and the
   collection entry forms (`structure.md`).
 - `@nocms/sandbox` — carries plugin schemas + descriptors across the capability seam (§7).

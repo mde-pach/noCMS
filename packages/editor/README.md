@@ -31,8 +31,9 @@ one live mdast document and wires four edit surfaces over it:
   the mdast node path (`position.ts`), then up to the meaningful node — nearest component
   or block (`selectable.ts`). The selection is tracked by **index-path**, which stays valid
   across edits (raw offsets shift), and drawn with a non-interactive overlay.
-- **Configure** — `@nocms/props-discovery` schemas (injected ahead of time, not discovered
-  live in the browser) drive a friendly control-per-prop panel (`props-panel.tsx`) that
+- **Configure** — `@nocms/controls` derives controls from each component's valibot schema
+  (injected ahead of time, not discovered live in the browser) to drive a friendly
+  control-per-prop panel (`props-panel.tsx`) that
   mutates the selected JSX node's attributes (`jsx-attributes.ts`). Props are never exposed
   as raw JSON (invariant #10).
 - **Edit text in place** — double-clicking a paragraph or heading mounts a transient
