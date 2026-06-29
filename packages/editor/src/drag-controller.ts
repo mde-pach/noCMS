@@ -233,7 +233,16 @@ export function createDragController(deps: DragControllerDeps): DragController {
     clone.style.top = `${rect.top}px`;
     clone.style.width = `${rect.width}px`;
     clone.style.height = `${rect.height}px`;
-    grab = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    // The grip is the name chip, which floats *above* the component — so the raw press point can sit
+    // outside the box, which would fling the ghost off the cursor. Clamp the grab into the box (with a
+    // small inset) so the lifted element rides directly under the pointer, where the drop lands.
+    const inset = 12;
+    const clamp = (v: number, max: number) =>
+      Math.min(Math.max(v, inset), Math.max(max - inset, inset));
+    grab = {
+      x: clamp(event.clientX - rect.left, rect.width),
+      y: clamp(event.clientY - rect.top, rect.height),
+    };
     document.body.appendChild(clone);
     ghost = clone;
   }

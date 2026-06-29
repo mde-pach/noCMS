@@ -236,6 +236,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
   // Bumped on every content click so re-clicking the *same* leaf (its path unchanged) still
   // re-fires the field focus — the panel keys its focus effect on this, not on the path alone.
   let focusNonce = 0;
+  // The last pointer-down position, recorded so the click-to-select handler (which only gets the
+  // resolved node, not the event) can drop the caret where the user pointed when it opens an editor.
+  let lastPointer: { x: number; y: number } | undefined;
 
   // The top-bar state (breakpoint, appearance, dirty, publish) — its own concern; mutations
   // repaint the chrome tree. The actions it triggers (reset, open navigator/publish) are wired
@@ -573,12 +576,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const saveDef = isJsxElement(node) && node.name ? components[node.name] : undefined;
     const saveable = saveDef !== undefined && controlsOf(saveDef).length > 0;
     const el = elementAtPath(selectedPath);
-    if (el) {
-      toolbarHost.style.top = `${Math.max(surfaceTop(el) - 17, 6)}px`;
-      toolbarHost.style.right = "10px";
-      toolbarHost.style.left = "auto";
-      toolbarHost.style.display = "block";
-    }
+    toolbarHost.style.display = "block";
+    toolbarHost.style.right = "auto";
     render(
       <SelectionToolbar
         label={label}
@@ -599,6 +598,27 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       />,
       toolbarHost,
     );
+    if (el) positionToolbarBesideChip(el);
+  }
+
+  // The toolbar shares the selection's name chip's corner — it sits just to its right, vertically
+  // centered on it, so the chip and the actions read as one cluster (the single place to act on the
+  // selection). The chip is measured live (it carries a transform), so this must run after the chip
+  // is painted; `select` and the drag `restore` render the chip first for that reason.
+  function positionToolbarBesideChip(el: Element): void {
+    const sr = surface.getBoundingClientRect();
+    const chip = overlays.labelHost.firstElementChild as HTMLElement | null;
+    const tbH =
+      (toolbarHost.firstElementChild as HTMLElement | null)?.getBoundingClientRect()
+        .height ?? 0;
+    if (chip) {
+      const cr = chip.getBoundingClientRect();
+      toolbarHost.style.left = `${cr.right - sr.left + surface.scrollLeft + 8}px`;
+      toolbarHost.style.top = `${cr.top + cr.height / 2 - sr.top + surface.scrollTop - tbH / 2}px`;
+      return;
+    }
+    toolbarHost.style.left = `${surfaceLeft(el)}px`;
+    toolbarHost.style.top = `${Math.max(surfaceTop(el) - 17, 6)}px`;
   }
 
   const handleHover = (event: MouseEvent): void => {
@@ -801,14 +821,19 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     if (focus) focusNonce += 1;
     canvas.highlight(path);
     paint();
-    renderToolbar();
+    // The chip is painted first: the toolbar measures it to dock beside it.
     renderSelectionLabel();
+    renderToolbar();
     renderContentSelection();
   }
 
   const handleSelect = async (
     selection: CanvasSelection | undefined,
   ): Promise<void> => {
+    // A click that ends an in-progress edit commits it and stops there (no re-edit): committing
+    // repaints the canvas, so `selection.element` would be stale, and "click away to finish" reads
+    // more clearly than hopping straight into the next block.
+    const wasEditing = proseSession.isActive() || contentEditor.isActive();
     if (proseSession.isActive()) await proseSession.commit();
     if (contentEditor.isActive()) await contentEditor.commit();
     // Deepest-first: a click inside an array-item card selects that item, not the whole component.
@@ -818,9 +843,20 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       return;
     }
     const node = selection ? selectableNode(selection.path) : undefined;
+    const nextPath = node ? indexPathOf(selection?.path ?? [], node) : undefined;
+    // A second click on the already-selected block drops into the editor at the click point — so
+    // text edits in one extra click, caret where pointed, with no double-click or cursor hunt. The
+    // first click still just selects (chip, toolbar, panel), so blocks stay reachable to arrange.
+    const reEdit =
+      !wasEditing &&
+      selection !== undefined &&
+      nextPath !== undefined &&
+      selectedPath !== undefined &&
+      nextPath.join() === selectedPath.join();
     const anchor = selection?.element.closest("[data-nocms-path]");
     const focus = anchor?.getAttribute("data-nocms-path") ?? undefined;
-    select(node ? indexPathOf(selection?.path ?? [], node) : undefined, focus);
+    select(nextPath, focus);
+    if (reEdit && selection) activateEditing(selection.element, lastPointer);
   };
 
   // The rendered element a `data-mdx-pos` carrier wraps: a component sits in a `display:contents`
@@ -834,13 +870,53 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       : carrier;
   };
 
-  const handleActivate = (event: Event): void => {
-    if (proseSession.isActive() || contentEditor.isActive()) return;
-    const el = event.target;
-    if (!(el instanceof Element)) return;
+  const handlePointerDown = (event: PointerEvent): void => {
+    lastPointer = { x: event.clientX, y: event.clientY };
+  };
 
-    // A content leaf mapped to a prop (`data-nocms-path`): edit it directly on the page, writing
-    // back to the same prop the panel edits. These are plain strings, so plain contenteditable.
+  // Open the prose editor for the clicked text — an inline text component (a Badge) edits as itself;
+  // otherwise the enclosing paragraph/heading. `at` is the click point so the caret lands where the
+  // user pointed. Returns true when a session opened.
+  const activateProse = (el: Element, at?: { x: number; y: number }): boolean => {
+    if (proseSession.isActive() || contentEditor.isActive()) return false;
+    const offset = offsetFromElement(el);
+    if (offset === undefined) return false;
+    const path = nodeAtOffset(docs.doc, offset);
+
+    const inline = nearestOfType(path, ["mdxJsxTextElement"]);
+    if (inline && isInlineTextComponent(inline)) {
+      const inlinePath = indexPathOf(path, inline);
+      const inlineEl =
+        inline.position?.start.offset === undefined
+          ? null
+          : renderedAt(inline.position.start.offset);
+      if (inlinePath && inlineEl) {
+        proseSession.start(inline, inlineEl, inlinePath, true, at);
+        return true;
+      }
+    }
+
+    const block = nearestOfType(path, ["paragraph", "heading"]);
+    if (!block || !isProseEditable(block)) return false;
+    const indexPath = indexPathOf(path, block);
+    if (!indexPath) return false;
+    const blockOffset = block.position?.start.offset;
+    const blockEl =
+      blockOffset === undefined
+        ? null
+        : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
+    if (!blockEl) return false;
+    proseSession.start(block, blockEl, indexPath, false, at);
+    return true;
+  };
+
+  // Open the in-place editor for `el` at click point `at`: a prop-backed content leaf
+  // (`data-nocms-path`) edits as plain contenteditable, writing back to the same prop the panel
+  // edits; anything else routes to the prose editor. The caller decides *when* — a re-click on the
+  // already-selected block, or a double-click — so a first click is still free to just select.
+  const activateEditing = (el: Element, at?: { x: number; y: number }): void => {
+    if (proseSession.isActive() || contentEditor.isActive()) return;
+
     const leaf = el.closest("[data-nocms-path]");
     if (leaf instanceof HTMLElement && leaf.dataset.nocmsPath) {
       const leafOffset = offsetFromElement(leaf);
@@ -855,40 +931,22 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
           owner,
           leaf.dataset.nocmsPath,
           def ? controlsOf(def) : [],
+          at,
         );
         return;
       }
     }
 
-    const offset = offsetFromElement(el);
-    if (offset === undefined) return;
-    const path = nodeAtOffset(docs.doc, offset);
+    activateProse(el, at);
+  };
 
-    // An inline component (a Badge, …) is edited as itself: just its text, in place — not the
-    // paragraph that happens to hold a whole row of them.
-    const inline = nearestOfType(path, ["mdxJsxTextElement"]);
-    if (inline && isInlineTextComponent(inline)) {
-      const inlinePath = indexPathOf(path, inline);
-      const inlineEl =
-        inline.position?.start.offset === undefined
-          ? null
-          : renderedAt(inline.position.start.offset);
-      if (inlinePath && inlineEl) {
-        proseSession.start(inline, inlineEl, inlinePath, true);
-        return;
-      }
-    }
-
-    const block = nearestOfType(path, ["paragraph", "heading"]);
-    if (!block || !isProseEditable(block)) return;
-    const indexPath = indexPathOf(path, block);
-    if (!indexPath) return;
-    const blockOffset = block.position?.start.offset;
-    const blockEl =
-      blockOffset === undefined
-        ? null
-        : surface.querySelector(`[data-mdx-pos="${blockOffset}"]`);
-    if (blockEl) proseSession.start(block, blockEl, indexPath);
+  const handleActivate = (event: Event): void => {
+    const el = event.target;
+    if (!(el instanceof Element)) return;
+    activateEditing(
+      el,
+      event instanceof MouseEvent ? { x: event.clientX, y: event.clientY } : undefined,
+    );
   };
 
   const handleKeydown = (event: KeyboardEvent): void => {
@@ -1010,8 +1068,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         return;
       }
       canvas.highlight(selectedPath);
-      renderToolbar();
       renderSelectionLabel();
+      renderToolbar();
     },
   });
 
@@ -1044,6 +1102,8 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     markDirty: () => chrome.markDirty(),
   });
 
+  // Capture so the click point is recorded even when a child (e.g. the drag chip) stops the event.
+  surface.addEventListener("pointerdown", handlePointerDown, true);
   surface.addEventListener("dblclick", handleActivate);
   surface.addEventListener("keydown", handleKeydown);
   surface.addEventListener("mousemove", handleHover);
@@ -1107,6 +1167,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       chrome.dispose();
       proseSession.dispose();
       contentEditor.dispose();
+      surface.removeEventListener("pointerdown", handlePointerDown, true);
       surface.removeEventListener("dblclick", handleActivate);
       surface.removeEventListener("keydown", handleKeydown);
       surface.removeEventListener("mousemove", handleHover);

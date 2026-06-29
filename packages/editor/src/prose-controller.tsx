@@ -24,8 +24,15 @@ export interface ProseController {
   /** true when `el` is inside the live prose widget — the canvas leaves those clicks alone. */
   containsEl(el: Element): boolean;
   /** begin editing `host`'s text in `el` (at index-path `path`). `inline` scopes the editor to a
-   *  single inline component (a Badge) so it edits in place rather than as a block. */
-  start(host: ProseHost, el: Element, path: IndexPath, inline?: boolean): void;
+   *  single inline component (a Badge) so it edits in place rather than as a block. `at` is the
+   *  click point — the caret lands there, so a single click edits where the user pointed. */
+  start(
+    host: ProseHost,
+    el: Element,
+    path: IndexPath,
+    inline?: boolean,
+    at?: { x: number; y: number },
+  ): void;
   /** end the session, snapshot to history, repaint; resolves to the edited block's path. */
   commit(): Promise<IndexPath | undefined>;
   /** re-pin the format bar after a reflow/scroll while a session is open. */
@@ -87,7 +94,7 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
     view: () => session?.handle.view,
     containsEl: (el) => session?.el.contains(el) ?? false,
 
-    start(host, el, path, inline = false) {
+    start(host, el, path, inline = false, at) {
       canvas.highlight(undefined);
       overlays.clearHover();
       if (inline) el.classList.add("nocms-prose-inline");
@@ -100,7 +107,8 @@ export function createProseController(deps: ProseControllerDeps): ProseControlle
           markDirty();
         },
       });
-      handle.view.focus();
+      if (at) handle.caretAt(at.x, at.y);
+      else handle.view.focus();
       session = { handle, el, path, inline };
       onStart();
       showFormatBar(el);

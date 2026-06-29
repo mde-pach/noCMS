@@ -268,23 +268,27 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 /* the block name tag shown above a hovered or selected block — same tag for both, lifted off the
    top edge by a small gap so it never sits on the border or over the content. */
 .nc-name-tag {
-  position: absolute; z-index: 45; transform: translateY(calc(-100% - 5px));
+  position: absolute; z-index: 45; transform: translate(5px, calc(-100% - 5px));
   background: var(--nc-accent); color: #fff; font-family: var(--nc-font-mono);
   font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px;
   border-radius: 6px; pointer-events: none; white-space: nowrap;
   box-shadow: 0 2px 6px rgba(26,25,22,0.18);
 }
 /* Flipped below its element (set by the shell when there's no room above): the tag hangs under the
-   top edge instead of over it, so an element at the top of the page still shows its tag. */
-.nc-name-tag--below { transform: translateY(5px); }
+   top edge instead of over it, so an element at the top of the page still shows its tag. The 5px
+   left inset matches the gap kept off the top/bottom edge. */
+.nc-name-tag--below { transform: translate(5px, 5px); }
 .nc-name-tag--hover { opacity: 0.9; }
 /* The selected block's tag doubles as the drag handle: it accepts the pointer (the rest of the
    tag layer stays click-through), shows a grab cursor, and carries a grip glyph. touch-action:none
-   lets a touch-drag start without the page scrolling. */
+   lets a touch-drag start without the page scrolling. It rests faint so the content beneath it
+   reads through, and lifts to full opacity on hover — its actions are deliberate, not ambient. */
 .nc-name-tag--grab {
   pointer-events: auto; cursor: grab; touch-action: none;
   display: inline-flex; align-items: center; gap: 4px;
+  opacity: 0.6; transition: opacity .12s ease;
 }
+.nc-name-tag--grab:hover { opacity: 1; }
 .nc-name-tag--grab:active { cursor: grabbing; }
 .nc-name-tag-grip { opacity: 0.7; margin-left: -1px; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
@@ -441,6 +445,10 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 .nocms-toolbar button:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
 .nocms-toolbar button:disabled { opacity: 0.3; cursor: default; }
 .nocms-toolbar .nc-tool-sep { width: 1px; height: 15px; background: #3a3833; margin: 0 3px; }
+/* The selection toolbar sits beside the block's name tag (one cluster to act on the selection), and
+   rests faint so the content beneath shows through until the pointer reaches it. */
+.nocms-toolbar--selection { opacity: 0.6; transition: opacity .12s ease; }
+.nocms-toolbar--selection:hover { opacity: 1; }
 
 /* ---------- overlays / modal ---------- */
 .nc-scrim { position: fixed; inset: 0; background: rgba(26,25,22,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 60px 20px; z-index: 1002; overflow-y: auto; }

@@ -42,7 +42,11 @@ export function SelectionToolbar({
   onSaveAsComponent,
 }: SelectionToolbarProps): VNode {
   return (
-    <div class="nocms-toolbar" role="toolbar" aria-label={`${label} actions`}>
+    <div
+      class="nocms-toolbar nocms-toolbar--selection"
+      role="toolbar"
+      aria-label={`${label} actions`}
+    >
       <button
         type="button"
         class="nocms-tool-up"
