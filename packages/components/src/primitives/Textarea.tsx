@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { cx } from "../cx";
+import { FieldWrapper } from "./FieldWrapper";
 
 export const TextareaSchema = v.object({
   name: v.string(),
@@ -14,8 +14,6 @@ export type TextareaProps = v.InferInput<typeof TextareaSchema> & {
   className?: string;
 };
 
-const FIELD = "flex flex-col gap-sm";
-
 export function Textarea({
   name,
   label,
@@ -26,9 +24,8 @@ export function Textarea({
   className,
 }: TextareaProps) {
   return (
-    <label class={cx(FIELD, className, cls)}>
-      {label ? <span>{label}</span> : null}
+    <FieldWrapper label={label} className={className} cls={cls}>
       <textarea name={name} placeholder={placeholder} rows={rows} required={required} />
-    </label>
+    </FieldWrapper>
   );
 }

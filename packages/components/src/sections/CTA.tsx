@@ -2,6 +2,7 @@ import * as v from "valibot";
 import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
+import { SEED_CTA as SEED } from "./seeds";
 import {
   Band,
   hairline,
@@ -11,12 +12,6 @@ import {
   richText,
   surfaceField,
 } from "./shared";
-
-const SEED = {
-  title: "Ready to own your website?",
-  body: "Fork the starter, sign in, and start editing. It's free and it stays yours.",
-  primaryLabel: "Fork the starter",
-} as const;
 
 export const CTASchema = v.object({
   title: v.optional(richText(), SEED.title),

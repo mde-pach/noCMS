@@ -2,18 +2,8 @@ import * as v from "valibot";
 import { cx } from "../cx";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
+import { SEED_STATS, Stat } from "./seeds";
 import { Band, mutedInk, optionalRichText, surfaceField } from "./shared";
-
-const Stat = v.object({
-  value: v.string(),
-  label: v.string(),
-});
-
-const SEED_STATS: v.InferInput<typeof Stat>[] = [
-  { value: "$0", label: "Monthly cost" },
-  { value: "100%", label: "Yours to own" },
-  { value: "1-click", label: "To publish" },
-];
 
 export const StatsSchema = v.object({
   title: optionalRichText(),

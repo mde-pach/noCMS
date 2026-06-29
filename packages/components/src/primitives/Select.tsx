@@ -1,5 +1,5 @@
 import * as v from "valibot";
-import { cx } from "../cx";
+import { FieldWrapper } from "./FieldWrapper";
 
 export const SelectSchema = v.object({
   name: v.string(),
@@ -13,8 +13,6 @@ export type SelectProps = v.InferInput<typeof SelectSchema> & {
   class?: string;
   className?: string;
 };
-
-const FIELD = "flex flex-col gap-sm";
 
 // Options come from a comma-separated string so they're editable through a plain text control.
 export function Select({
@@ -30,8 +28,7 @@ export function Select({
     .map((option) => option.trim())
     .filter(Boolean);
   return (
-    <label class={cx(FIELD, className, cls)}>
-      {label ? <span>{label}</span> : null}
+    <FieldWrapper label={label} className={className} cls={cls}>
       <select name={name} required={required}>
         {items.map((option) => (
           <option key={option} value={option}>
@@ -39,6 +36,6 @@ export function Select({
           </option>
         ))}
       </select>
-    </label>
+    </FieldWrapper>
   );
 }

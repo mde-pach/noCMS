@@ -3,6 +3,7 @@ import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
 import { Image } from "../primitives/Image";
+import { SEED_HERO as SEED } from "./seeds";
 import {
   Band,
   imageField,
@@ -13,14 +14,6 @@ import {
   type SurfaceRole,
   surfaceField,
 } from "./shared";
-
-const SEED = {
-  title: "Build a real website on GitHub — for free",
-  subtitle:
-    "noCMS turns your repo into a CMS. Edit in-site, theme live, publish with one click. Nothing centralized to maintain.",
-  primaryLabel: "Get started",
-  secondaryLabel: "See how it works",
-} as const;
 
 export const HeroSectionSchema = v.object({
   eyebrow: v.optional(v.string()),

@@ -3,42 +3,8 @@ import { cx } from "../cx";
 import { Button } from "../primitives/Button";
 import { Container } from "../primitives/Container";
 import { Grid } from "../primitives/Grid";
+import { SEED_TIERS, Tier } from "./seeds";
 import { Band, hairline, mutedInk, optionalRichText, surfaceField } from "./shared";
-
-const Tier = v.object({
-  name: v.string(),
-  price: v.string(),
-  period: v.optional(v.string()),
-  features: v.optional(v.array(v.string())),
-  ctaLabel: v.optional(v.string(), "Choose plan"),
-  ctaHref: v.optional(v.pipe(v.string(), v.metadata({ control: "url" })), "#"),
-  highlighted: v.optional(v.boolean(), false),
-});
-
-const SEED_TIERS: v.InferInput<typeof Tier>[] = [
-  {
-    name: "Hobby",
-    price: "Free",
-    period: "forever",
-    features: ["1 site", "Community support", "GitHub Pages hosting"],
-    ctaLabel: "Start free",
-  },
-  {
-    name: "Pro",
-    price: "$0",
-    period: "still free",
-    features: ["Unlimited sites", "Custom domain", "Live theming", "Priority docs"],
-    ctaLabel: "Fork the starter",
-    highlighted: true,
-  },
-  {
-    name: "Team",
-    price: "$0",
-    period: "open source",
-    features: ["Everything in Pro", "Self-host the relay", "Plugin sandbox"],
-    ctaLabel: "Read the guide",
-  },
-];
 
 export const PricingSchema = v.object({
   title: optionalRichText("Free, because there's nothing to bill for"),
