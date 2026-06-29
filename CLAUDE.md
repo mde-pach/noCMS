@@ -72,13 +72,19 @@ API** — cross-package use goes through that seam only.
 - `packages/core` — shared types + content-collection schema (valibot). The shared vocabulary.
 - `packages/renderer` — the single MDX→Preact engine (browser preview + Node prerender).
 - `packages/tokens` — flat token file ↔ CSS variables ↔ DTCG interop.
-- `packages/props-discovery` — introspect a component's valibot props schema → editor controls.
-- `packages/components` — curated, props-discoverable component library.
+- `packages/controls` — introspect a valibot schema → editor controls (`ControlDescriptor`) + content-path
+  enumeration. The one schema→control mapper for component props and collection fields (D9, D26).
+- `packages/components` — curated, schema-discoverable component library.
+- `packages/style-controls` — headless Tailwind v4 styling engine: engine introspection → CSS *features* +
+  capability panels + utility-class read/write. The Style panel's controls (D23, D26).
 - `packages/editor` — in-site WYSIWYG + visual layout + live token theming.
 - `packages/github` — browser GitHub client; branch-per-session commits.
 - `packages/auth` — client-side PKCE + short-lived token lifecycle.
 - `packages/build` — Vite + Preact SSG publish pipeline.
 - `packages/derive` — ② tier: search, i18n, manifests, feeds.
+- `packages/router` — content-derived route table + client-side navigation for the reader.
+- `packages/prose` — in-place rich-text editing (ProseMirror ↔ inline MDX), lossless round-trip.
+- `packages/session` — sign-in → load → branch-per-session → commit → publish orchestration.
 - `packages/sandbox` — plugin sandbox host.
 - `apps/relay` — the only infra: stateless PKCE exchange. See @.claude/rules/relay.md.
 - `templates/starter` — the fork-and-go starter site that ships the editor. Depends on

@@ -1330,10 +1330,18 @@ CLAUDE.md claim that `core` is *only* shared vocabulary.
   kinds (`layout-direction` / `layout-align` / `hidden`) dropped from `ControlKind` / `KNOWN_CONTROL_KINDS`
   to the open set — the editor owns their rendering. Peripheral cleanups: `toTailwindTheme` deduped onto
   `@nocms/tokens`; `roles.ts` split from `defaults.ts`; `build-site.ts` split into sources/collect/writer.
-- **Deliberately NOT built: a shared "widget vocabulary" unifying the props panel and the Style panel.**
-  The two control models share almost no real surface — props controls bind a typed *attribute value*;
-  style controls compose a Tailwind *class string* with a breakpoint/state dimension. The only overlap is
-  generic widget *shapes* (a slider, a colour picker) over different data and different write semantics. A
-  shared kind enum would be an abstraction serving two masters — the exact over-specificity this work set
-  out to remove — so the value primitives stay in each adapter. Revisit only if a concrete third consumer
-  needs the same widget seam.
+- **Settled non-goals (recorded so they don't read as open TODOs — revisit only with a new driver):**
+  - *A shared "widget vocabulary" unifying the props panel and the Style panel.* The two control models
+    share almost no real surface — props controls bind a typed *attribute value*; style controls compose a
+    Tailwind *class string* with a breakpoint/state dimension. The only overlap is generic widget *shapes*
+    (a slider, a colour picker) over different data and write semantics. A shared kind enum would be an
+    abstraction serving two masters — the exact over-specificity this work removed — so the value
+    primitives stay in each adapter. **Driver to revisit:** a concrete third consumer of the seam.
+  - *Extracting the editor's pure mdast utilities* (`jsx-attributes` / `tree-edit` / `position` /
+    `history` / `drag`) *into standalone packages.* They are already cohesive and pure *within*
+    `@nocms/editor` with no second consumer; four or five micro-packages would be fragmentation, not
+    decoupling. **Driver to revisit:** a non-editor consumer — then extract as one `@nocms/mdast`.
+  - *Relocating `@nocms/build`'s `island-client.ts` / `editor-client.ts` out of the build package.* They
+    read like client code in a build package, but `island-client.ts` is wired as the `virtual:nocms-islands`
+    entry resolved by build's own Vite plugin (not dead); moving it is cosmetic with real breakage risk.
+    **Driver to revisit:** none foreseen.
