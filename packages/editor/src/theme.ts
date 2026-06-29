@@ -103,6 +103,17 @@ html.nocms-editing #app {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nc-accent) 18%, transparent);
 }
 .nc-input::placeholder, .nc-textarea::placeholder { color: var(--nc-text-3); }
+.nc-textarea { overflow: hidden; }
+
+/* The control mirroring the current canvas selection: tinted and ringed like a selection, so a leaf,
+   a nested group, or an array-item row reads as "this is what you're editing on the page". The
+   floating outline leaves breathing room without nudging the layout as the highlight moves. */
+.nc-field.is-active, .nc-group.is-active, .nc-list-item.is-active {
+  background: color-mix(in srgb, var(--nc-accent) 8%, transparent);
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 38%, transparent);
+  outline-offset: 4px; border-radius: var(--nc-radius);
+  transition: background .12s, outline-color .12s;
+}
 
 /* segmented control */
 .nc-segmented { display: flex; gap: 2px; background: var(--nc-field); border-radius: 999px; padding: 3px; }

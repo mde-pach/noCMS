@@ -199,3 +199,92 @@ describe("PropsPanel array focus", () => {
     });
   });
 });
+
+// Every control carries its dotted path and lights up when it mirrors the canvas selection — the
+// panel-side half of "the selected thing on the page is the highlighted thing in the panel".
+describe("PropsPanel active highlight", () => {
+  const renderWith = (focus: { path: string; nonce: number }) => {
+    const el = buttonElement(`<Button label="Go" variant="primary" />\n`);
+    render(
+      <PropsPanel
+        element={el}
+        component="Button"
+        controls={controls}
+        focus={focus}
+        onChange={vi.fn()}
+      />,
+      container,
+    );
+  };
+
+  test("marks the focused leaf's field active and tags it with its path", () => {
+    renderWith({ path: "label", nonce: 1 });
+    const wrap = field(container, "label").closest(".nc-field");
+    expect(wrap?.classList.contains("is-active")).toBe(true);
+    expect(wrap?.getAttribute("data-nocms-control")).toBe("label");
+  });
+
+  test("only the targeted field is active", () => {
+    renderWith({ path: "label", nonce: 1 });
+    expect(container.querySelectorAll(".nc-field.is-active").length).toBe(1);
+  });
+
+  test("selecting a nested object highlights its group", () => {
+    renderWith({ path: "meta", nonce: 1 });
+    const group = container.querySelector(".nc-group");
+    expect(group?.classList.contains("is-active")).toBe(true);
+    expect(group?.getAttribute("data-nocms-control")).toBe("meta");
+  });
+
+  test("a leaf inside a group still highlights its enclosing group", () => {
+    renderWith({ path: "meta.id", nonce: 1 });
+    expect(container.querySelector(".nc-group")?.classList.contains("is-active")).toBe(
+      true,
+    );
+  });
+
+  test("selecting an array item highlights and tags its row", async () => {
+    const listControls = deriveControls(
+      v.object({ items: v.optional(v.array(v.object({ title: v.string() }))) }),
+    );
+    const el = buttonElement(`<Cards items={[{"title":"A"},{"title":"B"}]} />\n`);
+    render(
+      <PropsPanel
+        element={el}
+        component="Cards"
+        controls={listControls}
+        focus={{ path: "items.1", nonce: 1 }}
+        onChange={vi.fn()}
+      />,
+      container,
+    );
+    await vi.waitFor(() => {
+      const row = container.querySelector('[data-nocms-control="items.1"]');
+      expect(row?.classList.contains("nc-list-item")).toBe(true);
+      expect(row?.classList.contains("is-active")).toBe(true);
+    });
+  });
+});
+
+// Reverse sync: focusing a control here reports its path, so the shell can light up the matching
+// leaf on the page without the canvas ever scrolling.
+describe("PropsPanel onActivate", () => {
+  test("reports the focused control's path", () => {
+    const onActivate = vi.fn<(path: string | undefined) => void>();
+    const el = buttonElement(`<Button label="Go" variant="primary" />\n`);
+    render(
+      <PropsPanel
+        element={el}
+        component="Button"
+        controls={controls}
+        onChange={vi.fn()}
+        onActivate={onActivate}
+      />,
+      container,
+    );
+    field(container, "label").dispatchEvent(
+      new FocusEvent("focusin", { bubbles: true }),
+    );
+    expect(onActivate).toHaveBeenCalledWith("label");
+  });
+});

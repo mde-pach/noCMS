@@ -26,6 +26,8 @@ export interface InspectorProps {
   selectedEmpty: boolean;
   onEdit: () => void;
   onPickImage: (key: string) => void;
+  /** a control in the props panel gained focus — light up its matching leaf on the page. */
+  onActivate: (path: string | undefined) => void;
   pageName: string;
   title: string;
   description: string;
@@ -49,6 +51,7 @@ export function Inspector(props: InspectorProps): VNode {
           focus={props.selected.focus}
           onChange={props.onEdit}
           onPickImage={props.onPickImage}
+          onActivate={props.onActivate}
         />
         {props.styleSection}
       </>

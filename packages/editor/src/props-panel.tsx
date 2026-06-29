@@ -2,6 +2,11 @@
 // JSX node's attributes in place. One recursive, value-bound view renders them: a scalar binds to a
 // single attribute; `group`/`list` bind to a structured attribute the editor round-trips as JSON
 // (`items={[{…}]}`), so array/object content (feature cards, tiers, footer columns) is editable too.
+//
+// The panel and the page are two faces of one selection: a click on the canvas focuses + centres the
+// matching control here (`focus`), and focusing a control here lights up its leaf on the page
+// (`onActivate`). Centring only ever scrolls the panel's own scroller — never the canvas — so syncing
+// a selection can't shift the page under the user mid-edit.
 
 import type { ControlDescriptor } from "@nocms/controls";
 import type { VNode } from "preact";
@@ -40,16 +45,70 @@ export interface ContentFocus {
   nonce: number;
 }
 
-/** Focus (and select) a leaf input when this control is the focus target. Keyed on `nonce`, not a
- *  boolean: typing/sibling edits re-render without changing the nonce, so focus is never stolen
- *  back, yet every fresh click — even on the already-focused leaf — refocuses. */
+/** The nearest scrollable ancestor of `el` — the panel's own scroll container. */
+function scrollableAncestor(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY;
+    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight) return p;
+  }
+  return null;
+}
+
+/** Scroll `el` to the vertical centre of the panel's scroll container, and nothing else. The canvas
+ *  is not an ancestor of the panel, so the page never moves — syncing a selection from the page
+ *  centres the matching control without shifting the page the user is editing. */
+function centerInPanel(el: HTMLElement): void {
+  const scroller = scrollableAncestor(el);
+  if (!scroller) return;
+  const e = el.getBoundingClientRect();
+  const s = scroller.getBoundingClientRect();
+  const top =
+    scroller.scrollTop + (e.top - s.top) - (scroller.clientHeight - e.height) / 2;
+  scroller.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+}
+
+/** Centre this control in the panel when it becomes the focus target. Keyed on `nonce` so a fresh
+ *  click re-centres even the already-active control, while typing (same nonce) never re-scrolls. */
+function useCenterOnMatch<T extends HTMLElement>(
+  active: boolean,
+  nonce: number | undefined,
+) {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    if (active && ref.current) centerInPanel(ref.current);
+  }, [active, nonce]);
+  return ref;
+}
+
+/** Focus (and select) a leaf input when it is the focus target. Keyed on `nonce`, not a boolean:
+ *  typing/sibling edits re-render without changing the nonce, so focus is never stolen back, yet
+ *  every fresh click — even on the already-focused leaf — refocuses. Centring is handled separately
+ *  on the field wrapper, so this never scrolls. */
 function useFocusOnMatch(active: boolean, nonce: number | undefined) {
   const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     if (!active || !ref.current) return;
     ref.current.focus();
     ref.current.select?.();
-    ref.current.scrollIntoView({ block: "nearest" });
+  }, [active, nonce]);
+  return ref;
+}
+
+/** A textarea that grows to fit its value (so a long string shows in full, no inner scroll) and
+ *  focuses when it is the active leaf. */
+function useTextarea(active: boolean, nonce: number | undefined, value: string) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  useLayoutEffect(() => {
+    if (active && ref.current) {
+      ref.current.focus();
+      ref.current.select?.();
+    }
   }, [active, nonce]);
   return ref;
 }
@@ -121,6 +180,9 @@ function SegmentedControl({
   current,
   commit,
   renderOption,
+  path,
+  active,
+  wrapRef,
 }: {
   label: string;
   name: string;
@@ -128,9 +190,16 @@ function SegmentedControl({
   current: string;
   commit: CommitValue;
   renderOption?: (opt: string) => VNode;
+  path?: string;
+  active?: boolean;
+  wrapRef?: ReturnType<typeof useCenterOnMatch<HTMLDivElement>>;
 }): VNode {
   return (
-    <div class="nc-field">
+    <div
+      class={active ? "nc-field is-active" : "nc-field"}
+      data-nocms-control={path}
+      ref={wrapRef}
+    >
       <MonoLabel>{label}</MonoLabel>
       <div class="nc-segmented" role="group" aria-label={label}>
         {options.map((opt) => (
@@ -163,7 +232,8 @@ interface ControlViewProps {
   onPickImage?: () => void;
 }
 
-/** Render one control from a plain value. Recurses for `group`/`list`. */
+/** Render one control from a plain value. Recurses for `group`/`list`. The active control (its
+ *  `path` is the focus target) carries `is-active` and is centred in the panel. */
 function ControlView({
   control,
   value,
@@ -174,7 +244,11 @@ function ControlView({
 }: ControlViewProps): VNode {
   const id = `nocms-field-${control.key}`;
   const { kind } = control;
-  const focusRef = useFocusOnMatch(path === focus?.path, focus?.nonce);
+  const active = path === focus?.path;
+  const wrapRef = useCenterOnMatch<HTMLDivElement>(active, focus?.nonce);
+  const inputRef = useFocusOnMatch(active, focus?.nonce);
+  const textareaRef = useTextarea(active, focus?.nonce, asString(value));
+  const fieldClass = active ? "nc-field is-active" : "nc-field";
 
   if (kind === "group")
     return (
@@ -200,7 +274,11 @@ function ControlView({
   if (kind === "boolean") {
     const on = value === true;
     return (
-      <div class="nc-field nc-row">
+      <div
+        class={active ? "nc-field nc-row is-active" : "nc-field nc-row"}
+        data-nocms-control={path}
+        ref={wrapRef}
+      >
         <label class="nc-row-label" for={id}>
           {control.label}
         </label>
@@ -223,7 +301,7 @@ function ControlView({
     const current = asNumber(value) ?? Number(control.default ?? min);
     const unit = typeof config.unit === "string" ? config.unit : "";
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <div class="nc-slider-head">
           <MonoLabel>{control.label}</MonoLabel>
           <span class="nc-slider-val">
@@ -247,9 +325,10 @@ function ControlView({
 
   if (kind === "number") {
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <MonoLabel>{control.label}</MonoLabel>
         <input
+          ref={inputRef}
           id={id}
           name={control.key}
           class="nc-input"
@@ -279,6 +358,9 @@ function ControlView({
         options={options}
         current={current}
         commit={commit}
+        path={path}
+        active={active}
+        wrapRef={wrapRef}
         renderOption={(opt) => (
           <>
             {icon[opt] ?? null}
@@ -300,11 +382,14 @@ function ControlView({
           options={options}
           current={current}
           commit={commit}
+          path={path}
+          active={active}
+          wrapRef={wrapRef}
         />
       );
     }
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <MonoLabel>{control.label}</MonoLabel>
         <select
           id={id}
@@ -325,10 +410,10 @@ function ControlView({
 
   if (kind === "textarea" || kind === "richtext") {
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <MonoLabel>{control.label}</MonoLabel>
         <textarea
-          ref={focusRef}
+          ref={textareaRef}
           id={id}
           name={control.key}
           class="nc-textarea"
@@ -345,7 +430,7 @@ function ControlView({
   if (kind === "color") {
     const current = asString(value);
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <MonoLabel>{control.label}</MonoLabel>
         <div class="nc-color-field">
           <input
@@ -356,6 +441,7 @@ function ControlView({
             onInput={(e) => commit(e.currentTarget.value)}
           />
           <input
+            ref={inputRef}
             id={id}
             name={control.key}
             class="nc-input"
@@ -376,7 +462,7 @@ function ControlView({
   if (kind === "image" && onPickImage) {
     const current = asString(value);
     return (
-      <div class="nc-field">
+      <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
         <MonoLabel>{control.label}</MonoLabel>
         <div class="nc-image-control">
           <div
@@ -404,10 +490,10 @@ function ControlView({
   // url/image-without-picker/date/text and any unknown plugin kind: a typed text input.
   const inputType = kind === "url" ? "url" : kind === "date" ? "date" : "text";
   return (
-    <div class="nc-field">
+    <div class={fieldClass} data-nocms-control={path} ref={wrapRef}>
       <MonoLabel>{control.label}</MonoLabel>
       <input
-        ref={focusRef}
+        ref={inputRef}
         id={id}
         name={control.key}
         class="nc-input"
@@ -435,12 +521,19 @@ function GroupView({
   path: string;
   focus?: ContentFocus;
 }): VNode {
+  const active = focus?.path === path;
+  const within = focus?.path?.startsWith(`${path}.`) ?? false;
+  const ref = useCenterOnMatch<HTMLDivElement>(active, focus?.nonce);
   const object =
     value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
   return (
-    <div class="nc-group">
+    <div
+      class={active || within ? "nc-group is-active" : "nc-group"}
+      data-nocms-control={path}
+      ref={ref}
+    >
       <div class="nc-group-title">{control.label}</div>
       {(control.children ?? []).map((child) => (
         <ControlView
@@ -463,6 +556,123 @@ function focusedIndex(path: string, focusPath: string | undefined): number | nul
   return Number.isInteger(index) ? index : null;
 }
 
+/** One row of a `list`: its summary + reorder/remove controls, and its fields when expanded. The
+ *  item is `is-active` (and centred) when the focus target is the item itself or a leaf inside it,
+ *  so selecting an array item on the page highlights and reveals the matching row here. */
+function ListItem({
+  item,
+  index,
+  control,
+  itemControl,
+  path,
+  focus,
+  expanded,
+  isLast,
+  onToggle,
+  onMove,
+  onRemove,
+  writeItem,
+}: {
+  item: unknown;
+  index: number;
+  control: ControlDescriptor;
+  itemControl: ControlDescriptor | undefined;
+  path: string;
+  focus?: ContentFocus;
+  expanded: boolean;
+  isLast: boolean;
+  onToggle: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onRemove: () => void;
+  writeItem: (next: unknown) => void;
+}): VNode {
+  const itemPath = `${path}.${index}`;
+  const within = focus?.path?.startsWith(`${itemPath}.`) ?? false;
+  const active = focus?.path === itemPath || within;
+  const ref = useCenterOnMatch<HTMLDivElement>(focus?.path === itemPath, focus?.nonce);
+  const fields = itemControl?.children ?? [];
+  return (
+    <div
+      class={active ? "nc-list-item is-active" : "nc-list-item"}
+      data-nocms-control={itemPath}
+      ref={ref}
+    >
+      <div class="nc-list-row">
+        <span class="nc-grip" aria-hidden="true">
+          <GripIcon />
+        </span>
+        <button type="button" class="nc-list-label nc-list-expand" onClick={onToggle}>
+          {itemSummary(item, itemControl ?? control, index)}
+        </button>
+        <button
+          type="button"
+          class="nc-iconbtn nc-list-move"
+          aria-label="Move up"
+          disabled={index === 0}
+          onClick={() => onMove(-1)}
+        >
+          <ArrowUp size={13} />
+        </button>
+        <button
+          type="button"
+          class="nc-iconbtn nc-list-move"
+          aria-label="Move down"
+          disabled={isLast}
+          onClick={() => onMove(1)}
+        >
+          <ArrowDown size={13} />
+        </button>
+        <button
+          type="button"
+          class="nc-iconbtn nc-list-remove"
+          aria-label="Remove item"
+          onClick={onRemove}
+        >
+          <TrashIcon size={13} />
+        </button>
+        <button
+          type="button"
+          class="nc-iconbtn nc-list-toggle"
+          aria-expanded={expanded}
+          aria-label="Edit item"
+          onClick={onToggle}
+        >
+          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+      </div>
+      {expanded ? (
+        <div class="nc-list-item-body">
+          {fields.length > 0 && itemControl ? (
+            fields.map((field) => (
+              <ControlView
+                key={field.key}
+                control={field}
+                value={(item as Record<string, unknown>)?.[field.key]}
+                commit={(next) =>
+                  writeItem({
+                    ...(item as Record<string, unknown>),
+                    [field.key]: next,
+                  })
+                }
+                path={`${itemPath}.${field.key}`}
+                focus={focus}
+              />
+            ))
+          ) : itemControl ? (
+            <ControlView
+              control={{ ...itemControl, label: "Value" }}
+              value={item}
+              commit={(next) => writeItem(next)}
+              path={itemPath}
+              focus={focus}
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function ListView({
   control,
   value,
@@ -480,13 +690,11 @@ function ListView({
   // A content click into one item opens it so its fields (and the focus target) are visible. Keyed
   // on path+nonce so re-clicking the same item after collapsing it re-opens it.
   const target = focusedIndex(path, focus?.path);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: nonce re-opens after a manual collapse.
   useEffect(() => {
     if (target !== null) setOpen(target);
   }, [target, focus?.nonce]);
   const items = Array.isArray(value) ? (value as unknown[]) : [];
   const itemControl = control.children?.[0];
-  const fields = itemControl?.children ?? [];
 
   const writeItem = (index: number, next: unknown): void =>
     commit(items.map((item, i) => (i === index ? next : item)));
@@ -515,89 +723,23 @@ function ListView({
         <span class="nc-list-count">{items.length} ITEMS</span>
       </div>
       <div class="nc-list">
-        {items.map((item, index) => {
-          const expanded = open === index;
-          return (
-            <div key={index} class="nc-list-item">
-              <div class="nc-list-row">
-                <span class="nc-grip" aria-hidden="true">
-                  <GripIcon />
-                </span>
-                <button
-                  type="button"
-                  class="nc-list-label nc-list-expand"
-                  onClick={() => setOpen(expanded ? null : index)}
-                >
-                  {itemSummary(item, itemControl ?? control, index)}
-                </button>
-                <button
-                  type="button"
-                  class="nc-iconbtn nc-list-move"
-                  aria-label="Move up"
-                  disabled={index === 0}
-                  onClick={() => moveItem(index, -1)}
-                >
-                  <ArrowUp size={13} />
-                </button>
-                <button
-                  type="button"
-                  class="nc-iconbtn nc-list-move"
-                  aria-label="Move down"
-                  disabled={index === items.length - 1}
-                  onClick={() => moveItem(index, 1)}
-                >
-                  <ArrowDown size={13} />
-                </button>
-                <button
-                  type="button"
-                  class="nc-iconbtn nc-list-remove"
-                  aria-label="Remove item"
-                  onClick={() => removeItem(index)}
-                >
-                  <TrashIcon size={13} />
-                </button>
-                <button
-                  type="button"
-                  class="nc-iconbtn nc-list-toggle"
-                  aria-expanded={expanded}
-                  aria-label="Edit item"
-                  onClick={() => setOpen(expanded ? null : index)}
-                >
-                  {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                </button>
-              </div>
-              {expanded ? (
-                <div class="nc-list-item-body">
-                  {fields.length > 0 && itemControl ? (
-                    fields.map((field) => (
-                      <ControlView
-                        key={field.key}
-                        control={field}
-                        value={(item as Record<string, unknown>)?.[field.key]}
-                        commit={(next) =>
-                          writeItem(index, {
-                            ...(item as Record<string, unknown>),
-                            [field.key]: next,
-                          })
-                        }
-                        path={`${path}.${index}.${field.key}`}
-                        focus={focus}
-                      />
-                    ))
-                  ) : itemControl ? (
-                    <ControlView
-                      control={{ ...itemControl, label: "Value" }}
-                      value={item}
-                      commit={(next) => writeItem(index, next)}
-                      path={`${path}.${index}`}
-                      focus={focus}
-                    />
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+        {items.map((item, index) => (
+          <ListItem
+            key={index}
+            item={item}
+            index={index}
+            control={control}
+            itemControl={itemControl}
+            path={path}
+            focus={focus}
+            expanded={open === index}
+            isLast={index === items.length - 1}
+            onToggle={() => setOpen(open === index ? null : index)}
+            onMove={(dir) => moveItem(index, dir)}
+            onRemove={() => removeItem(index)}
+            writeItem={(next) => writeItem(index, next)}
+          />
+        ))}
         <button type="button" class="nc-list-add" onClick={addItem}>
           <PlusIcon size={12} /> Add item
         </button>
@@ -612,10 +754,16 @@ function ListView({
 function AlignMatrix({
   control,
   element,
+  path,
+  active,
+  wrapRef,
   onChange,
 }: {
   control: ControlDescriptor;
   element: JsxElement;
+  path: string;
+  active: boolean;
+  wrapRef: ReturnType<typeof useCenterOnMatch<HTMLDivElement>>;
   onChange: () => void;
 }): VNode {
   const POS = ["start", "center", "end"] as const;
@@ -633,7 +781,11 @@ function AlignMatrix({
     onChange();
   };
   return (
-    <div class="nc-field">
+    <div
+      class={active ? "nc-field is-active" : "nc-field"}
+      data-nocms-control={path}
+      ref={wrapRef}
+    >
       <MonoLabel>{control.label}</MonoLabel>
       <div class="nc-align-matrix" role="group" aria-label={control.label}>
         {POS.flatMap((rowPos) =>
@@ -670,8 +822,19 @@ function TopField({
   onChange: () => void;
   onPickImage?: (key: string) => void;
 }): VNode {
+  const active = focus?.path === control.key;
+  const wrapRef = useCenterOnMatch<HTMLDivElement>(active, focus?.nonce);
   if (control.kind === "layout-align") {
-    return <AlignMatrix control={control} element={element} onChange={onChange} />;
+    return (
+      <AlignMatrix
+        control={control}
+        element={element}
+        path={control.key}
+        active={active}
+        wrapRef={wrapRef}
+        onChange={onChange}
+      />
+    );
   }
   if (control.kind === "group" || control.kind === "list") {
     const stored = getStructuredProp(element, control.key);
@@ -729,6 +892,9 @@ export interface PropsPanelProps {
   onChange: () => void;
   /** open the media picker for an image control */
   onPickImage?: (key: string) => void;
+  /** fired when a control here gains focus, with its dotted path (or `undefined`) — the shell lights
+   *  up the matching leaf on the page. The reverse of `focus`. */
+  onActivate?: (path: string | undefined) => void;
 }
 
 export function PropsPanel({
@@ -739,6 +905,7 @@ export function PropsPanel({
   focus,
   onChange,
   onPickImage,
+  onActivate,
 }: PropsPanelProps): VNode {
   const [showAdvanced, setShowAdvanced] = useState(false);
   // Controls that show their value through derived markup (segmented `aria-pressed`,
@@ -755,7 +922,15 @@ export function PropsPanel({
   const advanced = visible.filter((c) => c.advanced);
 
   return (
-    <div class="nocms-props">
+    <div
+      class="nocms-props"
+      onFocusIn={(e) => {
+        if (!onActivate) return;
+        const host =
+          e.target instanceof Element ? e.target.closest("[data-nocms-control]") : null;
+        onActivate(host?.getAttribute("data-nocms-control") ?? undefined);
+      }}
+    >
       <div class="nc-block-head">
         <div class="nc-block-icon">
           <SectionIcon />
