@@ -78,7 +78,9 @@ bun --filter 'apps/relay' dev
 
 Under active development. The architecture is settled (see [`CLAUDE.md`](./CLAUDE.md));
 implementation details are decided while building and recorded in
-[`DECISIONS.md`](./DECISIONS.md). Each package's `index.ts` is its public contract.
+[`DECISIONS.md`](./DECISIONS.md). Each package's `index.ts` is its public contract. For
+milestone-by-milestone build status — what's done, wired, or still open — see
+[`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ## License
 
