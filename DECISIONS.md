@@ -1306,7 +1306,7 @@ edit-master), D22 (Frame), D23 (per-element Style panel), D24 (item drag).
   edit. (B) Leave curated internals code-defined; only slot/Frame/array-modeled (or composed) regions
   reorder. B is the rule; A is how you opt a given component in.
 
-### D26 — Control derivation is its own package; the foundation stops carrying editor concerns → **RESOLVED (building).**
+### D26 — Control derivation is its own package; the foundation stops carrying editor concerns → **RESOLVED.**
 The schema→control mapper and the content-path walkers had accreted inside `@nocms/core` (the shared
 vocabulary), so every core consumer transitively pulled in editor introspection; meanwhile a parallel,
 dead TypeScript-source control parser still shipped as `@nocms/props-discovery`. An audit across all 14
@@ -1321,8 +1321,19 @@ CLAUDE.md claim that `core` is *only* shared vocabulary.
   valibot. `@nocms/components`, `@nocms/editor`, `@nocms/sandbox`, and the starter consume it directly;
   `@nocms/core` no longer re-exports any of it. Vendor bundles regenerate to point at it.
 - **`@nocms/props-discovery` deleted** — superseded by D9 schema introspection; zero production importers.
-- **Decided, not yet built:** a shared *widget vocabulary* in `@nocms/controls` unifying the props panel
-  and a to-be-extracted `@nocms/style-controls` (promote the `poc/` Tailwind catalog + capability engine
-  out of the starter, headless); relocate renderer's editor-only `content-anchors` / `editable` into the
-  editor domain. Layout kinds (`layout-direction` / `layout-align` / `hidden`) stay in the kind union for
-  now — move to an open-set registry when the style panel lands.
+- **Same pass — the rest of the first cut.** `@nocms/style-controls` (new, headless): the `poc/`
+  Tailwind catalog + capability engine promoted out of the starter — class algebra, capability map,
+  modes, a catalog API parameterized over a `Catalog` (no virtual-module coupling), and a node-only
+  `buildCatalog` behind a `/build` subpath; the Vite plugin, virtual module, and Preact Style panel stay
+  site-side (invariant #2). Renderer's editor-only `content-anchors` / `editable` relocated into
+  `@nocms/editor` (as `anchor-probe` / `editable`), leaving renderer the pure render+islands seam. Layout
+  kinds (`layout-direction` / `layout-align` / `hidden`) dropped from `ControlKind` / `KNOWN_CONTROL_KINDS`
+  to the open set — the editor owns their rendering. Peripheral cleanups: `toTailwindTheme` deduped onto
+  `@nocms/tokens`; `roles.ts` split from `defaults.ts`; `build-site.ts` split into sources/collect/writer.
+- **Deliberately NOT built: a shared "widget vocabulary" unifying the props panel and the Style panel.**
+  The two control models share almost no real surface — props controls bind a typed *attribute value*;
+  style controls compose a Tailwind *class string* with a breakpoint/state dimension. The only overlap is
+  generic widget *shapes* (a slider, a colour picker) over different data and different write semantics. A
+  shared kind enum would be an abstraction serving two masters — the exact over-specificity this work set
+  out to remove — so the value primitives stay in each adapter. Revisit only if a concrete third consumer
+  needs the same widget seam.
