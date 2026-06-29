@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { CapabilityBrowser } from "./capabilities";
-import { STATES, type StateKey, VIEWPORTS, type ViewportKey, variantOf } from "./modes";
+import { STATES, type StateKey, VIEWPORTS, type ViewportKey, variantOf } from "@nocms/style-controls";
 
 const ACCENT = "#3b5bdb";
 

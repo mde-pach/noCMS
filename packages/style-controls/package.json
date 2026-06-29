@@ -1,0 +1,22 @@
+{
+  "name": "@nocms/style-controls",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "Headless Tailwind v4 styling engine for the editor Style panel. Introspects the engine's design system into a catalog of CSS *features* (typed controls, never class names), reshapes them into capability panels, and reads/writes utility classes per breakpoint/state. The class grammar is the coverage; the user only sees design controls.",
+  "sideEffects": false,
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./build": "./src/build.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tailwindcss/node": "^4.3.1"
+  }
+}

@@ -167,6 +167,13 @@
         "yaml": "^2.9.0",
       },
     },
+    "packages/style-controls": {
+      "name": "@nocms/style-controls",
+      "version": "0.0.0",
+      "dependencies": {
+        "@tailwindcss/node": "^4.3.1",
+      },
+    },
     "packages/tokens": {
       "name": "@nocms/tokens",
       "version": "0.0.0",
@@ -191,6 +198,7 @@
         "@nocms/core": "workspace:*",
         "@nocms/derive": "workspace:*",
         "@nocms/editor": "workspace:*",
+        "@nocms/style-controls": "workspace:*",
         "@preact/preset-vite": "^2.10.0",
         "@tailwindcss/browser": "^4.3.1",
         "@tailwindcss/node": "^4.3.1",
@@ -356,6 +364,8 @@
     "@nocms/session": ["@nocms/session@workspace:packages/session"],
 
     "@nocms/starter": ["@nocms/starter@workspace:templates/starter"],
+
+    "@nocms/style-controls": ["@nocms/style-controls@workspace:packages/style-controls"],
 
     "@nocms/tokens": ["@nocms/tokens@workspace:packages/tokens"],
 

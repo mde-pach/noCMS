@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildCatalog } from "../vite-plugin-tw-catalog";
+import { buildCatalog } from "@nocms/style-controls/build";
 
 interface VendoredPackage {
   name: string;

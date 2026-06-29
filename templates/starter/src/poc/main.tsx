@@ -1,18 +1,17 @@
-import { parseTokens, toCssVariables } from "@nocms/tokens";
-import type { JSX } from "preact";
-import { render } from "preact";
-import { useState } from "preact/hooks";
-import pocTokens from "../../poc.tokens?raw";
-import { applyClass, flattenForPreview } from "./catalog";
-import { Inspector } from "./inspector";
 import {
   previewOrder,
   type StateKey,
   type ViewportKey,
   variantOf,
   viewportWidth,
-} from "./modes";
-import { toTailwindTheme } from "./theme";
+} from "@nocms/style-controls";
+import { parseTokens, toCssVariables, toTailwindTheme } from "@nocms/tokens";
+import type { JSX } from "preact";
+import { render } from "preact";
+import { useState } from "preact/hooks";
+import pocTokens from "../../poc.tokens?raw";
+import { applyClass, flattenForPreview } from "./catalog";
+import { Inspector } from "./inspector";
 
 const ACCENT = "#3b5bdb";
 const tokens = parseTokens(pocTokens);
@@ -23,7 +22,7 @@ document.head.appendChild(vars);
 
 const theme = document.createElement("style");
 theme.setAttribute("type", "text/tailwindcss");
-theme.textContent = toTailwindTheme(tokens);
+theme.textContent = `@import "tailwindcss";\n${toTailwindTheme(tokens)}`;
 document.head.appendChild(theme);
 
 interface CanvasNode {

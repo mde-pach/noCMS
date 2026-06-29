@@ -1,4 +1,4 @@
 declare module "virtual:tw-catalog" {
-  const catalog: import("../../vite-plugin-tw-catalog").Catalog;
+  const catalog: import("@nocms/style-controls").Catalog;
   export default catalog;
 }
