@@ -22,9 +22,6 @@
     "packages/auth": {
       "name": "@nocms/auth",
       "version": "0.0.0",
-      "dependencies": {
-        "@nocms/core": "workspace:*",
-      },
     },
     "packages/build": {
       "name": "@nocms/build",
@@ -79,7 +76,6 @@
         "@nocms/components": "workspace:*",
         "@nocms/core": "workspace:*",
         "@nocms/github": "workspace:*",
-        "@nocms/props-discovery": "workspace:*",
         "@nocms/prose": "workspace:*",
         "@nocms/renderer": "workspace:*",
         "@nocms/sandbox": "workspace:*",
@@ -102,14 +98,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@nocms/core": "workspace:*",
-      },
-    },
-    "packages/props-discovery": {
-      "name": "@nocms/props-discovery",
-      "version": "0.0.0",
-      "dependencies": {
-        "@nocms/core": "workspace:*",
-        "typescript": "^5.7.0",
       },
     },
     "packages/prose": {
@@ -189,7 +177,6 @@
         "@nocms/core": "workspace:*",
         "@nocms/derive": "workspace:*",
         "@nocms/editor": "workspace:*",
-        "@nocms/props-discovery": "workspace:*",
         "@preact/preset-vite": "^2.10.0",
         "@tailwindcss/browser": "^4.3.1",
         "@tailwindcss/node": "^4.3.1",
@@ -339,8 +326,6 @@
     "@nocms/editor": ["@nocms/editor@workspace:packages/editor"],
 
     "@nocms/github": ["@nocms/github@workspace:packages/github"],
-
-    "@nocms/props-discovery": ["@nocms/props-discovery@workspace:packages/props-discovery"],
 
     "@nocms/prose": ["@nocms/prose@workspace:packages/prose"],
 

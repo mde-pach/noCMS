@@ -13,8 +13,5 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "@nocms/core": "workspace:*"
   }
 }
