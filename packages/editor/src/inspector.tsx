@@ -5,6 +5,7 @@
 // because the shell owns the live token state.
 
 import type { ControlDescriptor } from "@nocms/controls";
+import type { ProseMarkName } from "@nocms/prose";
 import type { VNode } from "preact";
 import type { JsxElement } from "./jsx-attributes.js";
 import { PropsPanel } from "./props-panel.js";
@@ -27,8 +28,14 @@ export interface InspectorProps {
   /** true when a block is selected but exposes no editable props. */
   selectedEmpty: boolean;
   /** present when the selected block is a prose block (paragraph/heading/list/quote): its current
-   *  kind + a callback to reformat it. Shown instead of the empty state. */
-  prose: { kind: BlockKind; onSetBlock: (kind: BlockKind) => void } | null;
+   *  kind, a callback to reformat it, whether its text is being edited in place, and an inline-mark
+   *  toggle. Shown instead of the empty state. */
+  prose: {
+    kind: BlockKind;
+    onSetBlock: (kind: BlockKind) => void;
+    editing: boolean;
+    onMark: (name: ProseMarkName) => void;
+  } | null;
   onEdit: () => void;
   onPickImage: (key: string) => void;
   /** a control in the props panel gained focus — light up its matching leaf on the page. */
@@ -65,7 +72,12 @@ export function Inspector(props: InspectorProps): VNode {
   if (props.prose) {
     return (
       <>
-        <ProseFormat kind={props.prose.kind} onSetBlock={props.prose.onSetBlock} />
+        <ProseFormat
+          kind={props.prose.kind}
+          onSetBlock={props.prose.onSetBlock}
+          editing={props.prose.editing}
+          onMark={props.prose.onMark}
+        />
         {props.styleSection}
       </>
     );

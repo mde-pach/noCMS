@@ -11,7 +11,11 @@ import {
   savedDefToBlock,
 } from "@nocms/components";
 import type { ControlDescriptor } from "@nocms/controls";
-import type { ProseEditorHandle } from "@nocms/prose";
+import {
+  type ProseEditorHandle,
+  type ProseMarkName,
+  toggleProseMark,
+} from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { Nodes, Parent } from "mdast";
@@ -389,7 +393,12 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     const proseKind = selected === null ? blockKindOf(node) : undefined;
     const prose =
       proseKind && selectedPath
-        ? { kind: proseKind, onSetBlock: (kind: BlockKind) => setProseBlock(kind) }
+        ? {
+            kind: proseKind,
+            onSetBlock: (kind: BlockKind) => setProseBlock(kind),
+            editing: proseSession.isActive(),
+            onMark: (name: ProseMarkName) => onProseMark(name),
+          }
         : null;
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     return {
@@ -891,6 +900,19 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     void docs.commit(docs.serialize(), selectedPath);
   }
 
+  // Toggle a word-level mark on the live prose selection from the panel toolbar. Only meaningful
+  // while a prose session holds the page caret; a link prompts for its URL, matching the floating bar.
+  function onProseMark(name: ProseMarkName): void {
+    const view = proseSession.view();
+    if (!view) return;
+    if (name === "link") {
+      const href = window.prompt("Link URL");
+      if (href) toggleProseMark(view, "link", { href });
+      return;
+    }
+    toggleProseMark(view, name);
+  }
+
   function select(path: IndexPath | undefined, focus?: string): void {
     selectedItem = undefined;
     overlays.showItemSelection(undefined);
@@ -1175,6 +1197,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onStart: () => {
       renderToolbar();
       renderContentSelection();
+      // Re-render the inspector so the prose panel's inline toolbar enables for the live session.
+      // Chrome only — the prose view on the canvas keeps its caret.
+      paint();
     },
   });
 

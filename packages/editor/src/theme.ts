@@ -138,6 +138,17 @@ html.nocms-editing #app {
 .nc-prose-block[aria-pressed="true"] { background: var(--nc-accent); border-color: var(--nc-accent); color: #fff; }
 .nc-prose-glyph { font-family: var(--nc-font-mono); font-size: 11px; font-weight: 600; }
 
+/* inline word-level formatting: a small button row that acts on the live in-page selection. */
+.nc-prose-marks { display: flex; gap: 4px; }
+.nc-prose-mark {
+  width: 34px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nc-border); border-radius: var(--nc-radius); background: var(--nc-surface);
+  color: var(--nc-text-2); cursor: pointer; padding: 0; transition: background .12s, color .12s, border-color .12s;
+}
+.nc-prose-mark:hover:not(:disabled) { border-color: var(--nc-accent); color: var(--nc-text); }
+.nc-prose-mark:disabled { opacity: 0.45; cursor: default; }
+.nc-prose-hint { margin: 8px 0 0; font-size: 11.5px; color: var(--nc-text-3); }
+
 /* segmented control */
 .nc-segmented { display: flex; gap: 2px; background: var(--nc-field); border-radius: 999px; padding: 3px; }
 .nc-seg {
