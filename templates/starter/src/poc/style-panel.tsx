@@ -17,7 +17,9 @@ const ACCENT = "#3b5bdb";
 let mode: { vp: ViewportKey; st: StateKey } = { vp: "base", st: "default" };
 
 interface StylePanelProps {
-  name: string;
+  /** the rendered DOM root tag of the selection (e.g. `"section"`), used to pick tag-relevant
+   *  controls. The editor resolves this from the painted element, not the JSX/component name. */
+  tag: string;
   getClass: () => string;
   setClass: (cls: string) => void;
 }
@@ -25,7 +27,7 @@ interface StylePanelProps {
 // The site's element-level styling panel. The mode bar picks the variant (`md:hover:`); every control
 // below reads and writes classes *for that variant*, so one element carries a full responsive +
 // interaction-state ruleset and the engine compiles each.
-export function StylePanel({ name, getClass, setClass }: StylePanelProps) {
+export function StylePanel({ tag, getClass, setClass }: StylePanelProps) {
   const [vp, setVp] = useState<ViewportKey>(mode.vp);
   const [st, setSt] = useState<StateKey>(mode.st);
   const variant = variantOf(vp, st);
@@ -41,7 +43,7 @@ export function StylePanel({ name, getClass, setClass }: StylePanelProps) {
     <div>
       <ModeBar vp={vp} st={st} onPick={pick} />
       <CapabilityBrowser
-        tag={name}
+        tag={tag}
         className={className}
         variant={variant}
         onApply={(cls, featureId) =>

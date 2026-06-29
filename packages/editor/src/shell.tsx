@@ -116,6 +116,11 @@ export interface EditorOptions {
 export interface StyleSectionContext {
   element: JsxElement;
   name: string;
+  /** The rendered DOM root tag the selection maps to (e.g. a `Hero` component whose root is a
+   *  `section` reports `"section"`), lowercased — the signal a styling panel needs to pick
+   *  tag-relevant controls, since `name` is the JSX/component name, not the painted element. Falls
+   *  back to `name` when the node isn't painted yet. */
+  tag: string;
   getClass: () => string;
   setClass: (cls: string) => void;
 }
@@ -307,6 +312,17 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       : surface.querySelector(`[data-mdx-pos="${offset}"]`);
   };
 
+  // The painted root tag a node maps to. A component is annotated on a `display:contents` carrier
+  // (see editable.ts), so its real root is a child of that carrier — descend through boxless
+  // carriers to the first element that actually renders a box. An intrinsic carries the offset on
+  // itself, so it's returned directly.
+  const rootTagAtPath = (path: IndexPath): string | undefined => {
+    let el = elementAtPath(path);
+    while (el && getComputedStyle(el).display === "contents" && el.firstElementChild)
+      el = el.firstElementChild;
+    return el?.tagName.toLowerCase();
+  };
+
   // Pure item/array resolution (an object-array element's address, backing array, label, and drop
   // targets). The shell keeps the mutating side (selection, drag, reorder) and calls in here.
   const items = createItemController({
@@ -371,6 +387,7 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
         ? options.renderStyleSection({
             element: node,
             name: node.name,
+            tag: (selectedPath && rootTagAtPath(selectedPath)) || node.name,
             getClass: () => String(getProp(node, "class") ?? ""),
             setClass: (cls) => {
               if (cls) setProp(node, "class", cls);

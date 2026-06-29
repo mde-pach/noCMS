@@ -18,8 +18,8 @@ import { ensureTailwindPreview } from "./tailwind-preview";
 // `class`; this panel — the Tailwind catalog's capability controls, scoped to the mode bar's
 // viewport×state variant — generates utility classes onto it. Editing `class` re-renders the
 // component (which forwards `className`), and the in-page Tailwind engine compiles the result live.
-function StyleSection({ name, getClass, setClass }: StyleSectionContext) {
-  return <StylePanel name={name} getClass={getClass} setClass={setClass} />;
+function StyleSection({ tag, getClass, setClass }: StyleSectionContext) {
+  return <StylePanel tag={tag} getClass={getClass} setClass={setClass} />;
 }
 
 const SIGNED_IN_KEY = "nocms-dev-signed-in";

@@ -174,6 +174,13 @@ const RELEVANCE: Record<string, string[]> = {
   button: ["color", "padding", "corners", "effects", "typography"],
   a: ["color", "typography", "decoration"],
   section: ["color", "padding", "size", "corners", "effects", "layout"],
+  header: ["color", "padding", "size", "effects", "layout"],
+  footer: ["color", "padding", "size", "layout"],
+  nav: ["color", "typography", "padding", "layout"],
+  aside: ["color", "padding", "corners", "border", "typography"],
+  figure: ["color", "padding", "corners", "effects", "border"],
+  label: ["typography", "color", "padding"],
+  hr: ["color", "size", "border"],
   img: ["size", "corners", "effects", "border"],
 };
 export function relevantFor(tag: string): string[] {
