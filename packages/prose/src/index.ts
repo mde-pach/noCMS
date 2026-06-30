@@ -1,6 +1,9 @@
 export {
+  currentProseBlock,
   isMarkActive,
+  type ProseBlockName,
   type ProseMarkName,
+  setProseBlock,
   toggleProseMark,
 } from "./commands.js";
 export {
