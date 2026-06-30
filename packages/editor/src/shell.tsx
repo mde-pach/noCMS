@@ -12,6 +12,8 @@ import {
 } from "@nocms/components";
 import type { ControlDescriptor } from "@nocms/controls";
 import {
+  setProseBlock as applyProseBlock,
+  type ProseBlockName,
   type ProseEditorHandle,
   type ProseMarkName,
   toggleProseMark,
@@ -58,7 +60,7 @@ import {
   nodeAtIndexPath,
   nodeAtOffset,
 } from "./position.js";
-import { type BlockKind, blockKindOf, setBlock } from "./prose-block.js";
+import { blockKindOf, isProseBlock } from "./prose-block.js";
 import { createProseController } from "./prose-controller.js";
 import { isInlineTextComponent, outermostProseBlock } from "./prose-edit.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
@@ -395,9 +397,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       proseKind && selectedPath
         ? {
             kind: proseKind,
-            onSetBlock: (kind: BlockKind) => setProseBlock(kind),
+            onSetBlock: onProseBlock,
             editing: proseSession.isActive(),
-            onMark: (name: ProseMarkName) => onProseMark(name),
+            onMark: onProseMark,
           }
         : null;
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
@@ -891,19 +893,37 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     });
   };
 
-  // Reformat the selected prose block (paragraph ↔ heading ↔ list ↔ quote). The node is rewritten
-  // in place, then committed like any structural edit so the canvas re-renders and selection re-pins
-  // — the block stays selected at the same path, now showing its new kind.
-  function setProseBlock(kind: BlockKind): void {
-    if (!selectedPath) return;
-    if (!setBlock(docs.doc, selectedPath, kind)) return;
-    void docs.commit(docs.serialize(), selectedPath);
+  // Open the block-aware editor on the prose block at `path` (when one isn't already open), so panel
+  // actions always drive the one live editor rather than a separate document transform. Returns the
+  // live view, or undefined when the block can't be edited.
+  function ensureProseEditing(path: IndexPath): ProseEditorHandle["view"] | undefined {
+    if (proseSession.isActive()) return proseSession.view();
+    const node = nodeAtIndexPath(docs.doc, path);
+    if (!node || !isProseBlock(node)) return undefined;
+    const offset = node.position?.start.offset;
+    const el =
+      offset === undefined ? null : surface.querySelector(`[data-mdx-pos="${offset}"]`);
+    if (!el) return undefined;
+    proseSession.start(node as never, el, path, { label: nodeLabel(node) });
+    return proseSession.view();
   }
 
-  // Toggle a word-level mark on the live prose selection from the panel toolbar. Only meaningful
-  // while a prose session holds the page caret; a link prompts for its URL, matching the floating bar.
+  // Set the selected prose block's kind on the live editor — the same mechanism as typing `# ` or a
+  // list shortcut, so there is one way to change structure. Repaint the chrome so the panel reflects
+  // the new kind (and that a session is now active, enabling the mark controls).
+  function onProseBlock(kind: ProseBlockName): void {
+    if (!selectedPath) return;
+    const view = ensureProseEditing(selectedPath);
+    if (!view) return;
+    applyProseBlock(view, kind);
+    paint();
+  }
+
+  // Toggle a word-level mark on the live prose selection from the panel toolbar — opens the editor
+  // first if needed, so the panel and the in-place editor are one mechanism. A link prompts for URL.
   function onProseMark(name: ProseMarkName): void {
-    const view = proseSession.view();
+    if (!selectedPath) return;
+    const view = ensureProseEditing(selectedPath);
     if (!view) return;
     if (name === "link") {
       const href = window.prompt("Link URL");
