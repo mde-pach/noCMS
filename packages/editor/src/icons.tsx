@@ -200,6 +200,32 @@ export const LinkIcon = ({ size = 13, class: c }: IconProps): VNode =>
 export const HeadingIcon = ({ size = 13, class: c }: IconProps): VNode =>
   svg(size, c, <path d="M3.5 3v10M10.5 3v10M3.5 8h7" />);
 
+export const CodeIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M5.5 4.5L2.5 8l3 3.5M10.5 4.5L13.5 8l-3 3.5" />);
+
+export const BulletListIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M6 4h8M6 8h8M6 12h8M2.5 4h.01M2.5 8h.01M2.5 12h.01" />);
+
+export const NumberedListIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M6 4h8M6 8h8M6 12h8M2 3v2.5M1.4 9.5h1.2L1.4 12h1.4" />);
+
+export const QuoteIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(size, c, <path d="M3 4h3v3.5a2 2 0 0 1-2 2M10 4h3v3.5a2 2 0 0 1-2 2" />);
+
+export const StrikethroughIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(
+    size,
+    c,
+    <path d="M2.5 8h11M5 5a3 2 0 0 1 3-1.5c1.4 0 2.3.6 2.8 1.4M5.4 11c.5.9 1.5 1.5 2.8 1.5 1.7 0 2.8-.9 2.8-2.1" />,
+  );
+
+export const TaskListIcon = ({ size = 13, class: c }: IconProps): VNode =>
+  svg(
+    size,
+    c,
+    <path d="M7.5 4.5h6M7.5 11h6M2 4.5l1.3 1.3L5.5 3.5M2.5 10.5h2.5v2.5h-2.5z" />,
+  );
+
 export const GitHubIcon = ({ size = 18, class: c }: IconProps): VNode => (
   <svg
     width={size}

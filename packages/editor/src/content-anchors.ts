@@ -29,6 +29,7 @@ import { nodeAtOffset } from "./position.js";
 const POS_ATTR = "data-mdx-pos";
 const PATH_ATTR = "nocmsPath";
 const ITEM_ATTR = "nocmsItem";
+const OBJECT_ATTR = "nocmsObject";
 
 /** The deepest element that encloses all of `els` — the common ancestor. With the leaves of one
  *  array item (all `tiers.1.*`), this resolves to that item's card, derived purely from the leaf
@@ -104,6 +105,25 @@ function tagItems(
   }
 }
 
+/** Tag each standalone object prop's card with `data-nocms-object="key"`, so the panel can light up
+ *  (and select) the object as a unit on the page — the counterpart to array items. The card is the
+ *  common ancestor of the object's leaves; a single-leaf object whose ancestor is just the leaf is
+ *  skipped (it has no card distinct from its one field, which is already addressable). */
+function tagObjects(liveEl: Element, controls: ControlDescriptor[]): void {
+  const tagOne = (path: string): void => {
+    const leaves = [
+      ...liveEl.querySelectorAll<HTMLElement>(`[data-nocms-path^="${path}."]`),
+    ];
+    const container = commonAncestor(leaves);
+    if (container instanceof HTMLElement && container !== liveEl && leaves.length > 1) {
+      container.dataset[OBJECT_ATTR] = path;
+    }
+  };
+  for (const control of controls) {
+    if (control.kind === "group") tagOne(control.key);
+  }
+}
+
 /** The props a component renders with: stored attributes where present, else schema defaults —
  *  the same resolution the props panel uses, so the probe render matches the live one. */
 function resolveProps(
@@ -163,8 +183,9 @@ function anchorOne(
           if (parent) parent.dataset[PATH_ATTR] = paths[hit]?.path;
         }
       }
-      // Leaves are now tagged; group them into their array-item cards.
+      // Leaves are now tagged; group them into their array-item cards and object cards.
       tagItems(liveEl, controls, props);
+      tagObjects(liveEl, controls);
     }
   } finally {
     render(null, scratch);
@@ -186,6 +207,9 @@ export function anchorComponents(
   }
   for (const tagged of content.querySelectorAll<HTMLElement>("[data-nocms-item]")) {
     delete tagged.dataset[ITEM_ATTR];
+  }
+  for (const tagged of content.querySelectorAll<HTMLElement>("[data-nocms-object]")) {
+    delete tagged.dataset[OBJECT_ATTR];
   }
   for (const el of content.querySelectorAll(`[${POS_ATTR}]`)) {
     const offset = Number(el.getAttribute(POS_ATTR));

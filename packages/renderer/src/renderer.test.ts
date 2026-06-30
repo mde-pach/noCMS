@@ -39,6 +39,13 @@ describe("renderToHtml", () => {
     expect(html).toContain("<h1>Shown</h1>");
     expect(html).not.toContain("title: Hidden");
   });
+
+  it("renders GFM the prose tools produce — strikethrough and task lists", async () => {
+    const struck = await renderToHtml({ mdx: "~~gone~~", components: {} });
+    expect(struck).toContain("<del>gone</del>");
+    const tasks = await renderToHtml({ mdx: "- [ ] todo\n- [x] done", components: {} });
+    expect(tasks).toContain('type="checkbox"');
+  });
 });
 
 describe("preview/publish parity", () => {

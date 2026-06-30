@@ -11,7 +11,11 @@ import {
   savedDefToBlock,
 } from "@nocms/components";
 import type { ControlDescriptor } from "@nocms/controls";
-import type { ProseEditorHandle } from "@nocms/prose";
+import {
+  type ProseEditorHandle,
+  type ProseMarkName,
+  toggleProseMark,
+} from "@nocms/prose";
 import type { ComponentMap } from "@nocms/renderer";
 import { formatTokens, parseTokens, type Token, toCssVariables } from "@nocms/tokens";
 import type { Nodes, Parent } from "mdast";
@@ -54,6 +58,7 @@ import {
   nodeAtIndexPath,
   nodeAtOffset,
 } from "./position.js";
+import { type BlockKind, blockKindOf, setBlock } from "./prose-block.js";
 import { createProseController } from "./prose-controller.js";
 import { isInlineTextComponent, isProseEditable } from "./prose-edit.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
@@ -385,13 +390,25 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
             },
           })
         : null;
+    const proseKind = selected === null ? blockKindOf(node) : undefined;
+    const prose =
+      proseKind && selectedPath
+        ? {
+            kind: proseKind,
+            onSetBlock: (kind: BlockKind) => setProseBlock(kind),
+            editing: proseSession.isActive(),
+            onMark: (name: ProseMarkName) => onProseMark(name),
+          }
+        : null;
     const fm = node ? { title: "", description: "" } : readFrontmatter(docs.doc);
     return {
       selected,
       styleSection,
       selectedEmpty: node !== undefined && selected === null,
+      prose,
       onEdit: handleEdit,
       onPickImage: (key) => node && openMedia(node as JsxElement, key),
+      onActivate: activateFromPanel,
       pageName: options.pageName ?? "Home",
       title: fm.title,
       description: fm.description,
@@ -753,6 +770,34 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     overlays.showContentSelection(contentElement() ?? undefined);
   }
 
+  // Panel → page: focusing a control in the props panel lights up its counterpart on the canvas — a
+  // leaf's text, an array item's card, or an object's card. Only an overlay moves: no repaint, no
+  // canvas scroll, so syncing from the panel never steals the field's focus back nor shifts the page
+  // being edited. A leaf reuses the tracked content box (so a later repaint keeps it); an item/object
+  // card is a transient hint (it clears on the next canvas paint), since selection still lives on the
+  // page itself.
+  function activateFromPanel(path: string | undefined): void {
+    if (!selectedPath || !path) return;
+    const block = elementAtPath(selectedPath);
+    if (!block) return;
+    const find = (attr: string): Element | null =>
+      block.querySelector(`[${attr}="${path.replace(/"/g, '\\"')}"]`);
+
+    if (find("data-nocms-path")) {
+      if (path === focusedContentPath) return;
+      focusedContentPath = path;
+      renderContentSelection();
+      return;
+    }
+    const item = find("data-nocms-item");
+    if (item) {
+      overlays.showItemSelection(item);
+      return;
+    }
+    const object = find("data-nocms-object");
+    if (object) overlays.showContentSelection(object);
+  }
+
   function renderItemSelection(): void {
     if (!selectedItem || proseSession.isActive()) {
       overlays.showItemSelection(undefined);
@@ -845,6 +890,28 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       path: `${target.key}.${at}`,
     });
   };
+
+  // Reformat the selected prose block (paragraph ↔ heading ↔ list ↔ quote). The node is rewritten
+  // in place, then committed like any structural edit so the canvas re-renders and selection re-pins
+  // — the block stays selected at the same path, now showing its new kind.
+  function setProseBlock(kind: BlockKind): void {
+    if (!selectedPath) return;
+    if (!setBlock(docs.doc, selectedPath, kind)) return;
+    void docs.commit(docs.serialize(), selectedPath);
+  }
+
+  // Toggle a word-level mark on the live prose selection from the panel toolbar. Only meaningful
+  // while a prose session holds the page caret; a link prompts for its URL, matching the floating bar.
+  function onProseMark(name: ProseMarkName): void {
+    const view = proseSession.view();
+    if (!view) return;
+    if (name === "link") {
+      const href = window.prompt("Link URL");
+      if (href) toggleProseMark(view, "link", { href });
+      return;
+    }
+    toggleProseMark(view, name);
+  }
 
   function select(path: IndexPath | undefined, focus?: string): void {
     selectedItem = undefined;
@@ -1130,6 +1197,9 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
     onStart: () => {
       renderToolbar();
       renderContentSelection();
+      // Re-render the inspector so the prose panel's inline toolbar enables for the live session.
+      // Chrome only — the prose view on the canvas keeps its caret.
+      paint();
     },
   });
 

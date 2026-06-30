@@ -103,6 +103,51 @@ html.nocms-editing #app {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nc-accent) 18%, transparent);
 }
 .nc-input::placeholder, .nc-textarea::placeholder { color: var(--nc-text-3); }
+.nc-textarea { overflow: hidden; }
+
+/* Selection mirror. The precise control that maps to the canvas selection reads as selected: a leaf's
+   widget alone (never its label), or an object / array-item card. The float-out outline rings the
+   control without nudging the layout as the selection moves. */
+.nc-active {
+  outline: 1.5px solid var(--nc-accent);
+  outline-offset: 3px; border-radius: var(--nc-radius);
+  transition: outline-color .12s;
+}
+.nc-group.is-active, .nc-list-item.is-active {
+  background: color-mix(in srgb, var(--nc-accent) 8%, transparent);
+  outline: 1.5px solid color-mix(in srgb, var(--nc-accent) 45%, transparent);
+  outline-offset: 3px;
+  transition: background .12s, outline-color .12s;
+}
+/* The containers a selected leaf nests in carry only a faint grouping tint, so the nesting is legible
+   without competing with the actual selection. */
+.nc-group.is-ancestor, .nc-list-item.is-ancestor, .nc-list-field.is-ancestor {
+  outline: 1px solid color-mix(in srgb, var(--nc-accent) 20%, transparent);
+  outline-offset: 3px; border-radius: var(--nc-radius);
+  transition: outline-color .12s;
+}
+
+/* prose block-format picker: a wrap of small square buttons, the active block kind pressed in accent. */
+.nc-prose-blocks { display: flex; flex-wrap: wrap; gap: 4px; }
+.nc-prose-block {
+  width: 34px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nc-border); border-radius: var(--nc-radius); background: var(--nc-surface);
+  color: var(--nc-text-2); cursor: pointer; padding: 0; transition: background .12s, color .12s, border-color .12s;
+}
+.nc-prose-block:hover { border-color: var(--nc-accent); color: var(--nc-text); }
+.nc-prose-block[aria-pressed="true"] { background: var(--nc-accent); border-color: var(--nc-accent); color: #fff; }
+.nc-prose-glyph { font-family: var(--nc-font-mono); font-size: 11px; font-weight: 600; }
+
+/* inline word-level formatting: a small button row that acts on the live in-page selection. */
+.nc-prose-marks { display: flex; gap: 4px; }
+.nc-prose-mark {
+  width: 34px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--nc-border); border-radius: var(--nc-radius); background: var(--nc-surface);
+  color: var(--nc-text-2); cursor: pointer; padding: 0; transition: background .12s, color .12s, border-color .12s;
+}
+.nc-prose-mark:hover:not(:disabled) { border-color: var(--nc-accent); color: var(--nc-text); }
+.nc-prose-mark:disabled { opacity: 0.45; cursor: default; }
+.nc-prose-hint { margin: 8px 0 0; font-size: 11.5px; color: var(--nc-text-3); }
 
 /* segmented control */
 .nc-segmented { display: flex; gap: 2px; background: var(--nc-field); border-radius: 999px; padding: 3px; }
@@ -427,7 +472,7 @@ html.nocms-editing .nocms-editor-panel { transform: translateX(0); }
 
 /* group + advanced */
 .nc-group { border: 1px solid var(--nc-border-faint); border-radius: 11px; padding: 14px; margin-bottom: 18px; background: var(--nc-surface-muted); }
-.nc-group-title { font-family: var(--nc-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nc-text); margin-bottom: 14px; }
+.nc-group-title { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--nc-font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--nc-text); margin-bottom: 14px; }
 .nc-group .nc-field:last-child { margin-bottom: 0; }
 .nc-row { display: flex; align-items: center; justify-content: space-between; }
 .nc-row-label { font-size: 12.5px; color: var(--nc-text-2); }

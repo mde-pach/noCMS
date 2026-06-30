@@ -43,6 +43,13 @@ describe("mdast inline ↔ ProseMirror round-trip", () => {
     ]);
   });
 
+  it("preserves strikethrough (GFM delete), alone and nested under a mark", () => {
+    expectRoundTrip([{ type: "delete", children: [text("gone")] }]);
+    expectRoundTrip([
+      { type: "strong", children: [{ type: "delete", children: [text("both")] }] },
+    ]);
+  });
+
   it("preserves standalone inline code", () => {
     expectRoundTrip([{ type: "inlineCode", value: "const x = 1" }]);
   });

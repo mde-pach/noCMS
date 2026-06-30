@@ -69,6 +69,15 @@ function inlineToPM(
           ),
         );
         break;
+      case "delete":
+        out.push(
+          ...inlineToPM(
+            node.children,
+            schema,
+            requireMark(schema, "strikethrough").create().addToSet(marks),
+          ),
+        );
+        break;
       case "link": {
         const mark = requireMark(schema, "link").create({
           href: node.url,
@@ -167,6 +176,8 @@ function wrapMark(mark: Mark, children: PhrasingContent[]): PhrasingContent {
       return { type: "strong", children };
     case "em":
       return { type: "emphasis", children };
+    case "strikethrough":
+      return { type: "delete", children };
     case "link":
       return {
         type: "link",

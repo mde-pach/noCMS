@@ -136,6 +136,10 @@ export const proseSchema = new Schema({
     },
     em: { toDOM: () => ["em", 0], parseDOM: [{ tag: "em" }, { tag: "i" }] },
     strong: { toDOM: () => ["strong", 0], parseDOM: [{ tag: "strong" }, { tag: "b" }] },
+    strikethrough: {
+      toDOM: () => ["del", 0],
+      parseDOM: [{ tag: "del" }, { tag: "s" }, { tag: "strike" }],
+    },
     code: { toDOM: () => ["code", 0], parseDOM: [{ tag: "code" }] },
   },
 });

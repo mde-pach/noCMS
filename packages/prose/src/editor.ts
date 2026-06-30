@@ -36,6 +36,7 @@ export function mountProseEditor(
         "Shift-Mod-z": redo,
         "Mod-b": toggleMark(requireMark(proseSchema, "strong")),
         "Mod-i": toggleMark(requireMark(proseSchema, "em")),
+        "Shift-Mod-x": toggleMark(requireMark(proseSchema, "strikethrough")),
         "Mod-`": toggleMark(requireMark(proseSchema, "code")),
       }),
       keymap(baseKeymap),

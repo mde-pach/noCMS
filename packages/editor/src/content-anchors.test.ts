@@ -132,4 +132,35 @@ describe("anchorComponents", () => {
 
     expect(content.querySelectorAll("[data-nocms-path]")).toHaveLength(0);
   });
+
+  test("tags a standalone object prop's card so it is selectable as a unit", () => {
+    const CtaSchema = v.object({
+      cta: v.object({ label: v.string(), href: v.string() }),
+    });
+    type CtaProps = { cta: { label: string; href: string } };
+    function Banner({ cta }: CtaProps) {
+      return h(
+        "section",
+        null,
+        h("div", { class: "cta" }, h("span", null, cta.label), h("em", null, cta.href)),
+      );
+    }
+    const doc = parseMdx(`<Banner cta={{"label":"Go","href":"/x"}} />`);
+    const offset = doc.children[0]?.position?.start.offset ?? 0;
+    const content = document.createElement("div");
+    const carrier = document.createElement("span");
+    carrier.setAttribute("data-mdx-pos", String(offset));
+    content.appendChild(carrier);
+    render(h(Banner, { cta: { label: "Go", href: "/x" } }), carrier);
+    anchorComponents(content, doc, {
+      Banner: block(Banner as never, { schema: CtaSchema }),
+    });
+
+    // The object's two leaves are tagged, and their common-ancestor card carries the object path.
+    const card = content.querySelector('[data-nocms-object="cta"]');
+    expect(card?.classList.contains("cta")).toBe(true);
+    expect(card?.querySelector('[data-nocms-path="cta.label"]')?.textContent).toBe(
+      "Go",
+    );
+  });
 });
