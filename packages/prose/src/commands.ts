@@ -1,5 +1,5 @@
 import { lift, setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
-import { wrapInList } from "prosemirror-schema-list";
+import { liftListItem, wrapInList } from "prosemirror-schema-list";
 import type { Command, EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { proseSchema } from "./schema.js";
@@ -72,24 +72,38 @@ function markTaskItems(view: EditorView): void {
   if (changed) view.dispatch(tr);
 }
 
-/** Apply a block kind to the live editor selection. Re-applying the active list/quote lifts back out
- *  (a toggle); headings and paragraph set the textblock type directly. */
+/** Lift the selection out of every list/blockquote wrapper and reset it to a plain paragraph — the
+ *  clean base every target is built from, so converting a list straight to a heading or quote works
+ *  (a list item can't directly hold a heading, and a quote can't wrap a list item). */
+function normalizeToParagraph(view: EditorView): void {
+  // Each successful command dispatches and updates view.state, so the loop re-reads fresh state.
+  while (
+    liftListItem(N.listItem)(view.state, view.dispatch) ||
+    lift(view.state, view.dispatch)
+  ) {
+    /* keep lifting until at the top level */
+  }
+  setBlockType(N.paragraph)(view.state, view.dispatch);
+}
+
+/** Apply a block kind to the live editor selection. Re-applying the active list/quote toggles back to
+ *  a paragraph; otherwise the selection is normalised to a paragraph and rebuilt in the target shape. */
 export function setProseBlock(view: EditorView, name: ProseBlockName): void {
   const current = currentProseBlock(view.state);
   const run = (cmd: Command) => cmd(view.state, view.dispatch);
 
-  // toggle off → back to a plain paragraph
-  if (name === current && (name === "quote" || isList(name))) {
-    setBlockType(N.paragraph)(view.state, view.dispatch);
-    lift(view.state, view.dispatch);
+  // toggle off, or "make paragraph" → just normalise out of any list/quote
+  if (
+    name === "paragraph" ||
+    (name === current && (name === "quote" || isList(name)))
+  ) {
+    normalizeToParagraph(view);
     view.focus();
     return;
   }
 
+  normalizeToParagraph(view);
   switch (name) {
-    case "paragraph":
-      run(setBlockType(N.paragraph));
-      break;
     case "h1":
     case "h2":
     case "h3":

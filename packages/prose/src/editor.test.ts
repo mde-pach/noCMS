@@ -3,6 +3,7 @@ import type { Paragraph, PhrasingContent, RootContent } from "mdast";
 import { toggleMark } from "prosemirror-commands";
 import { TextSelection } from "prosemirror-state";
 import { afterEach, describe, expect, it } from "vitest";
+import { currentProseBlock, setProseBlock } from "./commands.js";
 import { mountProseEditor } from "./editor.js";
 import { proseSchema } from "./schema.js";
 import { requireMark } from "./transform.js";
@@ -168,6 +169,59 @@ describe("mountProseEditor", () => {
     typeInto(view, "# ");
     const blocks = changes.at(-1) ?? [];
     expect(blocks[0]).toMatchObject({ type: "heading", depth: 1 });
+  });
+});
+
+describe("setProseBlock on the live editor", () => {
+  it("turns a paragraph into a heading, and back (toggle to paragraph)", () => {
+    const { handle } = mount([text("title")]);
+    const { view } = handle;
+    setProseBlock(view, "h2");
+    expect(currentProseBlock(view.state)).toBe("h2");
+    expect(view.dom.querySelector("h2")).not.toBeNull();
+    setProseBlock(view, "paragraph");
+    expect(currentProseBlock(view.state)).toBe("paragraph");
+  });
+
+  it("wraps into a list, then converts straight to a quote (list → quote)", () => {
+    const { handle } = mount([text("line")]);
+    const { view } = handle;
+    setProseBlock(view, "bulleted");
+    expect(currentProseBlock(view.state)).toBe("bulleted");
+    expect(view.dom.querySelector("ul")).not.toBeNull();
+    // The fix: converting away from a list normalises out of it first, so no <ul> lingers.
+    setProseBlock(view, "quote");
+    expect(currentProseBlock(view.state)).toBe("quote");
+    expect(view.dom.querySelector("ul")).toBeNull();
+    expect(view.dom.querySelector("blockquote")).not.toBeNull();
+  });
+
+  it("switches one list type to another", () => {
+    const { handle } = mount([text("item")]);
+    const { view } = handle;
+    setProseBlock(view, "bulleted");
+    setProseBlock(view, "numbered");
+    expect(currentProseBlock(view.state)).toBe("numbered");
+    expect(view.dom.querySelector("ol")).not.toBeNull();
+    expect(view.dom.querySelector("ul")).toBeNull();
+  });
+
+  it("makes a task list whose items carry checkboxes", () => {
+    const { handle, changes } = mount([text("todo")]);
+    const { view } = handle;
+    setProseBlock(view, "todo");
+    expect(currentProseBlock(view.state)).toBe("todo");
+    const list = changes.at(-1)?.[0] as { children?: { checked?: boolean }[] };
+    expect(list.children?.[0]?.checked).toBe(false);
+  });
+
+  it("toggles a list off back to a paragraph", () => {
+    const { handle } = mount([text("x")]);
+    const { view } = handle;
+    setProseBlock(view, "bulleted");
+    setProseBlock(view, "bulleted");
+    expect(currentProseBlock(view.state)).toBe("paragraph");
+    expect(view.dom.querySelector("ul")).toBeNull();
   });
 });
 
