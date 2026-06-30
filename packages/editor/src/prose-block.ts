@@ -31,7 +31,13 @@ export type BlockKind =
   | "h6"
   | "bulleted"
   | "numbered"
+  | "todo"
   | "quote";
+
+/** True when a list is a GFM task list — its items carry checkboxes (`checked` set, not null). */
+function isTaskList(list: List): boolean {
+  return list.children.some((item) => item.checked === true || item.checked === false);
+}
 
 /** The block kind of a node, or `undefined` when it isn't a formattable prose block (a component,
  *  a thematic break, …). */
@@ -40,7 +46,11 @@ export function blockKindOf(node: Nodes | undefined): BlockKind | undefined {
   if (node.type === "paragraph") return "paragraph";
   if (node.type === "heading") return `h${(node as Heading).depth}` as BlockKind;
   if (node.type === "blockquote") return "quote";
-  if (node.type === "list") return (node as List).ordered ? "numbered" : "bulleted";
+  if (node.type === "list") {
+    const list = node as List;
+    if (isTaskList(list)) return "todo";
+    return list.ordered ? "numbered" : "bulleted";
+  }
   return undefined;
 }
 
@@ -84,12 +94,15 @@ function build(target: BlockKind, groups: PhrasingContent[][]): BlockContent[] {
     const quote: Blockquote = { type: "blockquote", children: paragraphsFrom(groups) };
     return [quote];
   }
+  const todo = target === "todo";
   const list: List = {
     type: "list",
     ordered: target === "numbered",
     children: groups.map(
       (children): ListItem => ({
         type: "listItem",
+        // A task list item carries an (unchecked) checkbox; GFM serialises it as `- [ ]`.
+        ...(todo ? { checked: false } : {}),
         children: [{ type: "paragraph", children }],
       }),
     ),

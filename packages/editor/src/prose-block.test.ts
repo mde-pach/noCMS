@@ -41,6 +41,15 @@ describe("setBlock", () => {
     expect(reformat("A wise thing.\n", "quote")).toBe("> A wise thing.");
   });
 
+  test("paragraph → task list emits an unchecked GFM checkbox", () => {
+    expect(reformat("Do this.\n", "todo")).toBe("* [ ] Do this.");
+  });
+
+  test("a task list is recognised as the 'todo' kind, and reverts to a plain list", () => {
+    expect(blockKindOf(parseMdx("- [ ] todo\n").children[0])).toBe("todo");
+    expect(reformat("- [x] done\n", "bulleted")).toBe("* done");
+  });
+
   test("a multi-item list → paragraph keeps every item's text (one paragraph each)", () => {
     expect(reformat("- one\n- two\n", "paragraph")).toBe("one\n\ntwo");
   });

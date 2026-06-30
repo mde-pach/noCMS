@@ -15,6 +15,8 @@ import {
   LinkIcon,
   NumberedListIcon,
   QuoteIcon,
+  StrikethroughIcon,
+  TaskListIcon,
 } from "./icons.js";
 import type { BlockKind } from "./prose-block.js";
 
@@ -40,12 +42,14 @@ const BLOCKS: BlockOption[] = [
     icon: <NumberedListIcon />,
     toggles: true,
   },
+  { kind: "todo", label: "Task list", icon: <TaskListIcon />, toggles: true },
   { kind: "quote", label: "Quote", icon: <QuoteIcon />, toggles: true },
 ];
 
 const MARKS: { name: ProseMarkName; label: string; icon: VNode }[] = [
   { name: "strong", label: "Bold", icon: <BoldIcon /> },
   { name: "em", label: "Italic", icon: <ItalicIcon /> },
+  { name: "strikethrough", label: "Strikethrough", icon: <StrikethroughIcon /> },
   { name: "code", label: "Code", icon: <CodeIcon /> },
   { name: "link", label: "Link", icon: <LinkIcon /> },
 ];
@@ -60,6 +64,7 @@ const KIND_LABEL: Record<BlockKind, string> = {
   h6: "HEADING 6",
   bulleted: "BULLETED LIST",
   numbered: "NUMBERED LIST",
+  todo: "TASK LIST",
   quote: "QUOTE",
 };
 

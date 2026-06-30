@@ -4,14 +4,18 @@
 
 import type { Root } from "mdast";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 
+// remark-gfm is on both ends so the GFM the prose tools write — strikethrough (`~~`), task lists,
+// tables — parses into mdast and serializes back canonically, matching what the renderer paints.
 const processor = unified()
   .use(remarkParse)
   .use(remarkFrontmatter)
+  .use(remarkGfm)
   .use(remarkMdx)
   .use(remarkStringify);
 

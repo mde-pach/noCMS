@@ -3,6 +3,7 @@ import { type ComponentType, h, type VNode } from "preact";
 import * as jsxRuntime from "preact/jsx-runtime";
 import { renderToString } from "preact-render-to-string";
 import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
 
 export type ComponentMap = Record<string, ComponentType<Record<string, unknown>>>;
 
@@ -17,12 +18,14 @@ type MDXContent = ComponentType<
 >;
 
 // remark-frontmatter keeps leading `---` blocks from rendering as content (collection `data`
-// arrives separately). Built lazily so a consumer importing only the hydration seam tree-shakes
-// the MDX compiler + remark stack out instead of pulling them in via a module-level const.
+// arrives separately); remark-gfm renders the GFM constructs the editor can produce — strikethrough,
+// task lists, tables — so preview and publish match what the prose tools write. Built lazily so a
+// consumer importing only the hydration seam tree-shakes the MDX compiler + remark stack out instead
+// of pulling them in via a module-level const.
 function evaluateOptions(): EvaluateOptions {
   return {
     ...(jsxRuntime as unknown as EvaluateOptions),
-    remarkPlugins: [remarkFrontmatter],
+    remarkPlugins: [remarkFrontmatter, remarkGfm],
   };
 }
 

@@ -4,7 +4,7 @@ import type { EditorView } from "prosemirror-view";
 import { proseSchema } from "./schema.js";
 import { requireMark } from "./transform.js";
 
-export type ProseMarkName = "strong" | "em" | "code" | "link";
+export type ProseMarkName = "strong" | "em" | "strikethrough" | "code" | "link";
 
 export function toggleProseMark(
   view: EditorView,
