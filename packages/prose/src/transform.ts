@@ -1,4 +1,12 @@
-import type { PhrasingContent } from "mdast";
+import type {
+  Blockquote,
+  Heading,
+  List,
+  ListItem,
+  Paragraph,
+  PhrasingContent,
+  RootContent,
+} from "mdast";
 import type {
   Mark,
   MarkType,
@@ -13,19 +21,142 @@ export function requireMark(schema: Schema, name: string): MarkType {
 }
 
 // mdast stays the source of truth: an edit builds a transient PM doc and serializes it back,
-// mutating mdast rather than re-deriving it. This round-trip must be lossless — text, marks,
-// and the inline MDX atoms survive untouched.
+// mutating mdast rather than re-deriving it. This round-trip must be lossless — block structure,
+// text, marks, and the inline/block MDX atoms survive untouched.
 
 /** Detach an mdast node so the PM atom never shares a mutable reference with the host's tree. */
 function cloneNode<T>(node: T): T {
   return structuredClone(node);
 }
 
+// ── Blocks ──────────────────────────────────────────────────────────────────
+// The doc is a sequence of blocks (paragraph/heading/list/blockquote); each maps to its mdast
+// counterpart, and any block the schema doesn't model rides as an `unknownBlock` atom verbatim.
+
+/** Build the editor's block document from a run of mdast blocks. */
+export function mdastToDoc(blocks: RootContent[], schema: Schema): ProseMirrorNode {
+  const children = blocks.map((b) => blockToPM(b, schema));
+  // A doc must hold at least one block; an empty region edits as one empty paragraph.
+  return schema.node(
+    "doc",
+    null,
+    children.length > 0 ? children : [schema.node("paragraph")],
+  );
+}
+
+function blockToPM(node: RootContent, schema: Schema): ProseMirrorNode {
+  switch (node.type) {
+    case "paragraph":
+      return schema.node("paragraph", null, inlineToPM(node.children, schema, []));
+    case "heading":
+      return schema.node(
+        "heading",
+        { level: node.depth },
+        inlineToPM(node.children, schema, []),
+      );
+    case "blockquote":
+      return schema.node(
+        "blockquote",
+        null,
+        node.children.map((c) => blockToPM(c, schema)),
+      );
+    case "list":
+      return schema.node(
+        node.ordered ? "orderedList" : "bulletList",
+        node.ordered ? { start: node.start ?? 1 } : null,
+        node.children.map((item) => listItemToPM(item, schema)),
+      );
+    default:
+      return schema.node("unknownBlock", { node: cloneNode(node) });
+  }
+}
+
+function listItemToPM(item: ListItem, schema: Schema): ProseMirrorNode {
+  const children = item.children.map((c) => blockToPM(c, schema));
+  // A list item must lead with a paragraph (schema `paragraph block*`); a bare nested list with no
+  // leading text gets an empty one so the structure stays valid.
+  if (children[0]?.type.name !== "paragraph") {
+    children.unshift(schema.node("paragraph"));
+  }
+  return schema.node("listItem", { checked: item.checked ?? null }, children);
+}
+
+/** Serialize the editor's block document back to mdast block nodes. */
+export function docToMdast(doc: ProseMirrorNode): RootContent[] {
+  const out: RootContent[] = [];
+  doc.forEach((child) => {
+    out.push(pmBlockToMdast(child));
+  });
+  return out;
+}
+
+function pmBlockToMdast(node: ProseMirrorNode): RootContent {
+  switch (node.type.name) {
+    case "paragraph":
+      return { type: "paragraph", children: inlineFromNode(node) } satisfies Paragraph;
+    case "heading":
+      return {
+        type: "heading",
+        depth: node.attrs.level as Heading["depth"],
+        children: inlineFromNode(node),
+      } satisfies Heading;
+    case "blockquote":
+      return {
+        type: "blockquote",
+        children: blockChildren(node) as Blockquote["children"],
+      } satisfies Blockquote;
+    case "bulletList":
+      return {
+        type: "list",
+        ordered: false,
+        spread: false,
+        children: listItems(node),
+      } satisfies List;
+    case "orderedList":
+      return {
+        type: "list",
+        ordered: true,
+        start: node.attrs.start as number,
+        spread: false,
+        children: listItems(node),
+      } satisfies List;
+    case "unknownBlock":
+      return cloneNode(node.attrs.node as RootContent);
+    default:
+      throw new Error(`Unhandled block node in prose doc: ${node.type.name}`);
+  }
+}
+
+function blockChildren(node: ProseMirrorNode): RootContent[] {
+  const out: RootContent[] = [];
+  node.forEach((child) => {
+    out.push(pmBlockToMdast(child));
+  });
+  return out;
+}
+
+function listItems(node: ProseMirrorNode): ListItem[] {
+  const items: ListItem[] = [];
+  node.forEach((li) => {
+    const checked = li.attrs.checked as boolean | null;
+    items.push({
+      type: "listItem",
+      spread: false,
+      ...(checked === null ? {} : { checked }),
+      children: blockChildren(li) as ListItem["children"],
+    });
+  });
+  return items;
+}
+
+// ── Inline (used inside each block) ───────────────────────────────────────────
+
+/** Compatibility seam: wrap a run of inline content as a one-paragraph document. */
 export function mdastInlineToDoc(
   nodes: PhrasingContent[],
   schema: Schema,
 ): ProseMirrorNode {
-  return schema.node("doc", null, inlineToPM(nodes, schema, []));
+  return mdastToDoc([{ type: "paragraph", children: nodes }], schema);
 }
 
 function inlineToPM(
@@ -118,15 +249,21 @@ interface InlineItem {
 // PM stores a node's marks as an unordered set; re-nest them deterministically in schema order
 // (link ⊃ emphasis ⊃ strong) to match remark's own inline nesting. The `code` mark turns a text
 // leaf into an `inlineCode` node rather than wrapping it (mdast models inline code as a leaf).
-export function docToMdastInline(doc: ProseMirrorNode): PhrasingContent[] {
-  const codeMark = requireMark(doc.type.schema, "code");
+function inlineFromNode(node: ProseMirrorNode): PhrasingContent[] {
+  const codeMark = requireMark(node.type.schema, "code");
   const items: InlineItem[] = [];
-  doc.forEach((child) => {
+  node.forEach((child) => {
     const hasCode = codeMark.isInSet(child.marks) != null;
     const marks = child.marks.filter((m) => m.type !== codeMark);
     items.push({ marks, leaf: leafFor(child, hasCode) });
   });
   return nest(items, 0);
+}
+
+/** Compatibility seam: read the inline content of a one-paragraph document. */
+export function docToMdastInline(doc: ProseMirrorNode): PhrasingContent[] {
+  const first = doc.firstChild;
+  return first ? inlineFromNode(first) : [];
 }
 
 function leafFor(node: ProseMirrorNode, hasCode: boolean): PhrasingContent {

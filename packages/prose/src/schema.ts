@@ -34,14 +34,91 @@ function labelExpression(node: MdxTextExpression): string {
   return `{${node.value}}`;
 }
 
-// Mark declaration order is meaningful: ProseMirror stores a node's marks in schema
-// order, and the serializer nests them in that order (link outermost → strong innermost),
-// which matches remark's own inline nesting (e.g. `***x***` → emphasis ⊃ strong). `code`
-// is last because in mdast it is not a wrapping mark but a leaf (`inlineCode` with a value);
-// the serializer consumes it into the leaf rather than wrapping with it.
+// The editor is block-aware: its document is a sequence of blocks (paragraph, heading, list,
+// blockquote), each holding inline content — so Enter, lists, and headings work natively the way any
+// prose editor does. mdast stays the source of truth; the transform maps this block doc ↔ mdast block
+// nodes losslessly, and an `unknownBlock` atom carries any block the schema doesn't model so nothing
+// is ever dropped.
+//
+// Mark declaration order is meaningful: ProseMirror stores a node's marks in schema order, and the
+// serializer nests them in that order (link outermost → strong innermost), which matches remark's own
+// inline nesting (e.g. `***x***` → emphasis ⊃ strong). `code` is last because in mdast it is not a
+// wrapping mark but a leaf (`inlineCode` with a value); the serializer consumes it into the leaf.
 export const proseSchema = new Schema({
   nodes: {
-    doc: { content: "inline*" },
+    doc: { content: "block+" },
+    paragraph: {
+      group: "block",
+      content: "inline*",
+      parseDOM: [{ tag: "p" }],
+      toDOM: () => ["p", 0],
+    },
+    heading: {
+      group: "block",
+      content: "inline*",
+      attrs: { level: { default: 1 } },
+      defining: true,
+      parseDOM: [1, 2, 3, 4, 5, 6].map((level) => ({
+        tag: `h${level}`,
+        attrs: { level },
+      })),
+      toDOM: (n) => [`h${n.attrs.level}`, 0],
+    },
+    blockquote: {
+      group: "block",
+      content: "block+",
+      defining: true,
+      parseDOM: [{ tag: "blockquote" }],
+      toDOM: () => ["blockquote", 0],
+    },
+    bulletList: {
+      group: "block",
+      content: "listItem+",
+      parseDOM: [{ tag: "ul" }],
+      toDOM: () => ["ul", 0],
+    },
+    orderedList: {
+      group: "block",
+      content: "listItem+",
+      attrs: { start: { default: 1 } },
+      parseDOM: [
+        {
+          tag: "ol",
+          getAttrs: (dom) => ({
+            start: Number((dom as HTMLElement).getAttribute("start")) || 1,
+          }),
+        },
+      ],
+      toDOM: (n) =>
+        n.attrs.start === 1 ? ["ol", 0] : ["ol", { start: n.attrs.start as number }, 0],
+    },
+    listItem: {
+      content: "paragraph block*",
+      // `checked` carries a GFM task-list checkbox (`- [ ]`); null = a plain list item.
+      attrs: { checked: { default: null } },
+      defining: true,
+      parseDOM: [{ tag: "li" }],
+      toDOM: (n) =>
+        n.attrs.checked === null
+          ? ["li", 0]
+          : [
+              "li",
+              { "data-checked": String(n.attrs.checked), class: "nocms-task-item" },
+              0,
+            ],
+    },
+    // Any block mdast the schema doesn't model (a code block, a table, a flow component) carried
+    // verbatim so an edited region round-trips without dropping it.
+    unknownBlock: {
+      group: "block",
+      atom: true,
+      attrs: { node: {} },
+      toDOM: (n) => [
+        "div",
+        { class: "nocms-prose-atom nocms-prose-atom-block", contenteditable: "false" },
+        `[${(n.attrs.node as { type: string }).type}]`,
+      ],
+    },
     text: { group: "inline" },
     break: {
       group: "inline",
