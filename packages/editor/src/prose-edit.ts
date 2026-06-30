@@ -1,17 +1,39 @@
-// The prose widget edits a single block's inline content (a flat `PhrasingContent[]`), so the
-// editable blocks are exactly the ones whose children are phrasing content: paragraphs and
-// headings. Lists, code, and blockquotes are containers of blocks, not prose spans.
+// The prose widget is block-aware: it edits a top-level prose block (paragraph, heading, list, or
+// blockquote) as a small document, so Enter/lists/headings work inside it. The inline variant edits
+// just one inline component's phrasing content (a `<Badge>`), kept to a single line.
 
-import type { Heading, Nodes, Paragraph, PhrasingContent } from "mdast";
+import type {
+  Blockquote,
+  Heading,
+  List,
+  Nodes,
+  Paragraph,
+  PhrasingContent,
+} from "mdast";
 
-export type ProseBlock = Paragraph | Heading;
+/** A top-level prose block the editor opens as a document. */
+export type ProseBlock = Paragraph | Heading | List | Blockquote;
 
-export function isProseEditable(node: Nodes): node is ProseBlock {
-  return node.type === "paragraph" || node.type === "heading";
+const PROSE_BLOCK_TYPES = new Set(["paragraph", "heading", "list", "blockquote"]);
+
+export function isProseBlock(node: Nodes): node is ProseBlock {
+  return PROSE_BLOCK_TYPES.has(node.type);
 }
 
-/** The prose widget edits a flat `PhrasingContent[]` in place — a paragraph/heading's children,
- *  or an inline component's children. This is the structural contract it needs from either. */
+/** Editable as prose when it is a prose block — paragraphs and headings, and now whole lists and
+ *  blockquotes, which the block-aware editor handles natively. */
+export function isProseEditable(node: Nodes): node is ProseBlock {
+  return isProseBlock(node);
+}
+
+/** The shallowest prose block on the path root→leaf — so clicking text inside a list edits the whole
+ *  list (not the inner paragraph), and a stray paragraph edits itself. `undefined` when none. */
+export function outermostProseBlock(path: Nodes[]): ProseBlock | undefined {
+  return path.find(isProseBlock);
+}
+
+/** The inline variant's structural contract: a flat run of phrasing content (an inline component's
+ *  children) the widget edits in place as a single line. */
 export interface ProseHost {
   children: PhrasingContent[];
 }

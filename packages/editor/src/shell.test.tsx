@@ -272,7 +272,8 @@ describe("mountEditor", () => {
     // Edit through the live view (the host's escape hatch); the doc splices live.
     const view = handle.proseView();
     if (!view) throw new Error("no prose view");
-    const end = view.state.doc.content.size;
+    // End of the text, inside the paragraph (−1 steps before the block's closing token).
+    const end = view.state.doc.content.size - 1;
     view.dispatch(view.state.tr.insertText(" Edited!", end, end));
     expect(onChange).toHaveBeenCalled();
     expect(onChange.mock.calls.at(-1)?.[0]).toContain("Edit me here. Edited!");
@@ -344,7 +345,7 @@ describe("mountEditor", () => {
     if (!view) throw new Error("no prose view");
     expect(view.state.doc.textContent).toBe("Row");
 
-    const end = view.state.doc.content.size;
+    const end = view.state.doc.content.size - 1;
     view.dispatch(view.state.tr.insertText("s", end, end));
     expect(onChange.mock.calls.at(-1)?.[0]).toContain("<Tag>Rows</Tag>");
     // The other component is left exactly as authored.

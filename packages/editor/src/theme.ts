@@ -340,6 +340,14 @@ html.nocms-editing .nocms-topbar { transform: translateY(0); }
 .nc-name-tag--grab:active { cursor: grabbing; }
 .nc-name-tag-grip { opacity: 0.7; margin-left: -1px; }
 .nocms-canvas .ProseMirror { white-space: pre-wrap; outline: 2px solid var(--nc-accent); outline-offset: 2px; border-radius: 3px; }
+/* The block editor mounts inside this wrapper where a prose block was; display:contents keeps it out
+   of layout so the editable blocks sit exactly where the block did (no shift on entering edit). */
+.nocms-prose-host { display: contents; }
+/* The editor's own block elements inherit the site's prose styling (same tags), so what you edit
+   matches what publishes; the caret colour is the editor accent. */
+.nocms-canvas .nocms-prose-host .ProseMirror { caret-color: var(--nc-accent); }
+.nocms-canvas .nocms-prose-host .ProseMirror :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote):first-child { margin-top: 0; }
+.nocms-canvas .nocms-prose-host .ProseMirror :where(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote):last-child { margin-bottom: 0; }
 /* Editing a single inline component (a Badge) in place: the editor flows inline inside the
    component's own box rather than breaking to its own block line. */
 .nocms-canvas .nocms-prose-inline .ProseMirror,

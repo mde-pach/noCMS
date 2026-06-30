@@ -19,6 +19,9 @@ export interface ProseEditorOptions {
   blocks: RootContent[];
   /** Fired on every doc-changing edit, with the updated run of blocks. */
   onChange: (blocks: RootContent[]) => void;
+  /** Inline mode: the content stays a single block (an inline component's text — a `<Badge>`), so
+   *  Enter and the list/heading shortcuts that would create structure are disabled. */
+  inline?: boolean;
 }
 
 export interface ProseEditorHandle {
@@ -85,13 +88,34 @@ function editorKeymap() {
   });
 }
 
+const swallow: Command = () => true;
+
+/** Marks + history only — no block structure. Enter is swallowed so an inline component stays one
+ *  line; `<br>` is still reachable with Shift-Enter. */
+function inlineKeymap() {
+  return keymap({
+    "Mod-z": undo,
+    "Mod-y": redo,
+    "Shift-Mod-z": redo,
+    "Mod-b": toggleMark(requireMark(proseSchema, "strong")),
+    "Mod-i": toggleMark(requireMark(proseSchema, "em")),
+    "Shift-Mod-x": toggleMark(requireMark(proseSchema, "strikethrough")),
+    "Mod-`": toggleMark(requireMark(proseSchema, "code")),
+    Enter: swallow,
+    "Shift-Enter": insertHardBreak,
+  });
+}
+
 export function mountProseEditor(
   target: Element,
-  { blocks, onChange }: ProseEditorOptions,
+  { blocks, onChange, inline = false }: ProseEditorOptions,
 ): ProseEditorHandle {
+  const plugins = inline
+    ? [history(), inlineKeymap(), keymap(baseKeymap)]
+    : [history(), markdownInputRules, editorKeymap(), keymap(baseKeymap)];
   const state = EditorState.create({
     doc: mdastToDoc(blocks, proseSchema),
-    plugins: [history(), markdownInputRules, editorKeymap(), keymap(baseKeymap)],
+    plugins,
   });
 
   const view = new EditorView(target, {

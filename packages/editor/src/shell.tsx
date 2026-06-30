@@ -60,7 +60,7 @@ import {
 } from "./position.js";
 import { type BlockKind, blockKindOf, setBlock } from "./prose-block.js";
 import { createProseController } from "./prose-controller.js";
-import { isInlineTextComponent, isProseEditable } from "./prose-edit.js";
+import { isInlineTextComponent, outermostProseBlock } from "./prose-edit.js";
 import { buildSavedComponentDef } from "./save-component-action.js";
 import { selectableNode } from "./selectable.js";
 import { SelectionToolbar } from "./selection-toolbar.js";
@@ -1005,8 +1005,10 @@ export async function mountEditor(options: EditorOptions): Promise<EditorHandle>
       }
     }
 
-    const block = nearestOfType(path, ["paragraph", "heading"]);
-    if (!block || !isProseEditable(block)) return false;
+    // The whole top-level prose block (a paragraph, heading, list, or blockquote) edits as one
+    // document, so clicking inside a list edits the list — not just the inner paragraph.
+    const block = outermostProseBlock(path);
+    if (!block) return false;
     const indexPath = indexPathOf(path, block);
     if (!indexPath) return false;
     const blockOffset = block.position?.start.offset;
