@@ -1,7 +1,12 @@
-import type { PhrasingContent } from "mdast";
+import type { Paragraph, PhrasingContent, RootContent } from "mdast";
 import { describe, expect, it } from "vitest";
 import { proseSchema } from "./schema.js";
-import { docToMdastInline, mdastInlineToDoc } from "./transform.js";
+import {
+  docToMdast,
+  docToMdastInline,
+  mdastInlineToDoc,
+  mdastToDoc,
+} from "./transform.js";
 
 /** Drop `position` (and any undefined-y keys) so round-trips compare on structure alone. */
 function stripPosition<T>(value: T): T {
@@ -179,5 +184,125 @@ describe("mdast inline ↔ ProseMirror round-trip", () => {
 
   it("produces an empty inline list for an empty doc", () => {
     expect(roundTrip([])).toEqual([]);
+  });
+});
+
+function blockRoundTrip(blocks: RootContent[]): RootContent[] {
+  return docToMdast(mdastToDoc(blocks, proseSchema));
+}
+
+function expectBlockRoundTrip(blocks: RootContent[]): void {
+  expect(stripPosition(blockRoundTrip(blocks))).toEqual(stripPosition(blocks));
+}
+
+const para = (...children: PhrasingContent[]): Paragraph => ({
+  type: "paragraph",
+  children,
+});
+
+describe("mdast blocks ↔ ProseMirror round-trip", () => {
+  it("preserves a run of paragraphs (multi-block — Enter makes new paragraphs)", () => {
+    expectBlockRoundTrip([
+      para(text("First.")),
+      para(text("Second.")),
+      para(text("Third.")),
+    ]);
+  });
+
+  it("preserves headings at every level, keeping inline marks", () => {
+    expectBlockRoundTrip([
+      { type: "heading", depth: 1, children: [text("Title")] },
+      {
+        type: "heading",
+        depth: 3,
+        children: [{ type: "strong", children: [text("Sub")] }],
+      },
+    ]);
+  });
+
+  it("preserves a bulleted list with multiple items", () => {
+    expectBlockRoundTrip([
+      {
+        type: "list",
+        ordered: false,
+        spread: false,
+        children: [
+          { type: "listItem", spread: false, children: [para(text("one"))] },
+          { type: "listItem", spread: false, children: [para(text("two"))] },
+        ],
+      },
+    ]);
+  });
+
+  it("preserves an ordered list and its start index", () => {
+    expectBlockRoundTrip([
+      {
+        type: "list",
+        ordered: true,
+        start: 3,
+        spread: false,
+        children: [
+          { type: "listItem", spread: false, children: [para(text("third"))] },
+        ],
+      },
+    ]);
+  });
+
+  it("preserves a GFM task list (checked + unchecked)", () => {
+    expectBlockRoundTrip([
+      {
+        type: "list",
+        ordered: false,
+        spread: false,
+        children: [
+          {
+            type: "listItem",
+            spread: false,
+            checked: false,
+            children: [para(text("todo"))],
+          },
+          {
+            type: "listItem",
+            spread: false,
+            checked: true,
+            children: [para(text("done"))],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("preserves a blockquote wrapping paragraphs", () => {
+    expectBlockRoundTrip([
+      { type: "blockquote", children: [para(text("Quoted line."))] },
+    ]);
+  });
+
+  it("carries an unmodeled block (code block) verbatim through an edit", () => {
+    expectBlockRoundTrip([
+      para(text("before")),
+      { type: "code", lang: "ts", value: "const x = 1" } as unknown as RootContent,
+      para(text("after")),
+    ]);
+  });
+
+  it("round-trips a mixed document of every block kind", () => {
+    expectBlockRoundTrip([
+      { type: "heading", depth: 2, children: [text("Heading")] },
+      para(text("A "), { type: "emphasis", children: [text("paragraph")] }, text(".")),
+      {
+        type: "list",
+        ordered: false,
+        spread: false,
+        children: [{ type: "listItem", spread: false, children: [para(text("item"))] }],
+      },
+      { type: "blockquote", children: [para(text("quote"))] },
+    ]);
+  });
+
+  it("falls back to one empty paragraph for an empty region", () => {
+    expect(stripPosition(blockRoundTrip([]))).toEqual([
+      { type: "paragraph", children: [] },
+    ]);
   });
 });

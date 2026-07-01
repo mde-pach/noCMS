@@ -21,8 +21,15 @@ describe("isProseEditable", () => {
     expect(paragraph && isProseEditable(paragraph)).toBe(true);
   });
 
-  test("containers and components are not edited as prose spans", () => {
-    const doc = parseMdx(`- item\n\n\`\`\`\ncode\n\`\`\`\n\n<Hero title="Hi" />\n`);
+  test("lists and blockquotes are prose-editable too (the block-aware editor handles them)", () => {
+    const doc = parseMdx(`- item\n\n> a quote\n`);
+    const [list, quote] = doc.children;
+    expect(list && isProseEditable(list)).toBe(true);
+    expect(quote && isProseEditable(quote)).toBe(true);
+  });
+
+  test("code blocks and components are not edited as prose", () => {
+    const doc = parseMdx(`\`\`\`\ncode\n\`\`\`\n\n<Hero title="Hi" />\n`);
     for (const node of doc.children) {
       expect(isProseEditable(node)).toBe(false);
     }
