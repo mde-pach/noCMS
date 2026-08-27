@@ -51,7 +51,11 @@ export function createGithubStorage({ token, owner, repo, branch = "main" }) {
           sha: (
             await api(`/repos/${owner}/${repo}/git/blobs`, {
               method: "POST",
-              body: JSON.stringify({ content: f.content, encoding: "utf-8" }),
+              // Images are committed as base64; text as utf-8. Same commit either way.
+              body: JSON.stringify({
+                content: f.content,
+                encoding: f.encoding ?? "utf-8",
+              }),
             })
           ).sha,
         })),

@@ -64,7 +64,12 @@ export const POST: APIRoute = async ({ request }) => {
         for (const f of body.files) {
           const file = resolveSafe(f.path, true);
           await fs.mkdir(path.dirname(file), { recursive: true });
-          await fs.writeFile(file, f.content, "utf-8");
+          // Images arrive base64-encoded; text arrives as-is.
+          if (f.encoding === "base64") {
+            await fs.writeFile(file, Buffer.from(f.content, "base64"));
+          } else {
+            await fs.writeFile(file, f.content, "utf-8");
+          }
         }
         return json({ written: body.files.length });
       }

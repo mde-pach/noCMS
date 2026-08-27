@@ -1,10 +1,11 @@
 ---
-const { eyebrow, title, body, align = 'left' } = Astro.props;
+const { eyebrow, title, body, align = 'left', image, imageAlt } = Astro.props;
 ---
 <section class="hero" data-align={align}>
   {eyebrow && <p class="eyebrow">{eyebrow}</p>}
   <h1 class="title" data-edit="title">{title}</h1>
   {body && <p class="body" data-edit="body">{body}</p>}
+  {image && <img class="shot" src={image} alt={imageAlt ?? ''} loading="lazy" decoding="async" />}
 </section>
 <style>
   .hero { padding: var(--space-5) var(--space-3); max-width: var(--measure); }
@@ -20,4 +21,8 @@ const { eyebrow, title, body, align = 'left' } = Astro.props;
     line-height: 1.05; text-wrap: balance;
   }
   .body { margin: 0; font-size: var(--step-1); color: var(--ink-muted); }
+  .shot {
+    display: block; margin-top: var(--space-3);
+    max-width: 100%; height: auto; border-radius: var(--radius);
+  }
 </style>

@@ -23,6 +23,7 @@ import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
 import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.mjs";
 import { enableDrag } from "./drag.mjs";
+import { prepareImage } from "./images.mjs";
 import { renderTree, sectionCss } from "./render.mjs";
 import {
   consumeRedirect,
@@ -252,6 +253,20 @@ const api = {
     api.listFor(path).splice(path.at(-1), 1);
     state.selected = null;
     await refresh();
+  },
+
+  /**
+   * Images are committed as soon as they are chosen, not held until publish: the
+   * canvas needs a real URL to show, and a half-uploaded image is worse than a slow one.
+   */
+  async addImage(file) {
+    const existing = await state.storage.list("public/media/").catch(() => []);
+    const prepared = await prepareImage(file, existing);
+    await state.storage.write(
+      [{ path: prepared.path, content: prepared.content, encoding: "base64" }],
+      `Add image ${prepared.src}`,
+    );
+    return prepared;
   },
 
   /** Every page the editor may open, newest structure read from storage. */

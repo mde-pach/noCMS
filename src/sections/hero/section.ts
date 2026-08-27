@@ -8,6 +8,8 @@ export const schema = z.object({
     .enum(["left", "center"])
     .default("left")
     .meta({ field: "select", label: "Alignment" }),
+  image: z.string().optional().meta({ field: "image", label: "Image" }),
+  imageAlt: z.string().optional().meta({ field: "text", label: "Image description" }),
 });
 
 export const meta = {

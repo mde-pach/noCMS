@@ -18,6 +18,7 @@ export function createLocalStorage() {
     async list(glob) {
       return (await call({ op: "list", glob })).paths;
     },
+    /** `files` may carry `encoding: "base64"` for binary content such as images. */
     async write(files) {
       await call({ op: "write", files });
       return { local: true };

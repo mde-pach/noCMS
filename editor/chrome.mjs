@@ -277,6 +277,53 @@ function renderList(api, path, propName, itemShape, ui, items, wrap) {
   wrap.append(add);
 }
 
+/**
+ * The owner picks a file. Everything else — resizing, format, filename, stripping the
+ * location data a phone attaches — happens here, because §4.6 says they should not have
+ * to think about any of it.
+ */
+function renderImageField(api, path, propName, value, wrap) {
+  if (value) {
+    const preview = document.createElement("img");
+    preview.src = value;
+    preview.alt = "";
+    preview.style.cssText =
+      "display:block;width:100%;border-radius:6px;border:1px solid var(--e-line);margin-bottom:8px";
+    wrap.append(preview);
+  }
+
+  const status = document.createElement("small");
+  status.style.cssText = "display:block;color:var(--e-muted);margin-bottom:6px";
+  status.textContent = value || "No image yet";
+
+  const picker = document.createElement("input");
+  picker.type = "file";
+  picker.accept = "image/*";
+  picker.style.cssText = "font-size:12px;width:100%";
+  picker.onchange = async () => {
+    const file = picker.files?.[0];
+    if (!file) return;
+    status.textContent = "processing…";
+    try {
+      const result = await api.addImage(file);
+      status.textContent = `${result.src} · ${result.width}×${result.height} · ${Math.round(result.bytes / 1024)} KB`;
+      await api.setProp(path, propName, result.src);
+    } catch (err) {
+      status.textContent = `could not use that file: ${err.message}`;
+    }
+  };
+
+  wrap.append(status, picker);
+
+  if (value) {
+    const clear = document.createElement("button");
+    clear.textContent = "Remove image";
+    clear.style.cssText = "width:100%;margin-top:8px";
+    clear.onclick = () => api.setProp(path, propName, "");
+    wrap.append(clear);
+  }
+}
+
 /** Publishing is deliberate: the owner sees what they are about to change first. */
 function confirmPublish(api, publish) {
   const changes = api.changes();
@@ -449,6 +496,10 @@ function renderPanel(api, path) {
     } else if (ui.field === "richtext") {
       input = document.createElement("textarea");
       input.value = value;
+    } else if (ui.field === "image") {
+      renderImageField(api, path, name, value, wrap);
+      host.append(wrap);
+      continue;
     } else if (ui.field === "list") {
       renderList(api, path, name, listItemShape(zodType) ?? {}, ui, value ?? [], wrap);
       host.append(wrap);
