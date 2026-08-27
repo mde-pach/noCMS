@@ -1,7 +1,8 @@
 /** Creating a page, switching to it, filling it, and confirming it serves at its URL. */
 import fs from "node:fs";
 import { chromium } from "playwright";
-import { startDevServer, stopDevServer } from "../scripts/dev-server.mjs";
+import { startDevServer } from "../scripts/dev-server.mjs";
+import { captureFiles, teardown } from "./_fixture.mjs";
 
 const CHROME = `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell`;
 const PORT = 41768;
@@ -11,6 +12,7 @@ const check = (n, ok, extra = "") =>
   results.push(`${ok ? "PASS" : "FAIL"}  ${n}${extra ? `  — ${extra}` : ""}`);
 
 fs.rmSync("src/pages/about", { recursive: true, force: true });
+const restore = captureFiles([]);
 await startDevServer(PORT);
 const browser = await chromium.launch({ executablePath: CHROME });
 try {
@@ -69,9 +71,7 @@ try {
 } catch (err) {
   check(err.message.slice(0, 140), false);
 } finally {
-  console.log(results.join("\n"));
-  await browser.close();
-  stopDevServer();
-  fs.rmSync("src/pages/about", { recursive: true, force: true });
-  process.exit(results.some((r) => r.startsWith("FAIL")) ? 1 : 0);
+  process.exit(
+    await teardown({ browser, restore, results, alsoRemove: ["src/pages/about"] }),
+  );
 }

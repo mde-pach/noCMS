@@ -1,16 +1,16 @@
 import fs from "node:fs";
 import { chromium } from "playwright";
-import { startDevServer, stopDevServer } from "../scripts/dev-server.mjs";
+import { startDevServer } from "../scripts/dev-server.mjs";
+import { captureFiles, teardown } from "./_fixture.mjs";
 
 const CHROME =
   process.env.HOME +
   "/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const PORT = 41731;
 const PAGE = "src/pages/index.astro";
-const original = fs.readFileSync(PAGE, "utf-8");
 const THEME = "src/styles/theme.css";
-const originalTheme = fs.readFileSync(THEME, "utf-8");
 
+const restore = captureFiles([PAGE, THEME]);
 await startDevServer(PORT);
 
 const browser = await chromium.launch({ executablePath: CHROME });
@@ -315,14 +315,8 @@ try {
 } catch (err) {
   results.push(`FAIL  ${err.message}`);
 } finally {
-  console.log(results.join("\n"));
-  if (errors.length)
-    console.log(
-      `\nconsole errors:\n  ${[...new Set(errors)].slice(0, 5).join("\n  ")}`,
-    );
-  fs.writeFileSync(PAGE, original);
-  fs.writeFileSync(THEME, originalTheme);
-  await browser.close();
-  stopDevServer();
-  process.exit(results.some((r) => r.startsWith("FAIL")) ? 1 : 0);
+  if (errors.length) {
+    results.push(`console errors: ${[...new Set(errors)].slice(0, 3).join(" | ")}`);
+  }
+  process.exit(await teardown({ browser, restore, results }));
 }

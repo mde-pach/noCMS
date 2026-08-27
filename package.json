@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run build:editor && astro dev",
-    "build": "bun run build:editor && astro build && bun run gate",
+    "build": "bun run build:editor && bun run build:site && bun run gate",
     "build:site": "astro build && pagefind --site dist --output-subdir pagefind",
     "build:editor": "bun scripts/build-editor.mjs",
     "gate": "bun scripts/parity-gate.mjs",
