@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="width:900px;max-width:94vw;background:#FFFFFF;border-radius:16px;box-shadow:0 30px 80px rgba(26,25,22,0.32);overflow:hidden;display:flex;flex-direction:column;max-height:86vh;font-family:Inter,system-ui,sans-serif;color:#1A1916;">
+
+  <!-- HEADER -->
+  <div style="padding:22px 26px 18px;border-bottom:1px solid #EFEDE7;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font-family:Lora,serif;font-size:21px;font-weight:600;letter-spacing:-0.01em;">Insert a section</div>
+        <div style="font-size:13px;color:#6B6760;margin-top:3px;">Curated blocks, grouped by what they do.</div>
+      </div>
+      <div style="width:30px;height:30px;border-radius:8px;background:#F4F2ED;display:flex;align-items:center;justify-content:center;cursor:default;">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="#6B6760" stroke-width="1.6"><path d="M3 3l7 7M10 3l-7 7"/></svg>
+      </div>
+    </div>
+
+    <!-- search -->
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid #E0DDD6;border-radius:10px;padding:10px 13px;background:#FBFAF7;">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#A39E94" stroke-width="1.5"><circle cx="6.5" cy="6.5" r="4"/><path d="M9.5 9.5l3 3"/></svg>
+      <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}"><span style="font-size:13.5px;color:#1A1916;">{{ query }}</span><span style="width:1px;height:15px;background:#3D5A98;display:inline-block;animation:none;"></span></sc-if>
+      <sc-if value="{{ noQuery }}" hint-placeholder-val="{{ true }}"><span style="font-size:13.5px;color:#A39E94;">Search sections by name, description, or tag…</span></sc-if>
+      <div style="flex:1;"></div>
+      <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#6B6760;">{{ resultCount }}</span></sc-if>
+    </div>
+
+    <!-- library chips -->
+    <div style="display:flex;align-items:center;gap:8px;margin-top:14px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.06em;color:#A39E94;margin-right:2px;">LIBRARY</span>
+      <span style="font-size:12.5px;font-weight:600;color:#fff;background:#1A1916;padding:5px 13px;border-radius:999px;">All</span>
+      <span style="font-size:12.5px;color:#6B6760;background:#F4F2ED;padding:5px 13px;border-radius:999px;">Core</span>
+      <span style="font-size:12.5px;color:#6B6760;background:#F4F2ED;padding:5px 13px;border-radius:999px;">Studio Pack</span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div style="padding:20px 26px 26px;overflow-y:auto;">
+
+    <!-- BROWSE -->
+    <sc-if value="{{ isBrowse }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">HEADERS &amp; HEROES</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
+          <dc-import name="CatalogCard" kind="hero" cardname="Hero" desc="A bold opening with headline, subtext, and actions." badge="Core" hint-size="100%,228px"></dc-import>
+          <dc-import name="CatalogCard" kind="cta" cardname="CTA banner" desc="A focused call to action on a solid panel." badge="Core" hint-size="100%,228px"></dc-import>
+        </div>
+
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">FEATURES</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
+          <dc-import name="CatalogCard" kind="features" cardname="Feature grid" desc="A responsive grid of features with icons." badge="Core" hint-size="100%,228px"></dc-import>
+        </div>
+
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">SOCIAL PROOF</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
+          <dc-import name="CatalogCard" kind="logos" cardname="Logo cloud" desc="A row of partner or client logos." badge="Core" hint-size="100%,228px"></dc-import>
+          <dc-import name="CatalogCard" kind="testimonial" cardname="Testimonial" desc="A customer quote with attribution." badge="Studio Pack" hover="{{ true }}" hint-size="100%,228px"></dc-import>
+        </div>
+
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">PRICING &amp; PLANS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
+          <dc-import name="CatalogCard" kind="pricing" cardname="Pricing table" desc="Plans laid out side by side." badge="Core" hint-size="100%,228px"></dc-import>
+        </div>
+
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">FORMS &amp; FOOTERS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <dc-import name="CatalogCard" kind="contact" cardname="Contact form" desc="A simple message form." badge="Core" hint-size="100%,228px"></dc-import>
+          <dc-import name="CatalogCard" kind="footer" cardname="Footer" desc="Site links and a closing bar." badge="Core" hint-size="100%,228px"></dc-import>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SEARCH RESULTS -->
+    <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">PRICING &amp; PLANS</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:26px;">
+          <dc-import name="CatalogCard" kind="pricing" cardname="Pricing table" desc="Plans laid out side by side." badge="Core" hover="{{ true }}" hint-size="100%,228px"></dc-import>
+        </div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;color:#A39E94;margin:2px 0 13px;">CONTENT</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <dc-import name="CatalogCard" kind="faq" cardname="Pricing FAQ" desc="Answer the questions buyers ask about plans." badge="Studio Pack" hint-size="100%,228px"></dc-import>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- NO RESULTS -->
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:54px 20px 60px;">
+        <div style="width:54px;height:54px;border-radius:14px;background:#F4F2ED;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B9B4A9" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l4 4"/></svg>
+        </div>
+        <div style="font-family:Lora,serif;font-size:19px;font-weight:600;margin-bottom:7px;">No sections match “{{ query }}”</div>
+        <div style="font-size:13.5px;color:#6B6760;max-width:38ch;margin:0 auto;line-height:1.5;">Try a different term, or browse all sections by category. Looking for something specific? You can add a library.</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:22px;">
+          <span style="font-size:13px;font-weight:600;color:#1A1916;border:1px solid #E0DDD6;padding:9px 16px;border-radius:10px;">Clear search</span>
+          <span style="font-size:13px;font-weight:600;color:#fff;background:#3D5A98;padding:9px 16px;border-radius:10px;">Browse all</span>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:900,&quot;height&quot;:680},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;browse&quot;,&quot;search&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;browse&quot;},&quot;query&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props || {};
+    const mode = p.mode || 'browse';
+    const query = p.query || '';
+    return {
+      mode, query,
+      isBrowse: mode==='browse', isSearch: mode==='search', isEmpty: mode==='empty',
+      hasQuery: mode==='search' || mode==='empty', noQuery: mode==='browse',
+      hasResults: mode==='search',
+      resultCount: mode==='search' ? '2 results' : '',
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -16,6 +16,8 @@
       "!.nocms-build",
       "!spikes",
       "!docs",
+      "!.claude",
+      "!design_handoff_nocms_editor",
       "!**/*.astro"
     ]
   },
