@@ -1,0 +1,11 @@
+---
+import Counter from '../Counter.jsx';
+const { title, body, tint = '#1C6B5A' } = Astro.props;
+const words = title.split(' ').length;
+---
+<section class="hero" style={`--tint:${tint}`}>
+  <h1>{title}</h1>
+  <p>{body}</p>
+  <small>{words} words in the headline</small>
+  <Counter client:load start={3} />
+</section>

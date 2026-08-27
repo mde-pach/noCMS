@@ -1,0 +1,20 @@
+{
+  "name": "nocms-spike-container-in-browser",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:render": "vite build",
+    "build:client": "vite build --config vite.client.config.js",
+    "test:hydrate": "node final.mjs",
+    "test:parity": "node parity.mjs",
+    "bench": "node bench.mjs"
+  },
+  "dependencies": {
+    "astro": "7.2.8", "@astrojs/compiler": "^4.0.0",
+    "@astrojs/react": "*", "@astrojs/vue": "*", "@astrojs/svelte": "*",
+    "react": "*", "react-dom": "*", "vue": "*", "svelte": "*"
+  },
+  "devDependencies": {
+    "vite": "*", "@vitejs/plugin-vue": "*", "@sveltejs/vite-plugin-svelte": "*", "playwright": "*"
+  }
+}

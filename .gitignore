@@ -1,33 +1,6 @@
-# dependencies
-node_modules/
-
-# build output
+public/_nocms/
 dist/
-.vite/
-*.tsbuildinfo
-
-# derived artifacts (② tier) are committed to a dedicated path/branch, not here
-# (see noCMSVISION.md §11/§14) — local scratch only:
-.derive-cache/
-
-# env / secrets (relay only; never in a site repo)
-.env
-.env.local
-.dev.vars
+node_modules/
+.nocms-build/
+.astro/
 apps/relay/.dev.vars
-
-# editor / OS
-.DS_Store
-*.log
-
-# test coverage
-coverage/
-
-# playwright test artifacts
-.playwright-mcp/
-test-results/
-playwright-report/
-
-# local visual-check artifacts
-/*.png
-/.playwright-mcp/

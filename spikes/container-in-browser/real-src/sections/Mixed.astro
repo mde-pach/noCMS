@@ -1,0 +1,12 @@
+---
+import Counter from '../Counter.jsx';
+import VueBox from '../VueBox.vue';
+import SvelteBox from '../SvelteBox.svelte';
+const { title } = Astro.props;
+---
+<section class="mixed">
+  <h2>{title}</h2>
+  <Counter client:load start={1} />
+  <VueBox client:load start={10} />
+  <SvelteBox client:load start={100} />
+</section>

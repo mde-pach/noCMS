@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><title>alternatives</title>
+<style>body{margin:0;font:13px monospace} iframe{width:375px;height:260px;border:1px solid #999;display:block}</style>
+<pre id="out">pending</pre>
+<div id="shadowhost" style="width:375px"></div>
+<div style="position:relative;width:375px">
+  <iframe id="frame"></iframe>
+  <div id="overlay" style="position:absolute;inset:0;background:rgba(0,0,0,.02)"></div>
+</div>
+
+<script type="module">
+const log = [];
+const SECTION = `<style>
+ .hero{min-height:100vh;background:#eee}
+ .cols{display:grid;grid-template-columns:1fr 1fr 1fr}
+ @media (max-width:600px){.cols{grid-template-columns:1fr}}
+</style><section class="hero"><div class="cols"><div id="a">a</div><div id="b">b</div><div id="c">c</div></div></section>`;
+
+/* ---- ALTERNATIVE: Shadow DOM ---- */
+const host = document.getElementById('shadowhost');
+const sr = host.attachShadow({mode:'open'});
+sr.innerHTML = SECTION;
+const sCols = getComputedStyle(sr.querySelector('.cols')).gridTemplateColumns;
+const sHero = Math.round(sr.querySelector('.hero').getBoundingClientRect().height);
+log.push(`SHADOW DOM (375px host)\n  .cols columns : ${sCols}\n  .hero height  : ${sHero}px  (100vh)\n  -> ${sCols.split(' ').length===1 ? 'media query fired' : 'MEDIA QUERY DID NOT FIRE'}; 100vh ${sHero>500?'WRONG (window height)':'ok'}`);
+
+/* ---- IFRAME + parent-owned overlay ---- */
+const f = document.getElementById('frame');
+f.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0">${SECTION}
+<script>window.__hydrated = { count: 0 }; document.body.dataset.alive='1';<\/script></body>`;
+await new Promise(r=>f.addEventListener('load',r,{once:true}));
+
+// 1. hit-testing from the PARENT through the iframe — the drag never crosses the boundary
+const rect = f.getBoundingClientRect();
+const probe = (clientX, clientY) => {
+  const el = f.contentDocument.elementFromPoint(clientX - rect.left, clientY - rect.top + f.contentWindow.scrollY);
+  return el ? (el.id || el.className || el.tagName) : 'null';
+};
+log.push(`\nIFRAME HIT-TESTING FROM PARENT (same-origin)\n  point over 'a' -> ${probe(rect.left+20, rect.top+20)}\n  point mid-hero -> ${probe(rect.left+180, rect.top+120)}\n  -> parent can hit-test iframe DOM directly: ${f.contentDocument ? 'YES' : 'NO'}`);
+
+// 2. DOM patching preserves live island state (vs. rewriting srcdoc)
+f.contentWindow.__hydrated.count = 42;                    // simulate hydrated island state
+const before = f.contentWindow.__hydrated.count;
+// patch only a subtree, do NOT touch srcdoc
+f.contentDocument.getElementById('b').textContent = 'B-EDITED';
+const afterPatch = f.contentWindow.__hydrated?.count;
+// now the naive approach: rewrite srcdoc
+f.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0">${SECTION}</body>`;
+await new Promise(r=>f.addEventListener('load',r,{once:true}));
+const afterRewrite = f.contentWindow.__hydrated?.count;
+
+log.push(`\nUPDATE STRATEGY (island state = ${before})\n  after DOM patch    : ${afterPatch}   ${afterPatch===before?'PRESERVED':'LOST'}\n  after srcdoc rewrite: ${afterRewrite}  ${afterRewrite===before?'PRESERVED':'LOST — full reload, scroll+focus+hydration gone'}`);
+
+document.getElementById('out').textContent = log.join('\n');
+</script>

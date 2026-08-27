@@ -1,0 +1,27 @@
+/* A library's own stylesheet. Its tokens map onto noCMS tokens, so the owner changing
+   --brand moves the library's components too — that is the token bridge working. */
+:root {
+  --primary: var(--brand);
+  --primary-ink: var(--brand-ink);
+}
+.nc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.nc-btn-primary {
+  background: var(--primary);
+  color: var(--primary-ink);
+}
+.nc-btn-ghost {
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+}

@@ -1,34 +1,55 @@
 {
   "name": "nocms",
-  "version": "0.0.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
-  "description": "A decentralized, git-backed CMS — build and manage a real website for free on GitHub, edited in-site, published with one click, with nothing centralized to maintain.",
-  "workspaces": [
-    "packages/*",
-    "apps/*",
-    "templates/*"
-  ],
   "scripts": {
-    "dev": "bun --filter '@nocms/starter' dev",
-    "build": "bun --filter '@nocms/starter' build",
+    "dev": "bun run build:editor && astro dev",
+    "build": "bun run build:editor && bun run build:site && bun run gate",
+    "build:site": "astro build && pagefind --site dist --output-subdir pagefind",
+    "build:editor": "bun scripts/build-editor.mjs",
+    "gate": "bun scripts/parity-gate.mjs",
     "lint": "biome check .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "typecheck": "bun --filter '*' typecheck",
-    "test": "vitest run --passWithNoTests",
-    "test:e2e": "playwright test",
-    "verify": "biome check . && bun run typecheck && bun run test"
+    "test": "bun test tests/ src/lib/auth apps/relay",
+    "test:e2e": "bun tests/editor.e2e.mjs",
+    "verify": "biome check . && bun run typecheck && bun run test && bun run build",
+    "typecheck": "astro check",
+    "test:github": "bun tests/github-storage.mjs",
+    "test:signin": "bun tests/sign-in.e2e.mjs",
+    "relay": "bun --env-file=apps/relay/.dev.vars run apps/relay/src/server.ts",
+    "test:pages": "bun tests/pages.e2e.mjs",
+    "test:all": "bun run test && bun run test:e2e && bun run test:components && bun run test:add && bun run test:pages && bun run test:images && bun run test:layout && bun run test:search && bun run test:signin",
+    "test:components": "bun tests/components.e2e.mjs",
+    "test:images": "bun tests/images.e2e.mjs",
+    "test:search": "bun tests/search.e2e.mjs",
+    "test:layout": "bun tests/layout-parity.e2e.mjs",
+    "test:add": "bun tests/add-and-write.e2e.mjs"
+  },
+  "dependencies": {
+    "@astrojs/react": "^6.0.4",
+    "astro": "7.2.8",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "valibot": "^1.4.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.1.2",
-    "@playwright/test": "^1.61.1",
-    "@types/bun": "^1.2.0",
-    "happy-dom": "^20.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.1.8"
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/compiler": "^4.0.0",
+    "@astrojs/compiler-rs": "*",
+    "@biomejs/biome": "^2.5.1",
+    "@types/bun": "^1.4.0",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "morphdom": "^2.7.7",
+    "pagefind": "^1.5.2",
+    "playwright": "^1.62.1",
+    "typescript": "^6",
+    "vite": "^8.2.2"
   },
+  "license": "MIT",
   "engines": {
     "bun": ">=1.3.0"
   }

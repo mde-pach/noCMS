@@ -1,0 +1,58 @@
+name: Publish site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+
+      - name: Lint and typecheck
+        run: |
+          bunx biome check .
+          bun run typecheck
+
+      - run: bun test tests/
+
+      - name: Build the editor and the site
+        run: |
+          bun run build:editor
+          bun run build:site
+
+      # The parity gate: proves the editor and the published page still agree.
+      # It exists because the container API is experimental and the Astro version is
+      # pinned — a bad bump must fail here rather than ship a wrong-looking site.
+      - name: Parity gate
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run gate
+
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

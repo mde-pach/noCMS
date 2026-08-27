@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { type ExchangeDeps, ExchangeError, exchangeCode, refreshToken } from "./github";
 
 function fakeFetch(response: unknown, status = 200): typeof fetch {
