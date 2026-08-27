@@ -1,0 +1,11 @@
+---
+import Site from '../layouts/Site.astro';
+import Hero from '../sections/hero/index.astro';
+import FeatureGrid from '../sections/feature-grid/index.astro';
+import CallToAction from '../sections/call-to-action/index.astro';
+---
+<Site title="noCMS">
+  <Hero eyebrow="A website you own" title="Build it by clicking it" body="Plain files, free hosting, and no company in the middle." align="center" />
+  <FeatureGrid title="What you get" items={[{ title: "Yours to keep", body: "Plain files in your own repository." }, { title: "No bill", body: "Free hosting, free tooling, no service." }, { title: "Edit visually", body: "Click the thing and change it." }]} />
+  <CallToAction title="Ready to start?" label="Get going" href="/" />
+</Site>

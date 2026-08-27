@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=fileURLToPath(new URL('./dist/',import.meta.url));
+const t={'.html':'text/html','.js':'text/javascript'};
+const s=http.createServer((q,r)=>{const rel=q.url==='/'?'caret.html':q.url.slice(1);const f=path.join(root,rel);
+ if(!fs.existsSync(f)){r.writeHead(404);return r.end('x');}r.writeHead(200,{'Content-Type':t[path.extname(f)]||'text/plain'});fs.createReadStream(f).pipe(r);});
+await new Promise(r=>s.listen(39117,r));
+const b=await chromium.launch({executablePath:process.env.HOME+'/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell'});
+const p=await b.newPage(); const e=[];p.on('pageerror',x=>e.push(x.message));
+await p.goto('http://localhost:39117/caret.html'); await p.waitForTimeout(1800);
+console.log(await p.textContent('#out')); if(e.length)console.log('ERR '+e[0]);
+await b.close(); s.close();

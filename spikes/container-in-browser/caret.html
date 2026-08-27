@@ -1,0 +1,49 @@
+<!doctype html><meta charset="utf-8"><title>caret</title>
+<pre id="out">pending</pre>
+<iframe id="f" style="width:500px;height:180px"></iframe>
+<script src="/morphdom.js"></script>
+<script type="module">
+const log=[];
+const render = (title, n) => `<section class="hero" data-astro-cid-x">
+  <h1 data-edit="title" contenteditable="true">${title}</h1>
+  <p>counter says ${n}</p>
+</section>`;
+
+const f = document.getElementById('f');
+f.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0">${render('Hello',0)}</body>`;
+await new Promise(r=>f.addEventListener('load',r,{once:true}));
+const d = f.contentDocument, w = f.contentWindow;
+
+// put the caret in the middle of the headline, as if the user were typing
+const h1 = d.querySelector('h1');
+h1.focus();
+const sel = w.getSelection(), range = d.createRange();
+range.setStart(h1.firstChild, 3); range.collapse(true);
+sel.removeAllRanges(); sel.addRange(range);
+const before = { offset: sel.getRangeAt(0).startOffset, focused: d.activeElement?.tagName };
+log.push(`caret before morph : offset=${before.offset} focus=${before.focused}`);
+
+// NAIVE, divergent: the re-render produces DIFFERENT text than the DOM holds
+// (e.g. the editor trimmed/normalised it) -- this is the realistic failure case
+morphdom(d.querySelector('section'), render('Hello world',1));
+let s1 = w.getSelection();
+log.push(`after naive morph  : offset=${s1.rangeCount?s1.getRangeAt(0).startOffset:'NO RANGE'} focus=${d.activeElement?.tagName} -> ${s1.rangeCount&&d.activeElement?.tagName==='H1'?'survived':'CARET LOST'}`);
+
+// restore caret for second test
+const h1b=d.querySelector('h1'); h1b.focus();
+const r2=d.createRange(); r2.setStart(h1b.firstChild,3); r2.collapse(true);
+log.push(`h1 text now        : ${JSON.stringify(h1b.textContent)}`);
+w.getSelection().removeAllRanges(); w.getSelection().addRange(r2);
+
+// GUARDED: skip the element that currently holds the caret
+morphdom(d.querySelector('section'), render('Hello world again',2), {
+  onBeforeElUpdated(fromEl){
+    if (fromEl.contains(d.activeElement) && fromEl.hasAttribute('contenteditable')) return false;
+    return true;
+  }
+});
+let s2=w.getSelection();
+log.push(`after guarded morph: offset=${s2.rangeCount?s2.getRangeAt(0).startOffset:'NO RANGE'} focus=${d.activeElement?.tagName} -> ${s2.rangeCount&&s2.getRangeAt(0).startOffset===3?'PRESERVED':'lost'}`);
+log.push(`sibling updated    : ${/counter says 2/.test(d.body.innerHTML)?'yes (p re-rendered)':'no'}`);
+document.getElementById('out').textContent=log.join('\n');
+</script>

@@ -1,0 +1,14 @@
+---
+import Hero from '../src/sections/Hero.astro';
+import Styled from '../src/sections/Styled.astro';
+import Columns from '../src/sections/Columns.astro';
+// a developer's own logic — must survive an editor write untouched
+const year = new Date().getFullYear();
+---
+<Hero title="About us" body="We make things." tint="#1C6B5A" />
+<Styled title="Our story" body="It started in a shed." />
+<Columns count={2}>
+  <Hero slot="left" title="Left" body="one" />
+  <Styled slot="right" title="Right" body="two" />
+</Columns>
+<p>© {year}</p>

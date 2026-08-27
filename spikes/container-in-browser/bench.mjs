@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=fileURLToPath(new URL('./dist/',import.meta.url));
+const types={'.html':'text/html','.js':'text/javascript'};
+const s=http.createServer((q,r)=>{const rel=q.url==='/'?'index.html':decodeURIComponent(q.url.split('?')[0]).replace(/^\//,'');const f=path.join(root,rel);
+ if(!fs.existsSync(f)){r.writeHead(404);return r.end('nope');}r.writeHead(200,{'Content-Type':types[path.extname(f)]||'application/octet-stream'});fs.createReadStream(f).pipe(r);});
+await new Promise(r=>s.listen(39117,r));
+const b=await chromium.launch({executablePath:process.env.HOME+'/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell'});
+const p=await b.newPage(); await p.goto('http://localhost:39117/');
+await p.waitForFunction(()=>!document.getElementById('status').textContent.startsWith('pending'),{timeout:60000});
+console.log('re-render:', await p.textContent('#status'));
+const size = fs.statSync(path.join(root,'astro-spike.js')).size;
+console.log('editor render bundle:', (size/1024).toFixed(0)+' kB raw');
+await b.close(); s.close();

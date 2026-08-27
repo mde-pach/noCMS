@@ -1,0 +1,60 @@
+<!doctype html><meta charset="utf-8"><title>iframe vs same-document</title>
+<style>
+  body{margin:0;font:13px monospace}
+  #wrap{width:375px;border:2px solid #999}      /* the "canvas" is 375px wide */
+  iframe{width:375px;height:300px;border:0;display:block}
+</style>
+<pre id="out">pending</pre>
+
+<!-- A: section rendered straight into the editor's own document, inside a 375px box -->
+<div id="wrap"><div id="samedoc"></div></div>
+
+<!-- B: the same section inside a 375px iframe -->
+<div id="wrap2" style="width:375px;border:2px solid #999"><iframe id="frame"></iframe></div>
+
+<script type="module">
+const SECTION = `
+<style>
+  .hero{min-height:100vh;background:#eee;padding:8px}
+  .bar{position:fixed;top:0;left:0;width:100%;height:20px;background:#333;color:#fff}
+  .cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+  @media (max-width: 600px){ .cols{grid-template-columns:1fr} .hero{background:#cfc} }
+</style>
+<div class="bar">fixed bar</div>
+<section class="hero"><div class="cols"><div>a</div><div>b</div><div>c</div></div></section>`;
+
+// A: same document
+document.getElementById('samedoc').innerHTML = SECTION;
+
+// B: iframe, same-origin via srcdoc
+const f = document.getElementById('frame');
+f.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0">${SECTION}</body>`;
+
+await new Promise(r => f.addEventListener('load', r, {once:true}));
+
+const measure = (doc, win, label) => {
+  const hero = doc.querySelector('.hero');
+  const cols = doc.querySelector('.cols');
+  const bar  = doc.querySelector('.bar');
+  return {
+    label,
+    heroHeight: Math.round(hero.getBoundingClientRect().height),
+    heroBg: getComputedStyle(hero).backgroundColor,
+    colTemplate: getComputedStyle(cols).gridTemplateColumns,
+    barWidth: Math.round(bar.getBoundingClientRect().width),
+    viewportW: win.innerWidth,
+  };
+};
+
+const A = measure(document, window, 'same-document (375px box)');
+const B = measure(f.contentDocument, f.contentWindow, 'iframe (375px)');
+
+const rows = [A,B].map(r =>
+  `${r.label}\n  viewport seen : ${r.viewportW}px\n  .hero height  : ${r.heroHeight}px  (min-height:100vh)\n  .hero bg      : ${r.heroBg}  (green = mobile media query fired)\n  .cols columns : ${r.colTemplate}\n  fixed bar w   : ${r.barWidth}px`
+).join('\n\n');
+
+const verdict = (A.colTemplate===B.colTemplate && A.heroHeight===B.heroHeight && A.barWidth===B.barWidth)
+  ? '\n\n>>> IDENTICAL — iframe would be avoidable'
+  : '\n\n>>> DIVERGE — same-document cannot reproduce the published rendering';
+document.getElementById('out').textContent = rows + verdict;
+</script>

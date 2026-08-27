@@ -1,0 +1,25 @@
+{
+  "name": "nocms",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build-editor.mjs && astro dev",
+    "build": "node scripts/build-editor.mjs && astro build && node scripts/parity-gate.mjs",
+    "build:site": "astro build",
+    "build:editor": "node scripts/build-editor.mjs",
+    "gate": "node scripts/parity-gate.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "node tests/editor.e2e.mjs"
+  },
+  "dependencies": {
+    "astro": "7.2.8",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@astrojs/compiler": "^4.0.0",
+    "@astrojs/compiler-rs": "*",
+    "morphdom": "^2.7.7",
+    "playwright": "^1.62.1",
+    "vite": "^8.2.2"
+  }
+}

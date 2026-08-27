@@ -1,0 +1,23 @@
+import { chromium } from 'playwright';
+import http from 'node:http'; import fs from 'node:fs'; import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=fileURLToPath(new URL('./dist/',import.meta.url));
+const t={'.html':'text/html','.js':'text/javascript'};
+const s=http.createServer((q,r)=>{const rel=q.url==='/'?'index.html':q.url.slice(1);const f=path.join(root,rel);
+ if(!fs.existsSync(f)){r.writeHead(404);return r.end('x');}r.writeHead(200,{'Content-Type':t[path.extname(f)]||'text/plain'});fs.createReadStream(f).pipe(r);});
+await new Promise(r=>s.listen(39117,r));
+const b=await chromium.launch({executablePath:process.env.HOME+'/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell'});
+const p=await b.newPage(); await p.goto('http://localhost:39117/'); await p.waitForTimeout(1500);
+const html=await p.evaluate(()=>window.__html), css=await p.evaluate(()=>window.__css);
+await b.close(); s.close();
+
+const build=fs.readFileSync(new URL('./real/dist/styled/index.html',import.meta.url),'utf-8');
+const bSection=build.match(/<section[\s\S]*?<\/section>/)[0];
+const bCss=build.match(/<style>([\s\S]*?)<\/style>/)[1];
+const sq=x=>x.replace(/>\s+</g,'><').replace(/\s+/g,' ').trim();
+const cssNorm=x=>x.replace(/\s+/g,'').replace(/;}/g,'}').toLowerCase();
+console.log('markup identical :', sq(html)===sq(bSection));
+console.log('scope in browser :', (html.match(/data-astro-cid-\w+/)||[])[0]);
+console.log('scope in build   :', (bSection.match(/data-astro-cid-\w+/)||[])[0]);
+console.log('css rules match  :', cssNorm(css)===cssNorm(bCss), '(build minifies; browser does not)');
+console.log('css selectors    :', JSON.stringify((css.match(/\.[a-z]+\[data-astro-cid-\w+\]/g)||[]).slice(0,3)));

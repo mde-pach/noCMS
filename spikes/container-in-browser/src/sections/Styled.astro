@@ -1,0 +1,12 @@
+---
+const { title, body } = Astro.props;
+---
+<section class="card">
+  <h2 class="title">{title}</h2>
+  <p>{body}</p>
+</section>
+<style>
+  .card { padding: 2rem; background: var(--surface, #eee); border-radius: 8px; }
+  .title { font-size: 1.5rem; color: var(--accent, #1C6B5A); }
+  .card p { opacity: .8; }
+</style>
