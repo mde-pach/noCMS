@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { groupTokens } from "../src/lib/theme.mjs";
+import { emptyReason, fieldsFor } from "./fields.mjs";
 import type { ComponentDef, EditorApi, PropValue } from "./types.ts";
 import {
   Button,
@@ -24,7 +25,7 @@ import {
   Tabs,
   Textarea,
 } from "./ui/index.ts";
-import { enumOptions, listItemShape, uiMeta } from "./zod-ui.mjs";
+import { uiMeta } from "./zod-ui.mjs";
 
 interface FieldUi {
   field?: string;
@@ -297,7 +298,7 @@ function EditPanel({ api }: { api: EditorApi }) {
   if (!node) return <Empty>Nothing selected.</Empty>;
 
   const def = api.componentFor(node.name);
-  const shape = def?.schema?.shape ?? {};
+  const fields = fieldsFor(def, node);
 
   return (
     <>
@@ -309,69 +310,86 @@ function EditPanel({ api }: { api: EditorApi }) {
         </Button>
       </Row>
 
-      {Object.keys(shape).length === 0 ? (
-        <Empty>
-          {def
-            ? `${node.name} has no editable properties. Add a descriptor beside it to give it a panel.`
-            : `${node.name} is not a component the editor can resolve.`}
-        </Empty>
-      ) : null}
+      {fields.length === 0 ? <Empty>{emptyReason(def, node)}</Empty> : null}
 
-      {Object.entries(shape).map(([name, zodType]) => {
-        const prop: PropValue | undefined = node.props[name];
-        const ui = uiMeta(zodType) as FieldUi;
-        // A prop's value is whatever the page holds; each field narrows it itself.
+      {fields.map((field) => {
+        const prop: PropValue | undefined = node.props[field.name];
         const value = (prop?.value ?? "") as never;
-        const label = ui.label ?? name;
 
+        // A prop set in code stays visible but is not editable: dropping down to code
+        // is allowed, being silently blocked is not.
         if (prop?.kind === "code") {
           return (
-            <Field key={name} label={label}>
+            <Field key={field.name} label={field.label}>
               <LockedValue>{`{${prop.source}} — set in code`}</LockedValue>
             </Field>
           );
         }
-        if (ui.field === "image") {
+        if (field.field === "image") {
           return (
-            <Field key={name} label={label}>
-              <ImageField api={api} path={path} name={name} value={value} />
+            <Field key={field.name} label={field.label}>
+              <ImageField api={api} path={path} name={field.name} value={value} />
             </Field>
           );
         }
-        if (ui.field === "list") {
+        if (field.field === "list") {
           return (
-            <Field key={name} label={label}>
+            <Field key={field.name} label={field.label}>
               <ListField
                 api={api}
                 path={path}
-                name={name}
-                itemShape={listItemShape(zodType) ?? {}}
-                ui={ui}
+                name={field.name}
+                itemShape={field.itemShape ?? {}}
+                ui={{ itemLabel: field.itemLabel }}
                 items={value || []}
               />
             </Field>
           );
         }
-        if (ui.field === "select") {
+        if (field.field === "select") {
           return (
-            <Field key={name} label={label}>
+            <Field key={field.name} label={field.label}>
               <Select
                 value={value}
-                options={((enumOptions(zodType) ?? []) as string[]).map((o) => ({
+                options={(field.options ?? []).map((o: string) => ({
                   value: o,
                   label: o,
                 }))}
-                onChange={(e) => api.setProp(path, name, e.target.value)}
+                onChange={(e) => api.setProp(path, field.name, e.target.value)}
               />
             </Field>
           );
         }
-        const Control = ui.field === "richtext" ? Textarea : Input;
+        if (field.field === "toggle") {
+          return (
+            <Field key={field.name} label={field.label}>
+              <Select
+                value={String(value === "" ? false : value)}
+                options={[
+                  { value: "true", label: "Yes" },
+                  { value: "false", label: "No" },
+                ]}
+                onChange={(e) =>
+                  api.setProp(path, field.name, e.target.value === "true")
+                }
+              />
+            </Field>
+          );
+        }
+        const Control = field.field === "richtext" ? Textarea : Input;
         return (
-          <Field key={name} label={label}>
+          <Field key={field.name} label={field.label}>
             <Control
               value={value}
-              onChange={(e) => api.setProp(path, name, e.target.value)}
+              placeholder={field.placeholder}
+              type={field.field === "number" ? "number" : undefined}
+              onChange={(e) =>
+                api.setProp(
+                  path,
+                  field.name,
+                  field.field === "number" ? Number(e.target.value) : e.target.value,
+                )
+              }
             />
           </Field>
         );

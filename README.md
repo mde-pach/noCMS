@@ -78,9 +78,21 @@ Formatting is normalised on first save; sections are never rewritten by the edit
 There is no privileged "section" type. A page is components composed into components;
 what the library panel calls a section is just a component that stands alone on a page.
 Any component the editor can resolve is addressable — selectable, editable, draggable —
-and **a component needs no noCMS metadata to be usable**. A descriptor adds a typed prop
-panel; it never decides whether a component may be used. That is what makes an imported
-library reachable rather than something you first have to describe.
+and **a component needs no noCMS metadata to be usable or to be edited**. Its props are
+read from its own source at build time, so a shadcn `Button` copied into the repo shows
+a `Variant` dropdown carrying its real options and an `Href` field, with nothing written
+for it.
+
+Fields come from three places, in order of authority:
+
+1. a descriptor's Zod schema — the author said exactly what this is
+2. props inferred from the component's own source
+3. props present on this instance — someone wrote it by hand, so it stays editable
+
+A descriptor is therefore an **override**, not the price of admission. Inference reads
+TypeScript prop types (including `keyof typeof VARIANTS`, the shadcn shape) and
+`Astro.props` destructuring; `children`, `className` and `style` are excluded because
+they are composed on the canvas rather than typed into a sidebar.
 
 Where things may go is decided by a three-word vocabulary rather than per-component
 allow-lists, so a new library needs no new rules:

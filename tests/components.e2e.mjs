@@ -81,12 +81,32 @@ try {
     selected,
   );
 
-  // An undescribed component explains itself rather than showing a blank panel.
-  const panelText = await page.textContent("#e-panel");
+  // A component with no descriptor must still be EDITABLE, not merely placeable:
+  // its props are read from its own source.
+  const labels = await page.$$eval("#e-panel .ed-field__name", (e) =>
+    e.map((x) => x.textContent),
+  );
   check(
-    "an undescribed component says why it has no fields",
-    /no editable properties/.test(panelText),
-    panelText.replace(/\s+/g, " ").slice(0, 70),
+    "an undescribed component exposes its own props",
+    labels.length > 0,
+    labels.join(", "),
+  );
+
+  const options = await page.$$eval("#e-panel select option", (o) =>
+    o.map((x) => x.value),
+  );
+  check(
+    "a union prop becomes a real choice, from the component's own type",
+    options.includes("ghost") && options.includes("primary"),
+    options.join("|"),
+  );
+
+  await page.selectOption("#e-panel select", "primary");
+  await page.waitForTimeout(800);
+  check(
+    "editing an inferred prop reaches the canvas",
+    (await frame().$$(".nav .nc-btn-primary")).length === 2,
+    "the ghost button became primary",
   );
 
   // Roles: the nav is a container, the button is inline.
@@ -102,7 +122,7 @@ try {
   // The case that started this: drag a Button into the navbar.
   const navBox = await frame().locator(".nav .actions").boundingBox();
   const before = (await frame().$$(".nav .nc-btn")).length;
-  const source = await frame().locator(".nc-btn-primary").boundingBox();
+  const source = await frame().locator(".nav .nc-btn").last().boundingBox();
   await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
   await page.mouse.down();
   await page.mouse.move(navBox.x + 8, navBox.y + navBox.height / 2, { steps: 10 });

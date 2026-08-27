@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import astroForEditor from "./astro-plugin.mjs";
+import { inferProps } from "./infer-props.mjs";
 import { declaredFrameworks, shimPlugin } from "./renderer-shims.mjs";
 
 /**
@@ -14,6 +15,49 @@ import { declaredFrameworks, shimPlugin } from "./renderer-shims.mjs";
 const ORDER = ["vue", "svelte", "solid", "preact", "react"];
 
 const STYLES_ID = "/@nocms/styles";
+const INFERRED_ID = "/@nocms/inferred";
+
+/**
+ * Props read from each component's own source, at build time so the TypeScript
+ * compiler never reaches the browser. A descriptor overrides these; without one, a
+ * component is still editable rather than merely placeable.
+ */
+function inferredProps(rootDir) {
+  return {
+    name: "nocms-inferred-props",
+    resolveId: (id) => (id === INFERRED_ID ? `\0${INFERRED_ID}` : null),
+    async load(id) {
+      if (id !== `\0${INFERRED_ID}`) return null;
+      const globs = config.default.components ?? [];
+      const out = {};
+      for (const pattern of globs) {
+        const dir = pattern.split("*")[0].replace(/\/$/, "");
+        const files = await collectFiles(new URL(dir, `file://${rootDir}`));
+        for (const file of files) {
+          if (!/\.(astro|tsx|jsx)$/.test(file) || /\.nocms\.ts$/.test(file)) continue;
+          const source = await readFile(file, "utf-8");
+          const id = file.replace(/.*\/([^/]+)\.[^.]+$/, "$1");
+          out[id] = inferProps(source, file);
+        }
+      }
+      return `export const inferred = ${JSON.stringify(out)};`;
+    },
+  };
+}
+
+async function collectFiles(dirUrl) {
+  const { readdir } = await import("node:fs/promises");
+  const dir = fileURLToPath(dirUrl);
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  const out = [];
+  for (const entry of entries) {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory())
+      out.push(...(await collectFiles(new URL(`file://${full}/`))));
+    else out.push(full);
+  }
+  return out;
+}
 
 /**
  * Global stylesheets reach the built page through Astro, but an SSR build strips CSS
@@ -90,7 +134,12 @@ await writeRenderers(frameworks);
 await build({
   root,
   logLevel: "warn",
-  plugins: [astroForEditor({ root }), shimPlugin(frameworks), declaredStyles(root)],
+  plugins: [
+    astroForEditor({ root }),
+    shimPlugin(frameworks),
+    declaredStyles(root),
+    inferredProps(root),
+  ],
   define: { "process.env.NODE_ENV": '"production"' },
   // Component libraries ship .tsx/.jsx; the editor must compile them as the site does.
   esbuild: { jsx: "automatic" },
