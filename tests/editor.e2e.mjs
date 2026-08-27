@@ -8,6 +8,8 @@ const CHROME =
 const PORT = 41731;
 const PAGE = "src/pages/index.astro";
 const original = fs.readFileSync(PAGE, "utf-8");
+const THEME = "src/styles/theme.css";
+const originalTheme = fs.readFileSync(THEME, "utf-8");
 
 await startDevServer(PORT);
 
@@ -137,6 +139,83 @@ try {
   );
   check("publish button enables when dirty", !(await page.isDisabled("#e-save")));
 
+  // --- list field: a real editor, not a summary ---
+  await frame.click(".grid-section .heading");
+  await page.waitForTimeout(500);
+  const items = await page.$$("#e-panel .item");
+  check("list field renders each item", items.length === 3, `${items.length} items`);
+  const itemInputs = await page.$$("#e-panel .item input");
+  check(
+    "list items expose their own fields",
+    itemInputs.length === 6,
+    `${itemInputs.length} inputs`,
+  );
+
+  await page
+    .locator("#e-panel .item")
+    .first()
+    .locator("input")
+    .first()
+    .fill("Renamed feature");
+  await page.waitForTimeout(700);
+  check(
+    "editing a list item reaches the canvas",
+    (await frame.textContent(".grid-section")).includes("Renamed feature"),
+  );
+
+  await page.locator("#e-panel button.add").click();
+  await page.waitForTimeout(700);
+  check("add item grows the list", (await page.$$("#e-panel .item")).length === 4);
+  await page
+    .locator("#e-panel .item")
+    .last()
+    .locator("header button", { hasText: "✕" })
+    .click();
+  await page.waitForTimeout(700);
+  check("remove item shrinks the list", (await page.$$("#e-panel .item")).length === 3);
+
+  // --- theme: a variable write, applied to the whole canvas at once ---
+  await page.click("#e-tab-theme");
+  await page.waitForTimeout(400);
+  const swatches = await page.$$("#e-panel .swatch input[type=color]");
+  check(
+    "theme tab lists colour tokens",
+    swatches.length >= 5,
+    `${swatches.length} colours`,
+  );
+
+  const beforeColour = await frame.evaluate(
+    () => getComputedStyle(document.querySelector(".eyebrow")).color,
+  );
+  await page.locator("#e-panel .swatch input[type=text]").first().fill("#b3123c");
+  await page.waitForTimeout(500);
+  const afterColour = await frame.evaluate(
+    () => getComputedStyle(document.querySelector(".eyebrow")).color,
+  );
+  check(
+    "theme change restyles the canvas instantly",
+    beforeColour !== afterColour,
+    `${beforeColour} -> ${afterColour}`,
+  );
+
+  // --- drag to reorder, inside the canvas ---
+  await page.click("#e-tab-edit");
+  const box = await frame.locator(".cta").boundingBox();
+  const heroBox = await frame.locator(".hero").boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heroBox.x + heroBox.width / 2, heroBox.y + 10, { steps: 12 });
+  await page.mouse.up();
+  await page.waitForTimeout(900);
+  const firstSection = await frame.evaluate(
+    () => document.querySelector("[data-nocms-path]")?.firstElementChild?.className,
+  );
+  check(
+    "drag reorders sections in the canvas",
+    /cta/.test(firstSection ?? ""),
+    `first section is now .${firstSection}`,
+  );
+
   await page.click("#e-save");
   // Local saves touch the working tree, so the dev server may reload the editor.
   await page.waitForTimeout(2500);
@@ -195,6 +274,7 @@ try {
       `\nconsole errors:\n  ${[...new Set(errors)].slice(0, 5).join("\n  ")}`,
     );
   fs.writeFileSync(PAGE, original);
+  fs.writeFileSync(THEME, originalTheme);
   await browser.close();
   stopDevServer();
   process.exit(results.some((r) => r.startsWith("FAIL")) ? 1 : 0);

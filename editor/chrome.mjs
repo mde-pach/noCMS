@@ -1,3 +1,6 @@
+import { groupTokens } from "../src/lib/theme.mjs";
+import { enumOptions, listItemShape, uiMeta } from "./zod-ui.mjs";
+
 /** The editor's own interface. Lives in the parent document, so its styles can never
  *  collide with the site's — that isolation is one of the reasons the canvas is an iframe. */
 
@@ -20,6 +23,21 @@ const CSS = `
   button:focus-visible{outline:2px solid var(--e-accent);outline-offset:2px}
   main{display:grid;grid-template-columns:210px 1fr 290px;overflow:hidden}
   aside{background:var(--e-panel);overflow:auto;padding:14px}
+  .tabs{display:flex;gap:4px;margin-bottom:12px}
+  .tabs button{flex:1;padding:5px;font-size:12px}
+  .tabs button[aria-selected="true"]{background:var(--e-accent);border-color:var(--e-accent);color:#fff}
+  .item{border:1px solid var(--e-line);border-radius:8px;padding:10px;margin-bottom:8px;background:var(--e-bg)}
+  .item header{display:flex;align-items:center;gap:6px;padding:0 0 8px;background:none;border:0}
+  .item header strong{flex:1;font-size:12px;font-weight:600}
+  .item header button{padding:2px 7px;font-size:11px;line-height:1.4}
+  .add{width:100%;margin-top:4px}
+  .swatch{display:flex;gap:8px;align-items:center}
+  .swatch input[type=color]{width:34px;height:30px;padding:2px;flex:none;cursor:pointer}
+  .swatch input[type=text]{flex:1;font:12px ui-monospace,monospace}
+  .group{font:11px ui-monospace,monospace;letter-spacing:.09em;text-transform:uppercase;
+         color:var(--e-muted);margin:14px 0 8px}
+  .group:first-child{margin-top:0}
+  .hint{font-size:12px;color:var(--e-muted);margin:0 0 12px}
   aside.right{border-left:1px solid var(--e-line)}
   aside.left{border-right:1px solid var(--e-line)}
   h2{font:11px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--e-muted);margin:0 0 10px}
@@ -57,7 +75,13 @@ export function mountChrome(api) {
     <main>
       <aside class="left"><h2>Sections</h2><div class="lib" id="e-lib"></div></aside>
       <div class="canvas"><iframe id="nocms-canvas" title="Page preview"></iframe></div>
-      <aside class="right"><h2>Edit</h2><div id="e-panel"><p class="empty">Click something on the page to edit it.</p></div></aside>
+      <aside class="right">
+        <div class="tabs">
+          <button id="e-tab-edit" aria-selected="true">Edit</button>
+          <button id="e-tab-theme" aria-selected="false">Theme</button>
+        </div>
+        <div id="e-panel"><p class="empty">Click something on the page to edit it.</p></div>
+      </aside>
     </main>`;
 
   const $ = (id) => document.getElementById(id);
@@ -104,10 +128,157 @@ export function mountChrome(api) {
     if (e.detail.dirty) $("e-status").textContent = "unsaved changes";
   });
 
-  window.addEventListener("nocms:selected", (e) => renderPanel(api, e.detail.path));
-  window.addEventListener("nocms:tree-changed", () => {
-    if (api.state.selected) renderPanel(api, api.state.selected);
+  let tab = "edit";
+  const setTab = (next) => {
+    tab = next;
+    $("e-tab-edit").setAttribute("aria-selected", String(next === "edit"));
+    $("e-tab-theme").setAttribute("aria-selected", String(next === "theme"));
+    if (next === "theme") renderTheme(api);
+    else if (api.state.selected) renderPanel(api, api.state.selected);
+    else
+      document.getElementById("e-panel").innerHTML =
+        '<p class="empty">Click something on the page to edit it.</p>';
+  };
+  $("e-tab-edit").onclick = () => setTab("edit");
+  $("e-tab-theme").onclick = () => setTab("theme");
+
+  window.addEventListener("nocms:selected", (e) => {
+    if (tab !== "edit") setTab("edit");
+    else renderPanel(api, e.detail.path);
   });
+  window.addEventListener("nocms:tree-changed", () => {
+    if (tab === "edit" && api.state.selected) renderPanel(api, api.state.selected);
+  });
+}
+
+/**
+ * A list prop is an array of objects, so it gets a real editor: each item's own fields,
+ * reorder, remove and add. The item shape comes from the Zod schema, so a section pack
+ * describes its list once and the panel follows.
+ */
+function renderList(api, path, propName, itemShape, ui, items, wrap) {
+  const commit = (next) => {
+    api.setProp(path, propName, next);
+    renderList(api, path, propName, itemShape, ui, next, wrap);
+  };
+
+  for (const el of [...wrap.children].slice(1)) el.remove();
+
+  items.forEach((item, index) => {
+    const box = document.createElement("div");
+    box.className = "item";
+
+    const head = document.createElement("header");
+    const title = document.createElement("strong");
+    title.textContent = item[ui.itemLabel] || `Item ${index + 1}`;
+    head.append(title);
+    for (const [glyph, fn, enabled] of [
+      ["↑", () => move(index, -1), index > 0],
+      ["↓", () => move(index, 1), index < items.length - 1],
+      ["✕", () => commit(items.filter((_, i) => i !== index)), true],
+    ]) {
+      const b = document.createElement("button");
+      b.textContent = glyph;
+      b.disabled = !enabled;
+      b.onclick = fn;
+      head.append(b);
+    }
+    box.append(head);
+
+    for (const [field, fieldType] of Object.entries(itemShape)) {
+      const meta = uiMeta(fieldType);
+      const f = document.createElement("div");
+      f.className = "field";
+      const label = document.createElement("label");
+      label.textContent = meta.label ?? field;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = item[field] ?? "";
+      input.oninput = () => {
+        const next = items.map((it, i) =>
+          i === index ? { ...it, [field]: input.value } : it,
+        );
+        api.setProp(path, propName, next);
+        if (field === ui.itemLabel)
+          title.textContent = input.value || `Item ${index + 1}`;
+      };
+      f.append(label, input);
+      box.append(f);
+    }
+    wrap.append(box);
+  });
+
+  function move(index, delta) {
+    const next = [...items];
+    const [moved] = next.splice(index, 1);
+    next.splice(index + delta, 0, moved);
+    commit(next);
+  }
+
+  const add = document.createElement("button");
+  add.className = "add";
+  add.textContent = "Add item";
+  add.onclick = () => {
+    const blank = Object.fromEntries(Object.keys(itemShape).map((k) => [k, ""]));
+    commit([...items, blank]);
+  };
+  wrap.append(add);
+}
+
+/** Theme editing: the owner changes token VALUES, never rules. */
+function renderTheme(api) {
+  const host = document.getElementById("e-panel");
+  host.innerHTML = "";
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = "Changes apply to every page at once, immediately.";
+  host.append(hint);
+
+  for (const [group, tokens] of groupTokens(api.themeTokens())) {
+    const heading = document.createElement("p");
+    heading.className = "group";
+    heading.textContent = group;
+    host.append(heading);
+
+    for (const token of tokens) {
+      const wrap = document.createElement("div");
+      wrap.className = "field";
+      const label = document.createElement("label");
+      // Show the real token name: --step-1 and --step--1 are different tokens, and
+      // prettifying them into "step 1" makes two rows look identical.
+      label.textContent = token.name;
+      label.style.fontFamily = "ui-monospace, monospace";
+      wrap.append(label);
+
+      if (token.kind === "colour" && /^#[0-9a-f]{6}$/i.test(token.value)) {
+        const row = document.createElement("div");
+        row.className = "swatch";
+        const picker = document.createElement("input");
+        picker.type = "color";
+        picker.value = token.value;
+        const text = document.createElement("input");
+        text.type = "text";
+        text.value = token.value;
+        picker.oninput = () => {
+          text.value = picker.value;
+          api.setToken(token.name, picker.value);
+        };
+        text.oninput = () => {
+          if (/^#[0-9a-f]{6}$/i.test(text.value)) picker.value = text.value;
+          api.setToken(token.name, text.value);
+        };
+        row.append(picker, text);
+        wrap.append(row);
+      } else {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.value = token.value;
+        input.oninput = () => api.setToken(token.name, input.value);
+        wrap.append(input);
+      }
+      host.append(wrap);
+    }
+  }
 }
 
 function renderPanel(api, path) {
@@ -138,7 +309,7 @@ function renderPanel(api, path) {
 
   for (const [name, zodType] of Object.entries(shape)) {
     const prop = node.props[name];
-    const ui = (typeof zodType.meta === "function" ? zodType.meta() : null) ?? {};
+    const ui = uiMeta(zodType);
     // .default()/.optional() wrap the real type, so unwrap before reading options.
     let core = zodType;
     while (core && !core.options && typeof core.unwrap === "function")
@@ -164,7 +335,7 @@ function renderPanel(api, path) {
     let input;
     if (ui.field === "select") {
       input = document.createElement("select");
-      for (const opt of core?.options ?? []) {
+      for (const opt of enumOptions(zodType) ?? []) {
         const o = document.createElement("option");
         o.value = o.textContent = opt;
         input.append(o);
@@ -174,10 +345,7 @@ function renderPanel(api, path) {
       input = document.createElement("textarea");
       input.value = value;
     } else if (ui.field === "list") {
-      const summary = document.createElement("div");
-      summary.className = "empty";
-      summary.textContent = `${(value || []).length} items — edit on the page`;
-      wrap.append(summary);
+      renderList(api, path, name, listItemShape(zodType) ?? {}, ui, value ?? [], wrap);
       host.append(wrap);
       continue;
     } else {

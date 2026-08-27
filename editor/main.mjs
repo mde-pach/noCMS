@@ -12,7 +12,9 @@ import {
   list as listSections,
 } from "../src/lib/registry.mjs";
 import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
+import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.mjs";
+import { enableDrag } from "./drag.mjs";
 import { renderTree, sectionCss } from "./render.mjs";
 
 const state = {
@@ -22,6 +24,9 @@ const state = {
   published: null, // serialized form as last saved, for the diff
   selected: null, // path array
   dirty: false,
+  themePath: "src/styles/theme.css",
+  themeCss: null,
+  publishedTheme: null,
 };
 
 const canvas = () => document.getElementById("nocms-canvas");
@@ -37,7 +42,7 @@ const EDITOR_STYLES = `
 </style>`;
 
 async function mountCanvas() {
-  const theme = await state.storage.read("src/styles/theme.css");
+  const theme = state.themeCss;
   // renderTree produces the page's own document, layout and all — so the canvas
   // literally contains what ships, not a reconstruction of it.
   const rendered = await renderTree(state.page.body, state.page.imports);
@@ -105,6 +110,14 @@ function wireCanvas() {
     select(el.dataset.nocmsPath.split(".").map(Number));
   });
 
+  enableDrag(doc, async (fromPath, toIndex) => {
+    const list = api.listFor(fromPath);
+    const [node] = list.splice(fromPath.at(-1), 1);
+    list.splice(toIndex, 0, node);
+    await refresh();
+    select([...fromPath.slice(0, -1), toIndex]);
+  });
+
   // Inline editing: a section marks its editable text with data-edit="<prop>".
   for (const el of doc.querySelectorAll("[data-edit]")) {
     const holder = el.closest("[data-nocms-path]");
@@ -138,7 +151,9 @@ function select(path) {
 }
 
 function markDirty() {
-  state.dirty = serializePage(state.page) !== state.published;
+  state.dirty =
+    serializePage(state.page) !== state.published ||
+    state.themeCss !== state.publishedTheme;
   window.dispatchEvent(
     new CustomEvent("nocms:dirty", { detail: { dirty: state.dirty } }),
   );
@@ -221,6 +236,21 @@ const api = {
     await refresh();
   },
 
+  /** Tokens for the theme panel, read from the site's own stylesheet. */
+  themeTokens() {
+    return parseTheme(state.themeCss);
+  },
+
+  /**
+   * Re-theming is a variable write, not a re-render: the canvas restyles instantly
+   * and the value is persisted to the stylesheet on publish.
+   */
+  setToken(name, value) {
+    state.themeCss = setToken(state.themeCss, name, value);
+    frameDoc()?.documentElement.style.setProperty(name, value);
+    markDirty();
+  },
+
   /** Plain-language diff: what changed, in the owner's words, not git's. */
   changes() {
     if (!state.dirty) return [];
@@ -230,10 +260,16 @@ const api = {
     ];
   },
 
-  async save(message = "Update page") {
+  async save(message = "Update site") {
     const content = serializePage(state.page);
-    await state.storage.write([{ path: state.pagePath, content }], message);
+    const files = [{ path: state.pagePath, content }];
+    if (state.themeCss !== state.publishedTheme) {
+      files.push({ path: state.themePath, content: state.themeCss });
+    }
+    // One commit for the whole change set, so undoing a publish is one revert.
+    await state.storage.write(files, message);
     state.published = content;
+    state.publishedTheme = state.themeCss;
     markDirty();
     return state.storage.describeTarget();
   },
@@ -246,6 +282,8 @@ async function boot() {
   if (source == null) throw new Error(`cannot read ${state.pagePath}`);
   state.page = await parsePage(source);
   state.published = serializePage(state.page);
+  state.themeCss = (await state.storage.read(state.themePath)) ?? "";
+  state.publishedTheme = state.themeCss;
   mountChrome(api);
   await mountCanvas();
   markDirty();
