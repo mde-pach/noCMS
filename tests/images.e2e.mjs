@@ -46,7 +46,7 @@ try {
 
   await frame().click(".hero .title");
   await page.waitForTimeout(500);
-  const field = page.locator("#e-panel .field", { hasText: "Image" }).first();
+  const field = page.locator("#e-panel .ed-field", { hasText: "Image" }).first();
   check("sections can declare an image field", await field.isVisible());
 
   await field.locator('input[type="file"]').setInputFiles(BIG);

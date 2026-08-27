@@ -24,7 +24,7 @@ import {
 import { roleOf, standsAlone } from "../src/lib/roles.mjs";
 import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
 import { parseTheme, setToken } from "../src/lib/theme.mjs";
-import { mountChrome } from "./chrome.mjs";
+import { mountChrome } from "./chrome.tsx";
 import { enableDrag } from "./drag.mjs";
 import { prepareImage } from "./images.mjs";
 import { nextStep, renderOnboarding } from "./onboarding.mjs";
@@ -471,6 +471,10 @@ async function boot() {
   state.publishedTheme = state.themeCss;
   await api.loadPages();
   mountChrome(api);
+  // React creates the canvas element, so wait for it to exist before writing to it.
+  await new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve)),
+  );
   await mountCanvas();
   markDirty();
   // Exposed so the parity gate can render a page through the real editor bundle.

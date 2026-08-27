@@ -1,0 +1,37 @@
+/*
+ * The editor's own design tokens.
+ *
+ * Deliberately separate from the site's. The chrome lives in the parent document and
+ * the site lives in the canvas iframe, so the owner setting --brand to hot pink turns
+ * their site pink and leaves the editor alone. Same components, different token scope —
+ * which is the token-mapping design demonstrating itself.
+ */
+:root {
+  --ed-bg: #f4f5f3;
+  --ed-panel: #ffffff;
+  --ed-sunk: #eef0ed;
+  --ed-ink: #16201d;
+  --ed-muted: #5c6a66;
+  --ed-line: #dde2df;
+  --ed-accent: #1f6f5e;
+  --ed-accent-ink: #ffffff;
+  --ed-warn: #8e620c;
+  --ed-danger: #b3123c;
+  --ed-radius: 7px;
+  --ed-radius-lg: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ed-bg: #0e1211;
+    --ed-panel: #161b1a;
+    --ed-sunk: #1b2220;
+    --ed-ink: #e7ebe9;
+    --ed-muted: #9aa8a3;
+    --ed-line: #262d2b;
+    --ed-accent: #54c3a6;
+    --ed-accent-ink: #0d1412;
+    --ed-warn: #d8a441;
+    --ed-danger: #ff6b8f;
+  }
+}

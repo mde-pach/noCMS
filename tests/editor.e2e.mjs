@@ -41,7 +41,7 @@ try {
   check("detects local mode", (await page.textContent("#e-mode")).includes("local"));
   // The library offers composed starting points AND raw components from the library
   // directory — a component needs no descriptor to be reachable.
-  const libNames = await page.$$eval("#e-lib button", (b) =>
+  const libNames = await page.$$eval("#e-lib .ed-btn", (b) =>
     b.map((x) => x.textContent.split("\n")[0].trim()),
   );
   check(
@@ -85,11 +85,11 @@ try {
   await page.waitForTimeout(400);
   check(
     "clicking selects a section",
-    (await page.$$("#e-panel .field")).length > 0,
-    `${(await page.$$("#e-panel .field")).length} fields`,
+    (await page.$$("#e-panel .ed-field")).length > 0,
+    `${(await page.$$("#e-panel .ed-field")).length} fields`,
   );
 
-  const labels = await page.$$eval("#e-panel .field label", (els) =>
+  const labels = await page.$$eval("#e-panel .ed-field__label", (els) =>
     els.map((e) => e.textContent),
   );
   check("panel uses zod meta labels", labels.includes("Headline"), labels.join(", "));
@@ -121,7 +121,7 @@ try {
 
   // Target the Headline field specifically, not whichever field happens to be first.
   const headline = page
-    .locator("#e-panel .field", { hasText: "Headline" })
+    .locator("#e-panel .ed-field", { hasText: "Headline" })
     .locator("input");
   await headline.fill("Edited from the panel");
   await page.waitForTimeout(800);
@@ -143,7 +143,7 @@ try {
   check(
     "inline edit updates the tree",
     (await page
-      .locator("#e-panel .field", { hasText: "Headline" })
+      .locator("#e-panel .ed-field", { hasText: "Headline" })
       .locator("input")
       .inputValue()) === "Typed on the page",
   );
@@ -159,9 +159,9 @@ try {
   // --- list field: a real editor, not a summary ---
   await frame.click(".grid-section .heading");
   await page.waitForTimeout(500);
-  const items = await page.$$("#e-panel .item");
+  const items = await page.$$("#e-panel .ed-item");
   check("list field renders each item", items.length === 3, `${items.length} items`);
-  const itemInputs = await page.$$("#e-panel .item input");
+  const itemInputs = await page.$$("#e-panel .ed-item input");
   check(
     "list items expose their own fields",
     itemInputs.length === 6,
@@ -169,7 +169,7 @@ try {
   );
 
   await page
-    .locator("#e-panel .item")
+    .locator("#e-panel .ed-item")
     .first()
     .locator("input")
     .first()
@@ -180,21 +180,24 @@ try {
     (await frame.textContent(".grid-section")).includes("Renamed feature"),
   );
 
-  await page.locator("#e-panel button.add").click();
+  await page.locator("#e-panel .ed-add").click();
   await page.waitForTimeout(700);
-  check("add item grows the list", (await page.$$("#e-panel .item")).length === 4);
+  check("add item grows the list", (await page.$$("#e-panel .ed-item")).length === 4);
   await page
-    .locator("#e-panel .item")
+    .locator("#e-panel .ed-item")
     .last()
-    .locator("header button", { hasText: "✕" })
+    .locator(".ed-item__head .ed-btn--danger")
     .click();
   await page.waitForTimeout(700);
-  check("remove item shrinks the list", (await page.$$("#e-panel .item")).length === 3);
+  check(
+    "remove item shrinks the list",
+    (await page.$$("#e-panel .ed-item")).length === 3,
+  );
 
   // --- theme: a variable write, applied to the whole canvas at once ---
   await page.click("#e-tab-theme");
   await page.waitForTimeout(400);
-  const swatches = await page.$$("#e-panel .swatch input[type=color]");
+  const swatches = await page.$$("#e-panel .ed-swatch input[type=color]");
   check(
     "theme tab lists colour tokens",
     swatches.length >= 5,
@@ -204,7 +207,7 @@ try {
   const beforeColour = await frame.evaluate(
     () => getComputedStyle(document.querySelector(".eyebrow")).color,
   );
-  await page.locator("#e-panel .swatch input[type=text]").first().fill("#b3123c");
+  await page.locator("#e-panel .ed-swatch input[type=text]").first().fill("#b3123c");
   await page.waitForTimeout(500);
   const afterColour = await frame.evaluate(
     () => getComputedStyle(document.querySelector(".eyebrow")).color,
@@ -243,8 +246,8 @@ try {
   // §4.7: publishing is deliberate and describes itself in plain language.
   await page.click("#e-save");
   await page.waitForTimeout(400);
-  check("publishing asks first", await page.isVisible(".sheet"));
-  const described = await page.$$eval(".sheet li", (li) =>
+  check("publishing asks first", await page.isVisible(".ed-sheet"));
+  const described = await page.$$eval(".ed-sheet li", (li) =>
     li.map((x) => x.textContent),
   );
   check(
@@ -254,7 +257,7 @@ try {
   );
   await page.click("#pub-cancel");
   await page.waitForTimeout(200);
-  check("cancelling publishes nothing", !(await page.isVisible(".sheet")));
+  check("cancelling publishes nothing", !(await page.isVisible(".ed-sheet")));
 
   await page.click("#e-save");
   await page.waitForTimeout(300);
@@ -284,7 +287,7 @@ try {
   // Adding a section must also write its import, or the saved page will not build.
   const liveFrame = () => page.frames().find((f) => f !== page.mainFrame());
   const before = (await liveFrame().$$("section")).length;
-  await page.locator("#e-lib button", { hasText: "Call to action" }).click();
+  await page.locator("#e-lib .ed-btn", { hasText: "Call to action" }).click();
   await page.waitForTimeout(1000);
   check(
     "add section renders it",

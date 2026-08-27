@@ -45,7 +45,7 @@ try {
   // Fill it from the section library, then publish.
   await page.selectOption("#e-pages", NEW).catch(() => {});
   await page.waitForTimeout(1200);
-  await page.locator("#e-lib button", { hasText: "Hero" }).click();
+  await page.locator("#e-lib .ed-btn", { hasText: "Hero" }).click();
   await page.waitForTimeout(1000);
   const frame = () => page.frames().find((f) => f !== page.mainFrame());
   check(

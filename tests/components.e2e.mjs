@@ -57,7 +57,7 @@ try {
   // The token bridge: the library themes from noCMS tokens.
   await page.click("#e-tab-theme");
   await page.waitForTimeout(400);
-  await page.locator("#e-panel .swatch input[type=text]").first().fill("#b3123c");
+  await page.locator("#e-panel .ed-swatch input[type=text]").first().fill("#b3123c");
   await page.waitForTimeout(500);
   const themedBg = await frame().evaluate(
     () => getComputedStyle(document.querySelector(".nc-btn-primary")).backgroundColor,
@@ -115,7 +115,7 @@ try {
   );
 
   // Adding a library component from the panel writes its import.
-  await page.locator("#e-lib button", { hasText: "button" }).first().click();
+  await page.locator("#e-lib .ed-btn", { hasText: "button" }).first().click();
   await page.waitForTimeout(900);
   check(
     "a library component can be added from the panel",

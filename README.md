@@ -157,6 +157,22 @@ Getting the compile options wrong is silent and specific — a section scoped
 so every styled section rendered unstyled. `scripts/astro-plugin.mjs` mirrors Astro's own
 call exactly; do not change it casually.
 
+### The editor is built from the same kind of component set
+
+`editor/ui` is the editor's own copy of a shadcn-shaped component set — Button, Field,
+Input, Select, Tabs, Dialog — and the chrome is built from it. That is a forcing
+function: if the editor cannot be built from components of this shape, neither can a
+user's site, and we find out immediately rather than through a bug report.
+
+One rule keeps it honest: **the editor never imports from `src/components`**. If it did,
+deleting a component would break the editor you need in order to fix it — and the editor
+is served from the site it edits, so that failure would be unrecoverable. A test asserts
+it.
+
+The chrome and the canvas are different documents, so they share component *shapes*
+while using different token scopes: the owner setting `--brand` to hot pink turns their
+site pink and leaves the editor alone. A test asserts the chrome reads no site tokens.
+
 ### Search, and what a static host can honestly do
 
 Search is built with Pagefind: the index is produced from the published HTML at build

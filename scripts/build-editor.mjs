@@ -133,8 +133,18 @@ await copyFile(
   ),
   `${out}astro.wasm`,
 );
+// The chrome's own stylesheet. Its tokens are deliberately separate from the site's:
+// the chrome lives in the parent document and the site in the canvas iframe, so
+// re-theming a site cannot restyle the editor.
+const chromeCss = await Promise.all(
+  ["../editor/ui/tokens.css", "../editor/ui/ui.css"].map((file) =>
+    readFile(fileURLToPath(new URL(file, import.meta.url)), "utf-8"),
+  ),
+);
+await writeFile(`${out}editor.css`, chromeCss.join("\n"));
+
 await rm(fileURLToPath(new URL("../.nocms-build", import.meta.url)), {
   recursive: true,
   force: true,
 });
-console.log("editor built -> public/_nocms/editor.js (+ astro.wasm)");
+console.log("editor built -> public/_nocms/editor.js (+ editor.css, astro.wasm)");
