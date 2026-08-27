@@ -93,6 +93,13 @@ A descriptor is therefore an **override**, not the price of admission. Inference
 shape), Astro's `interface Props` — so a union there becomes a real dropdown — and
 `Astro.props` destructuring. `className` and `style` are excluded.
 
+**A component added from the library arrives with visible text**, seeded from its own
+name, and offers a `Text` field immediately. A component that holds nothing but text —
+*including nothing at all*, which is its state the moment it is added — can have that
+text edited. Whether it can hold text is read from the component: `<slot />` in an
+`.astro` file, a `children` prop in a React one; unknown means yes, because being unable
+to write into a component is worse than a field it ignores.
+
 **A component's text is a field.** `<Button>Docs</Button>` gets a `Text` field, and the
 same text is editable in place on the canvas. Text that lives in the page tree is
 editable where it sits, with no marking needed by the component author.

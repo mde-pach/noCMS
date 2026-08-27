@@ -2,7 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
 import astroForEditor from "./astro-plugin.mjs";
-import { inferProps } from "./infer-props.mjs";
+import { acceptsChildren, inferProps } from "./infer-props.mjs";
 import { declaredFrameworks, shimPlugin } from "./renderer-shims.mjs";
 
 /**
@@ -37,7 +37,10 @@ function inferredProps(rootDir) {
           if (!/\.(astro|tsx|jsx)$/.test(file) || /\.nocms\.ts$/.test(file)) continue;
           const source = await readFile(file, "utf-8");
           const id = file.replace(/.*\/([^/]+)\.[^.]+$/, "$1");
-          out[id] = inferProps(source, file);
+          out[id] = {
+            props: inferProps(source, file),
+            acceptsChildren: acceptsChildren(source, file),
+          };
         }
       }
       return `export const inferred = ${JSON.stringify(out)};`;

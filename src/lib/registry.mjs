@@ -122,7 +122,8 @@ function collectLibrary() {
       schema: def.schema,
       // Read from the component's own source. A descriptor overrides these; without
       // one the component is still editable rather than merely placeable.
-      inferred: inferred[id] ?? {},
+      inferred: inferred[id]?.props ?? {},
+      acceptsChildren: inferred[id]?.acceptsChildren ?? true,
       // No descriptor means no declared name or role: the filename, and the safe default.
       meta: { name: def.meta?.name ?? id, category: "Components", ...(def.meta ?? {}) },
     };

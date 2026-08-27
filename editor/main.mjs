@@ -283,14 +283,25 @@ const api = {
     for (const [k, v] of Object.entries(def.meta?.defaults ?? {})) {
       props[k] = { kind: typeof v === "string" ? "text" : "data", value: v };
     }
+    // A component added with no content would appear as nothing at all. Seed it with
+    // its own name so it is visible and immediately editable.
+    const seedText =
+      def.acceptsChildren !== false && !Object.keys(props).length
+        ? (def.meta?.name ?? tag)
+        : def.acceptsChildren !== false
+          ? (def.meta?.name ?? tag)
+          : null;
+    const children = seedText
+      ? [{ kind: "other", type: "text", value: seedText, children: [] }]
+      : [];
     const node = {
       kind: "tag",
       type: "component",
       name: tag,
       isComponent: true,
       props,
-      selfClosing: true,
-      children: [],
+      selfClosing: children.length === 0,
+      children,
     };
 
     // Where a component may go is decided by roles, not by type. A block goes on the

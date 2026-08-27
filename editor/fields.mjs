@@ -17,13 +17,26 @@ const label = (name) =>
     .toLowerCase()
     .replace(/^./, (c) => c.toUpperCase());
 
-/** A component whose children are just text — <Button>Docs</Button>. */
-export function textChild(node) {
+/**
+ * Can this component's text be edited as a field?
+ *
+ * Yes when it holds nothing but text — INCLUDING nothing at all, which is the state a
+ * component is in the moment it is added from the library. Requiring an existing text
+ * child meant a freshly added Button offered no way to give it a label.
+ */
+export function holdsText(def, node) {
   const children = node?.children ?? [];
-  const text = children.filter((c) => c.kind === "other" && c.type === "text");
   const others = children.filter((c) => !(c.kind === "other" && c.type === "text"));
-  if (others.length || text.length !== 1) return null;
-  return text[0];
+  if (others.length) return false;
+  if (children.length) return true; // it already has text to edit
+  return def?.acceptsChildren !== false; // empty, but it can take some
+}
+
+/** The text child itself, when there is one. */
+export function textChild(node) {
+  return (
+    (node?.children ?? []).find((c) => c.kind === "other" && c.type === "text") ?? null
+  );
 }
 
 export function fieldsFor(def, node) {
@@ -31,7 +44,7 @@ export function fieldsFor(def, node) {
   const seen = new Set();
 
   // Its label is the first thing anyone wants to change, so it comes first.
-  if (node?.isComponent && textChild(node)) {
+  if (node?.isComponent && holdsText(def, node)) {
     fields.push({ name: "__text", source: "children", label: "Text", field: "text" });
     seen.add("__text");
   }

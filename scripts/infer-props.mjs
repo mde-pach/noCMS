@@ -239,3 +239,14 @@ export function inferProps(source, filename) {
   if (/\.[jt]sx$/.test(filename)) return inferFromTsx(source, filename);
   return {};
 }
+
+/**
+ * Can this component hold text between its tags? An .astro component says so with
+ * <slot />, a React one by taking `children`. Unknown means yes: being unable to put
+ * text into a component is a worse failure than offering a field it ignores.
+ */
+export function acceptsChildren(source, filename) {
+  if (/\.astro$/.test(filename)) return /<slot\b/.test(source);
+  if (/\.[jt]sx$/.test(filename)) return /\bchildren\b/.test(source);
+  return true;
+}
