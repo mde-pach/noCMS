@@ -14,6 +14,7 @@ export const schema = z.object({
 });
 
 export const meta = {
+  role: "block",
   name: "Feature grid",
   category: "Content",
   description: "A responsive grid of short features.",

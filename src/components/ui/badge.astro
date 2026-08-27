@@ -1,0 +1,4 @@
+---
+const { variant = "solid" } = Astro.props;
+---
+<span class:list={["dz-badge", variant === "outline" && "dz-badge-outline"]}><slot /></span>

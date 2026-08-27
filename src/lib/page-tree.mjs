@@ -80,7 +80,7 @@ function toNode(n) {
       kind: "tag",
       type: n.type,
       name: n.name,
-      isSection: n.type === "component",
+      isComponent: n.type === "component",
       props,
       selfClosing: !(n.children || []).length,
       children: (n.children || []).map(toNode),
@@ -169,13 +169,13 @@ export function serializePage(page) {
   return fm + page.body.map(emit).join("");
 }
 
-/** Only components are sections; plain HTML and text are structure the editor leaves alone. */
-export function sections(nodes) {
+/** Component instances at any depth. Plain HTML and text are structure, left alone. */
+export function components(nodes) {
   const out = [];
   const walk = (list, path) =>
     list.forEach((n, i) => {
       const p = [...path, i];
-      if (n.kind === "tag" && n.isSection) out.push({ node: n, path: p });
+      if (n.kind === "tag" && n.isComponent) out.push({ node: n, path: p });
       if (n.kind === "tag") walk(n.children, p);
     });
   walk(nodes, []);

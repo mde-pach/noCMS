@@ -136,12 +136,28 @@ export function mountChrome(api) {
 
   window.addEventListener("nocms:page-opened", paintPages);
 
+  // Composed starting points and raw library components are both offered. A component
+  // needs no descriptor to appear here — that is what makes an imported library reachable.
   const lib = $("e-lib");
-  for (const section of api.listSections()) {
-    const b = document.createElement("button");
-    b.innerHTML = `${section.meta.name}<small>${section.meta.description ?? ""}</small>`;
-    b.onclick = () => api.addSection(section.id);
-    lib.append(b);
+  const groups = new Map();
+  for (const component of api.listComponents()) {
+    const group = component.meta.category ?? "Components";
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group).push(component);
+  }
+  for (const [group, items] of [...groups].sort(([a], [b]) =>
+    a === "Sections" ? -1 : b === "Sections" ? 1 : a.localeCompare(b),
+  )) {
+    const heading = document.createElement("p");
+    heading.className = "group";
+    heading.textContent = group;
+    lib.append(heading);
+    for (const component of items) {
+      const b = document.createElement("button");
+      b.innerHTML = `${component.meta.name}<small>${component.meta.description ?? ""}</small>`;
+      b.onclick = () => api.addComponent(component.id);
+      lib.append(b);
+    }
   }
 
   // In local mode a save lands in the working tree, which the dev server watches — so

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  components,
   literalValue,
   parsePage,
-  sections,
   serializePage,
 } from "../src/lib/page-tree.mjs";
 
@@ -84,12 +84,12 @@ test("editing a prop changes only that prop", async () => {
   assert.equal(out, src.replace('"Old"', '"New"'));
 });
 
-test("sections() finds components at any depth, not html", async () => {
+test("components() finds component instances at any depth, not html", async () => {
   const page = await parsePage(
     `<div><Hero title="a" /><Columns><Hero title="b" /></Columns></div>\n`,
   );
   assert.deepEqual(
-    sections(page.body).map((s) => s.node.name),
+    components(page.body).map((s) => s.node.name),
     ["Hero", "Columns", "Hero"],
   );
 });

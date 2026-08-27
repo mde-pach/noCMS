@@ -13,6 +13,7 @@ export const schema = z.object({
 });
 
 export const meta = {
+  role: "block",
   name: "Hero",
   category: "Headers",
   description: "A headline and short introduction.",

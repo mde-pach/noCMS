@@ -1,4 +1,5 @@
 import morphdom from "morphdom";
+import { globalCss } from "/@nocms/styles";
 import { describeChanges, describeThemeChanges } from "../src/lib/changes.mjs";
 import {
   ensureImport,
@@ -17,8 +18,10 @@ import {
 import {
   componentFor,
   importPathFor,
-  list as listSections,
+  list as listComponents,
+  tagFor,
 } from "../src/lib/registry.mjs";
+import { roleOf, standsAlone } from "../src/lib/roles.mjs";
 import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
 import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.mjs";
@@ -65,7 +68,12 @@ async function mountCanvas() {
   // renderTree produces the page's own document, layout and all — so the canvas
   // literally contains what ships, not a reconstruction of it.
   const rendered = await renderTree(state.page.body, state.page.imports);
-  const head = `<style>${theme ?? ""}</style><style>${sectionCss()}</style>${EDITOR_STYLES}`;
+  // Declared stylesheets first (a library's own CSS), then the theme the owner edits,
+  // then scoped component styles — the same order the built page resolves them in.
+  const head =
+    `<style data-nocms-global>${globalCss}</style>` +
+    `<style data-nocms-theme>${theme ?? ""}</style>` +
+    `<style>${sectionCss()}</style>${EDITOR_STYLES}`;
   const doc = rendered.includes("</head>")
     ? rendered.replace("</head>", `${head}</head>`)
     : `<!doctype html><html><head>${head}</head><body>${rendered}</body></html>`;
@@ -180,7 +188,7 @@ function markDirty() {
 
 const api = {
   state,
-  listSections,
+  listComponents,
   componentFor: (tag) => componentFor(tag, state.page.imports),
   select,
   refresh,
@@ -196,13 +204,10 @@ const api = {
   },
 
   /** Adding a section also writes its import — a page the editor saves must build. */
-  async addSection(id, at = null) {
+  async addComponent(id, at = null) {
     const def = componentFor(id, state.page.imports);
     if (!def) return;
-    const tag = id
-      .split(/[-_]/)
-      .map((w) => w[0].toUpperCase() + w.slice(1))
-      .join("");
+    const tag = tagFor(id);
     const dir = state.pagePath.replace(/\/[^/]+$/, "");
     ensureImport(state.page, tag, importPathFor(id, dir));
     state.page.imports = parseImports(state.page.frontmatter);
@@ -215,18 +220,36 @@ const api = {
       kind: "tag",
       type: "component",
       name: tag,
-      isSection: true,
+      isComponent: true,
       props,
       selfClosing: true,
       children: [],
     };
 
-    // Sections go inside the layout when the page has one, not beside it.
-    const host =
+    // Where a component may go is decided by roles, not by type. A block goes on the
+    // page; an inline goes into whatever container is selected, or the last one.
+    const layoutHost =
       state.page.body.find(
-        (n) => n.kind === "tag" && n.isSection && n.children.length,
+        (n) => n.kind === "tag" && n.isComponent && n.children.length,
       ) ?? null;
-    const list = host ? host.children : state.page.body;
+    const pageList = layoutHost ? layoutHost.children : state.page.body;
+
+    let list = pageList;
+    if (!standsAlone(def)) {
+      const selected = state.selected ? nodeAt(state.page, state.selected) : null;
+      const container =
+        (selected &&
+        roleOf(componentFor(selected.name, state.page.imports)) === "container"
+          ? selected
+          : null) ??
+        pageList.find(
+          (n) =>
+            n.kind === "tag" &&
+            n.isComponent &&
+            roleOf(componentFor(n.name, state.page.imports)) === "container",
+        );
+      if (container) list = container.children;
+    }
     list.splice(at ?? list.length, 0, node);
     await refresh();
   },
@@ -267,6 +290,11 @@ const api = {
       `Add image ${prepared.src}`,
     );
     return prepared;
+  },
+
+  /** Kept so older callers and tests keep working. */
+  addSection(id, at) {
+    return api.addComponent(id, at);
   },
 
   /** Every page the editor may open, newest structure read from storage. */

@@ -73,12 +73,64 @@ to a section by the page's own `import`, so aliases work exactly as they do in A
 `<p>© {year}</p>` into `<p />`. Everything is modelled, and saving twice changes nothing.
 Formatting is normalised on first save; sections are never rewritten by the editor.
 
-### Any component library
+### Components are the unit
 
-A section is an `.astro` file, so it can embed React, Vue, Svelte, Solid or anything else
-Astro has a renderer for — in the same page, hydrated, at once. Renderers are registered
-from what the installed packs declare (`editor/renderers.mjs`), never hardcoded, so a new
-component library is an install rather than a core change.
+There is no privileged "section" type. A page is components composed into components;
+what the library panel calls a section is just a component that stands alone on a page.
+Any component the editor can resolve is addressable — selectable, editable, draggable —
+and **a component needs no noCMS metadata to be usable**. A descriptor adds a typed prop
+panel; it never decides whether a component may be used. That is what makes an imported
+library reachable rather than something you first have to describe.
+
+Where things may go is decided by a three-word vocabulary rather than per-component
+allow-lists, so a new library needs no new rules:
+
+| role | means | example |
+|---|---|---|
+| `block` | stands alone on a page | Hero, Pricing |
+| `inline` | goes inside things | Button, Badge |
+| `container` | has slots that take others | Nav, Columns |
+
+`inline` is the default, so an undescribed component is droppable into things without
+being assumed to work as a page element.
+
+### Using an external component library
+
+`nocms.config.mjs` is the whole contract. The build already handles libraries — that is
+Astro's job. What this declares is how the **editor** reproduces the same environment,
+so the canvas and the published page cannot disagree:
+
+```js
+export default {
+  renderers: ["react"],                                   // frameworks in use
+  components: ["src/components/**/*.{astro,tsx,vue,svelte}"],
+  styles: ["src/styles/theme.css", "src/styles/app.css"], // reach page AND canvas
+  tokens: { "--primary": "var(--brand)" },                // re-theming reaches the library
+};
+```
+
+Each library fills a different subset, which is the test of whether the contract is
+really library-agnostic:
+
+| | arrives as | framework | fills |
+|---|---|---|---|
+| shadcn | source copied into your repo | React | renderers + styles + tokens |
+| daisyUI | npm Tailwind plugin | **none** | styles + tokens |
+| HyperUI | pasted markup | none | nothing |
+
+Both a React component and a framework-free one are exercised in
+`tests/components.e2e.mjs`, side by side inside the same container, with one token change
+re-theming both.
+
+Two things this had to get right, both of which failed silently first:
+
+- **Global CSS never reaches the editor by accident.** An SSR build strips CSS imports, so
+  a library's stylesheet would be absent from the canvas while the built page looked
+  correct. `styles` inlines it; a missing file fails the build rather than the canvas.
+- **The whole tree renders in one container pass.** Rendering components separately and
+  concatenating the strings loses slot content for framework components — a React
+  component needs `children`, not an HTML string — so `<Button>Docs</Button>` rendered
+  empty in the editor and correct on the site. The parity gate caught it.
 
 ### Why the canvas is an iframe
 

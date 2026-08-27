@@ -7,6 +7,7 @@ export const schema = z.object({
 });
 
 export const meta = {
+  role: "block",
   name: "Call to action",
   category: "Content",
   description: "A closing prompt with a button.",

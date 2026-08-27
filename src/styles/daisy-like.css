@@ -1,0 +1,20 @@
+/* Stands in for a CSS-only library (daisyUI, Bulma, HyperUI). Its own tokens are
+   mapped onto noCMS tokens, so re-theming still reaches it. */
+:root {
+  --dz-accent: var(--brand);
+  --dz-accent-ink: var(--brand-ink);
+}
+.dz-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: var(--step--1);
+  font-weight: 600;
+  background: var(--dz-accent);
+  color: var(--dz-accent-ink);
+}
+.dz-badge-outline {
+  background: transparent;
+  color: var(--dz-accent);
+  box-shadow: inset 0 0 0 1px currentColor;
+}

@@ -39,10 +39,20 @@ try {
 
   check("editor boots", await page.isVisible("#nocms-canvas"));
   check("detects local mode", (await page.textContent("#e-mode")).includes("local"));
+  // The library offers composed starting points AND raw components from the library
+  // directory — a component needs no descriptor to be reachable.
+  const libNames = await page.$$eval("#e-lib button", (b) =>
+    b.map((x) => x.textContent.split("\n")[0].trim()),
+  );
   check(
-    "section library listed",
-    (await page.$$("#e-lib button")).length === 3,
-    `${(await page.$$("#e-lib button")).length} sections`,
+    "library lists composed components",
+    libNames.some((n) => /Hero/.test(n)),
+    libNames.join(", "),
+  );
+  check(
+    "library lists raw components with no descriptor",
+    libNames.some((n) => /button/i.test(n)),
+    "shadcn-shaped Button is reachable",
   );
 
   const frame = page.frames().find((f) => f !== page.mainFrame());
@@ -207,6 +217,11 @@ try {
 
   // --- drag to reorder, inside the canvas ---
   await page.click("#e-tab-edit");
+  const orderBefore = await frame.evaluate(() =>
+    [...document.querySelectorAll("[data-nocms-role='block']")]
+      .map((e) => e.firstElementChild?.className ?? "")
+      .join(","),
+  );
   const box = await frame.locator(".cta").boundingBox();
   const heroBox = await frame.locator(".hero").boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -214,13 +229,15 @@ try {
   await page.mouse.move(heroBox.x + heroBox.width / 2, heroBox.y + 10, { steps: 12 });
   await page.mouse.up();
   await page.waitForTimeout(900);
-  const firstSection = await frame.evaluate(
-    () => document.querySelector("[data-nocms-path]")?.firstElementChild?.className,
+  const orderAfter = await frame.evaluate(() =>
+    [...document.querySelectorAll("[data-nocms-role='block']")]
+      .map((e) => e.firstElementChild?.className ?? "")
+      .join(","),
   );
   check(
-    "drag reorders sections in the canvas",
-    /cta/.test(firstSection ?? ""),
-    `first section is now .${firstSection}`,
+    "drag reorders components in the canvas",
+    orderBefore !== orderAfter,
+    `${orderBefore} -> ${orderAfter}`,
   );
 
   // §4.7: publishing is deliberate and describes itself in plain language.

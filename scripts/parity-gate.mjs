@@ -20,37 +20,32 @@ const CHROME =
     "/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell";
 const PORT = Number(process.env.NOCMS_GATE_PORT ?? 41837);
 
-/** Differences that are deterministic and not semantic. */
-const normalise = (html) =>
-  html
-    .replace(/<div data-nocms-path="[^"]*" style="display:contents">/g, "")
-    .replace(/<\/div>/g, (m, _i, _s) => m) // wrappers are removed above by pairing
-    .replace(/\s+/g, " ")
-    .replace(/>\s+</g, "><")
-    .trim();
+/**
+ * The editor wraps each addressable component in a marker so the overlay can map a DOM
+ * rect back to a node. Those wrappers are display:contents and carry no styling, so
+ * they are stripped before comparing. Matched by attribute, not by exact shape — the
+ * marker has gained attributes before and silently broke this comparison.
+ */
+const WRAPPER_OPEN = /<div\s[^>]*\bdata-nocms-path="[^"]*"[^>]*>/g;
 
-/** Strip the editor's path wrappers without disturbing the section markup. */
 function unwrap(html) {
-  let out = "",
-    _depth = 0,
-    i = 0;
-  const OPEN = /<div data-nocms-path="[^"]*" style="display:contents">/g;
+  let out = "";
+  let i = 0;
   while (i < html.length) {
-    OPEN.lastIndex = i;
-    const m = OPEN.exec(html);
+    WRAPPER_OPEN.lastIndex = i;
+    const m = WRAPPER_OPEN.exec(html);
     if (!m || m.index !== i) {
       out += html[i];
       i++;
       continue;
     }
-    // skip the opening wrapper, then find its matching </div>
     i = m.index + m[0].length;
-    let d = 1,
-      j = i;
-    while (j < html.length && d > 0) {
-      if (html.startsWith("<div", j)) d++;
-      else if (html.startsWith("</div>", j)) d--;
-      if (d === 0) break;
+    let depth = 1;
+    let j = i;
+    while (j < html.length && depth > 0) {
+      if (html.startsWith("<div", j)) depth++;
+      else if (html.startsWith("</div>", j)) depth--;
+      if (depth === 0) break;
       j++;
     }
     out += unwrap(html.slice(i, j));
@@ -58,6 +53,9 @@ function unwrap(html) {
   }
   return out;
 }
+
+/** Differences that are deterministic and not semantic. */
+const normalise = (html) => html.replace(/\s+/g, " ").replace(/>\s+</g, "><").trim();
 
 const pages = [{ route: "/", dist: "dist/index.html" }];
 

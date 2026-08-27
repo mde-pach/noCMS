@@ -10,10 +10,10 @@ const label = (node) => node?.name ?? "section";
 function indexSections(body) {
   const out = [];
   body.forEach((node, i) => {
-    if (node.kind === "tag" && node.isSection) out.push({ node, i });
+    if (node.kind === "tag" && node.isComponent) out.push({ node, i });
     if (node.kind === "tag") {
       node.children?.forEach((child, j) => {
-        if (child.kind === "tag" && child.isSection)
+        if (child.kind === "tag" && child.isComponent)
           out.push({ node: child, i: j, nested: true });
       });
     }
