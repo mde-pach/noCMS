@@ -15,6 +15,9 @@ const CSS = `
   header .mode{font:11px ui-monospace,monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--e-muted);
                border:1px solid var(--e-line);border-radius:99px;padding:3px 10px}
   header .spacer{flex:1}
+  header select{font:inherit;padding:5px 8px;border:1px solid var(--e-line);border-radius:7px;
+                background:var(--e-panel);color:var(--e-ink);max-width:220px}
+  header #e-new-page{padding:5px 10px;line-height:1}
   button{font:inherit;border:1px solid var(--e-line);background:var(--e-panel);color:var(--e-ink);
          border-radius:7px;padding:6px 12px;cursor:pointer}
   button:hover{border-color:var(--e-accent)}
@@ -67,6 +70,8 @@ export function mountChrome(api) {
   document.body.innerHTML = `
     <header>
       <span class="brand">noCMS</span>
+      <select id="e-pages" title="Page"></select>
+      <button id="e-new-page" title="Add a page">+</button>
       <span class="mode" id="e-mode"></span>
       <span class="spacer"></span>
       <span class="mode" id="e-status"></span>
@@ -87,6 +92,40 @@ export function mountChrome(api) {
   const $ = (id) => document.getElementById(id);
   $("e-mode").textContent =
     api.state.storage.mode === "local" ? "local · working tree" : "github";
+
+  const pages = $("e-pages");
+  const paintPages = () => {
+    pages.innerHTML = "";
+    for (const page of api.state.pages) {
+      const o = document.createElement("option");
+      o.value = page.path;
+      o.textContent = page.route;
+      o.selected = page.path === api.state.pagePath;
+      pages.append(o);
+    }
+  };
+  paintPages();
+
+  pages.onchange = async () => {
+    const result = await api.openPage(pages.value);
+    if (result.blocked) {
+      $("e-status").textContent = "publish or discard first";
+      paintPages();
+    } else if (result.error) {
+      $("e-status").textContent = result.error;
+      paintPages();
+    }
+  };
+
+  $("e-new-page").onclick = async () => {
+    const route = prompt("URL for the new page, e.g. /about");
+    if (!route) return;
+    const result = await api.createPage(route);
+    $("e-status").textContent = result.error ?? `created ${result.route}`;
+    if (result.ok) paintPages();
+  };
+
+  window.addEventListener("nocms:page-opened", paintPages);
 
   const lib = $("e-lib");
   for (const section of api.listSections()) {

@@ -17,7 +17,9 @@
     "typecheck": "astro check",
     "test:github": "bun tests/github-storage.mjs",
     "test:signin": "bun tests/sign-in.e2e.mjs",
-    "relay": "bun --env-file=apps/relay/.dev.vars run apps/relay/src/server.ts"
+    "relay": "bun --env-file=apps/relay/.dev.vars run apps/relay/src/server.ts",
+    "test:pages": "bun tests/pages.e2e.mjs",
+    "test:all": "bun run test && bun run test:e2e && bun run test:pages && bun run test:signin"
   },
   "dependencies": {
     "astro": "7.2.8",

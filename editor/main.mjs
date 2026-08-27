@@ -7,6 +7,13 @@ import {
   serializePage,
 } from "../src/lib/page-tree.mjs";
 import {
+  blankPage,
+  listPages,
+  normaliseRoute,
+  pathForRoute,
+  relativePrefix,
+} from "../src/lib/pages.mjs";
+import {
   componentFor,
   importPathFor,
   list as listSections,
@@ -31,6 +38,7 @@ const state = {
   published: null, // serialized form as last saved, for the diff
   selected: null, // path array
   dirty: false,
+  pages: [],
   themePath: "src/styles/theme.css",
   themeCss: null,
   publishedTheme: null,
@@ -243,6 +251,46 @@ const api = {
     await refresh();
   },
 
+  /** Every page the editor may open, newest structure read from storage. */
+  async loadPages() {
+    const paths = await state.storage.list("src/pages/");
+    state.pages = listPages(paths);
+    return state.pages;
+  },
+
+  /** Switching pages discards nothing: unsaved work blocks the move. */
+  async openPage(path) {
+    if (state.dirty) return { blocked: true };
+    const source = await state.storage.read(path);
+    if (source == null) return { error: `cannot read ${path}` };
+    state.pagePath = path;
+    state.page = await parsePage(source);
+    state.published = serializePage(state.page);
+    state.selected = null;
+    await mountCanvas();
+    markDirty();
+    window.dispatchEvent(new CustomEvent("nocms:page-opened", { detail: { path } }));
+    return { ok: true };
+  },
+
+  /** A new page is a layout wrapping nothing; the owner fills it from the library. */
+  async createPage(routeInput, title) {
+    const route = normaliseRoute(routeInput);
+    if (!route) return { error: "That URL is empty." };
+    const path = pathForRoute(route);
+    if (state.pages.some((p) => p.path === path))
+      return { error: `${route} already exists.` };
+
+    const content = blankPage(title || route.replace(/^\//, "")).replace(
+      "../layouts/Site.astro",
+      `${relativePrefix(path)}layouts/Site.astro`,
+    );
+    await state.storage.write([{ path, content }], `Add page ${route}`);
+    await api.loadPages();
+    await api.openPage(path);
+    return { ok: true, route };
+  },
+
   /** Tokens for the theme panel, read from the site's own stylesheet. */
   themeTokens() {
     return parseTheme(state.themeCss);
@@ -333,6 +381,7 @@ async function boot() {
   state.published = serializePage(state.page);
   state.themeCss = (await state.storage.read(state.themePath)) ?? "";
   state.publishedTheme = state.themeCss;
+  await api.loadPages();
   mountChrome(api);
   await mountCanvas();
   markDirty();

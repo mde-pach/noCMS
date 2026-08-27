@@ -27,10 +27,17 @@ export function createGithubStorage({ token, owner, repo, branch = "main" }) {
         return null;
       }
     },
+    /** The git trees API, because the contents API does not recurse. */
     async list(glob) {
       const prefix = glob.split("*")[0].replace(/\/$/, "");
-      const r = await api(`/repos/${owner}/${repo}/contents/${prefix}?ref=${branch}`);
-      return r.filter((e) => e.type === "file").map((e) => e.path);
+      const ref = await api(`/repos/${owner}/${repo}/git/ref/heads/${branch}`);
+      const commit = await api(`/repos/${owner}/${repo}/git/commits/${ref.object.sha}`);
+      const tree = await api(
+        `/repos/${owner}/${repo}/git/trees/${commit.tree.sha}?recursive=1`,
+      );
+      return tree.tree
+        .filter((e) => e.type === "blob" && e.path.startsWith(prefix))
+        .map((e) => e.path);
     },
     /** One commit for the whole change set, so a publish is a single revertable step. */
     async write(files, message = "Update site") {

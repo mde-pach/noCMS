@@ -139,6 +139,13 @@ try {
   );
   check("publish button enables when dirty", !(await page.isDisabled("#e-save")));
 
+  // --- site structure ---
+  const routes = await page.$$eval("#e-pages option", (o) =>
+    o.map((x) => x.textContent),
+  );
+  check("pages are listed by URL", routes.includes("/"), routes.join(", "));
+  check("the editor's own route is not a page", !routes.includes("/edit/"));
+
   // --- list field: a real editor, not a summary ---
   await frame.click(".grid-section .heading");
   await page.waitForTimeout(500);
