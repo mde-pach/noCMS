@@ -1,4 +1,5 @@
 import morphdom from "morphdom";
+import { describeChanges, describeThemeChanges } from "../src/lib/changes.mjs";
 import {
   ensureImport,
   nodeAt,
@@ -36,6 +37,8 @@ const state = {
   pagePath: "src/pages/index.astro",
   page: null, // { frontmatter, body }
   published: null, // serialized form as last saved, for the diff
+  publishedTree: null, // the tree as last saved, for the plain-language diff
+  lastPublish: null, // { sha, files } so a publish can be undone
   selected: null, // path array
   dirty: false,
   pages: [],
@@ -266,6 +269,7 @@ const api = {
     state.pagePath = path;
     state.page = await parsePage(source);
     state.published = serializePage(state.page);
+    state.publishedTree = await parsePage(state.published);
     state.selected = null;
     await mountCanvas();
     markDirty();
@@ -306,13 +310,31 @@ const api = {
     markDirty();
   },
 
-  /** Plain-language diff: what changed, in the owner's words, not git's. */
+  /** What is about to be published, described as the page rather than as a file. */
   changes() {
     if (!state.dirty) return [];
     return [
-      `${state.page.body.filter((n) => n.isSection).length} sections on this page`,
-      "Unsaved edits in this browser",
+      ...describeChanges(state.publishedTree, state.page),
+      ...describeThemeChanges(state.publishedTheme, state.themeCss),
     ];
+  },
+
+  canUndo() {
+    return Boolean(state.lastPublish && state.storage.undo);
+  },
+
+  /** Undo is a revert, not a rewrite: the version being undone stays in the history. */
+  async undoPublish() {
+    if (!api.canUndo()) return { error: "nothing to undo" };
+    await state.storage.undo(state.lastPublish.sha);
+    const source = await state.storage.read(state.pagePath);
+    state.page = await parsePage(source ?? "");
+    state.published = serializePage(state.page);
+    state.publishedTree = await parsePage(state.published);
+    state.lastPublish = null;
+    await mountCanvas();
+    markDirty();
+    return { ok: true };
   },
 
   async save(message = "Update site") {
@@ -322,8 +344,11 @@ const api = {
       files.push({ path: state.themePath, content: state.themeCss });
     }
     // One commit for the whole change set, so undoing a publish is one revert.
-    await state.storage.write(files, message);
+    const result = await state.storage.write(files, message);
+    if (result?.sha)
+      state.lastPublish = { sha: result.sha, files: files.map((f) => f.path) };
     state.published = content;
+    state.publishedTree = await parsePage(content);
     state.publishedTheme = state.themeCss;
     markDirty();
     return state.storage.describeTarget();
@@ -379,6 +404,7 @@ async function boot() {
   if (source == null) throw new Error(`cannot read ${state.pagePath}`);
   state.page = await parsePage(source);
   state.published = serializePage(state.page);
+  state.publishedTree = await parsePage(state.published);
   state.themeCss = (await state.storage.read(state.themePath)) ?? "";
   state.publishedTheme = state.themeCss;
   await api.loadPages();

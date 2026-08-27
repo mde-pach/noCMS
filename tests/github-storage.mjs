@@ -90,6 +90,42 @@ try {
     `${multiCommit.files.length} files`,
   );
   check("a publish is one revertable step", multiCommit.parents.length === 1);
+
+  // §4.7: undo a publish you regret. A revert, never a rewrite — the undone version
+  // stays in the history, which is what makes it safe to offer to a non-developer.
+  const before = await storage.read("nocms-v2-test/a.astro");
+  await storage.write(
+    [{ path: "nocms-v2-test/a.astro", content: "<p>regrettable</p>\n" }],
+    "test: oops",
+  );
+  check(
+    "the regrettable change is live",
+    (await storage.read("nocms-v2-test/a.astro")) === "<p>regrettable</p>\n",
+  );
+
+  const head = await gh(`/repos/${owner}/${repo}/git/ref/heads/${branch}`);
+  const undone = await storage.undo(head.object.sha);
+  check(
+    "undo returns a new commit",
+    /^[0-9a-f]{40}$/.test(undone.sha ?? ""),
+    undone.sha,
+  );
+  check(
+    "the content is back to what it was",
+    (await storage.read("nocms-v2-test/a.astro")) === before,
+  );
+
+  const revert = await gh(`/repos/${owner}/${repo}/commits/${undone.sha}`);
+  check(
+    "undo is a revert, not a rewrite",
+    revert.parents[0].sha === head.object.sha,
+    "the undone commit is still in the history",
+  );
+  check(
+    "the undo explains itself",
+    /^Undo "/.test(revert.commit.message),
+    revert.commit.message,
+  );
 } catch (err) {
   check(err.message.slice(0, 120), false);
 } finally {

@@ -41,6 +41,15 @@ const CSS = `
          color:var(--e-muted);margin:14px 0 8px}
   .group:first-child{margin-top:0}
   .hint{font-size:12px;color:var(--e-muted);margin:0 0 12px}
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.35);display:grid;place-items:center;z-index:50}
+  .sheet .box{background:var(--e-panel);border:1px solid var(--e-line);border-radius:12px;
+              padding:22px;width:min(440px,90vw)}
+  .sheet h3{margin:0 0 4px;font-size:16px}
+  .sheet p{color:var(--e-muted);margin:0 0 14px;font-size:13px}
+  .sheet ul{margin:0 0 18px;padding-left:18px}
+  .sheet li{margin-bottom:5px}
+  .sheet .row{display:flex;gap:8px;justify-content:flex-end;margin:0}
+  .sheet .row button{flex:none}
   aside.right{border-left:1px solid var(--e-line)}
   aside.left{border-right:1px solid var(--e-line)}
   h2{font:11px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--e-muted);margin:0 0 10px}
@@ -145,7 +154,7 @@ export function mountChrome(api) {
   }
 
   const save = $("e-save");
-  save.onclick = async () => {
+  const doPublish = async () => {
     save.disabled = true;
     $("e-status").textContent = "publishing…";
     try {
@@ -156,11 +165,15 @@ export function mountChrome(api) {
           : `published to ${target}`;
       sessionStorage.setItem(STATUS_KEY, msg);
       $("e-status").textContent = msg;
+      if (api.canUndo()) offerUndo(api, $);
     } catch (err) {
       $("e-status").textContent = `failed: ${err.message}`;
       save.disabled = false;
     }
   };
+
+  // §4.7: understand what changed, in plain language, before it goes live.
+  save.onclick = () => confirmPublish(api, doPublish);
 
   window.addEventListener("nocms:dirty", (e) => {
     save.disabled = !e.detail.dirty;
@@ -262,6 +275,59 @@ function renderList(api, path, propName, itemShape, ui, items, wrap) {
     commit([...items, blank]);
   };
   wrap.append(add);
+}
+
+/** Publishing is deliberate: the owner sees what they are about to change first. */
+function confirmPublish(api, publish) {
+  const changes = api.changes();
+  const sheet = document.createElement("div");
+  sheet.className = "sheet";
+  sheet.innerHTML = `
+    <div class="box">
+      <h3>Publish these changes?</h3>
+      <p>${
+        api.state.storage.mode === "local"
+          ? "They will be written to your working tree."
+          : "Your site will rebuild and go live in a minute or two."
+      }</p>
+      <ul>${
+        changes.length
+          ? changes.map((c) => `<li>${c}</li>`).join("")
+          : "<li>No changes to describe</li>"
+      }</ul>
+      <div class="row">
+        <button id="pub-cancel">Cancel</button>
+        <button class="primary" id="pub-go">Publish</button>
+      </div>
+    </div>`;
+  document.body.append(sheet);
+  const close = () => sheet.remove();
+  sheet.querySelector("#pub-cancel").onclick = close;
+  sheet.querySelector("#pub-go").onclick = () => {
+    close();
+    publish();
+  };
+  sheet.addEventListener("click", (e) => {
+    if (e.target === sheet) close();
+  });
+}
+
+/** Undo stays available until the next edit — a revert, never a rewrite. */
+function offerUndo(api, $) {
+  const status = $("e-status");
+  const undo = document.createElement("button");
+  undo.textContent = "Undo";
+  undo.id = "e-undo";
+  undo.style.marginLeft = "8px";
+  undo.onclick = async () => {
+    undo.disabled = true;
+    status.textContent = "undoing…";
+    const result = await api.undoPublish();
+    status.textContent = result.error ?? "publish undone";
+    undo.remove();
+  };
+  document.getElementById("e-undo")?.remove();
+  status.after(undo);
 }
 
 /** Theme editing: the owner changes token VALUES, never rules. */

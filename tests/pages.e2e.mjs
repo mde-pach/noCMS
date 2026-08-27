@@ -54,6 +54,8 @@ try {
   );
 
   await page.click("#e-save");
+  await page.waitForTimeout(400);
+  await page.click("#pub-go");
   await page.waitForTimeout(2500);
   const saved = fs.readFileSync(NEW, "utf-8");
   check("the section is written into the new page", saved.includes("<Hero"));

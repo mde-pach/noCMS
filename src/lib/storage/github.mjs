@@ -73,5 +73,27 @@ export function createGithubStorage({ token, owner, repo, branch = "main" }) {
     describeTarget() {
       return `${owner}/${repo}`;
     },
+
+    /** Undo a publish: revert the commit, do not rewrite history. The bad version stays
+     *  in the log, which is what makes it safe and what makes it explainable. */
+    async undo(sha) {
+      const commit = await api(`/repos/${owner}/${repo}/git/commits/${sha}`);
+      if (!commit.parents?.length) throw new Error("nothing to undo");
+      const parent = commit.parents[0].sha;
+      const previous = await api(`/repos/${owner}/${repo}/git/commits/${parent}`);
+      const revert = await api(`/repos/${owner}/${repo}/git/commits`, {
+        method: "POST",
+        body: JSON.stringify({
+          message: `Undo "${commit.message.split("\n")[0]}"`,
+          tree: previous.tree.sha,
+          parents: [sha],
+        }),
+      });
+      await api(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+        method: "PATCH",
+        body: JSON.stringify({ sha: revert.sha }),
+      });
+      return { sha: revert.sha };
+    },
   };
 }

@@ -223,7 +223,25 @@ try {
     `first section is now .${firstSection}`,
   );
 
+  // §4.7: publishing is deliberate and describes itself in plain language.
   await page.click("#e-save");
+  await page.waitForTimeout(400);
+  check("publishing asks first", await page.isVisible(".sheet"));
+  const described = await page.$$eval(".sheet li", (li) =>
+    li.map((x) => x.textContent),
+  );
+  check(
+    "changes are described as the page, not as a diff",
+    described.some((d) => /Changed|Added|Removed|Reordered|theme/i.test(d)),
+    described.join(" | "),
+  );
+  await page.click("#pub-cancel");
+  await page.waitForTimeout(200);
+  check("cancelling publishes nothing", !(await page.isVisible(".sheet")));
+
+  await page.click("#e-save");
+  await page.waitForTimeout(300);
+  await page.click("#pub-go");
   // Local saves touch the working tree, so the dev server may reload the editor.
   await page.waitForTimeout(2500);
   await page
@@ -258,6 +276,8 @@ try {
   );
 
   await page.click("#e-save");
+  await page.waitForTimeout(400);
+  await page.click("#pub-go");
   await page.waitForTimeout(2500);
   await page
     .waitForFunction(() => !!window.__nocms, { timeout: 15000 })
