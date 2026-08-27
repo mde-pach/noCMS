@@ -2,6 +2,6 @@
   "extends": "astro/tsconfigs/strict",
   "include": ["src", "editor", "scripts"],
   "compilerOptions": {
-    "types": ["node", "astro/client"]
+    "types": ["node", "bun", "astro/client"]
   }
 }

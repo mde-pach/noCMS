@@ -11,14 +11,17 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "check": "biome check --write .",
-    "test": "bun test tests/",
+    "test": "bun test tests/ src/lib/auth apps/relay",
     "test:e2e": "bun tests/editor.e2e.mjs",
     "verify": "biome check . && bun run typecheck && bun run test && bun run build",
     "typecheck": "astro check",
-    "test:github": "bun tests/github-storage.mjs"
+    "test:github": "bun tests/github-storage.mjs",
+    "test:signin": "bun tests/sign-in.e2e.mjs",
+    "relay": "bun --env-file=apps/relay/.dev.vars run apps/relay/src/server.ts"
   },
   "dependencies": {
     "astro": "7.2.8",
+    "valibot": "^1.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -26,6 +29,7 @@
     "@astrojs/compiler": "^4.0.0",
     "@astrojs/compiler-rs": "*",
     "@biomejs/biome": "^2.5.1",
+    "@types/bun": "^1.4.0",
     "@types/node": "^26.4.0",
     "morphdom": "^2.7.7",
     "playwright": "^1.62.1",

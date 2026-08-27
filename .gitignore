@@ -3,3 +3,4 @@ dist/
 node_modules/
 .nocms-build/
 .astro/
+apps/relay/.dev.vars

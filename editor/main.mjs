@@ -16,6 +16,13 @@ import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.mjs";
 import { enableDrag } from "./drag.mjs";
 import { renderTree, sectionCss } from "./render.mjs";
+import {
+  consumeRedirect,
+  currentSession,
+  signInWithToken,
+  startSignIn,
+} from "./sign-in.mjs";
+import { renderSignIn } from "./sign-in-screen.mjs";
 
 const state = {
   storage: null,
@@ -275,9 +282,51 @@ const api = {
   },
 };
 
+/**
+ * Local mode needs no identity at all — the dev server is the backend, so a developer
+ * never signs in. Only GitHub mode does.
+ */
+async function resolveSession(config) {
+  const fromRedirect = await consumeRedirect(config);
+  if (fromRedirect) return fromRedirect;
+  return currentSession(config);
+}
+
 async function boot() {
   const mode = await detectMode();
-  state.storage = await createStorage({ mode, ...(window.NOCMS_CONFIG ?? {}) });
+  const config = window.NOCMS_CONFIG ?? {};
+
+  let token;
+  if (mode === "github") {
+    const session = await resolveSession(config).catch((err) => {
+      renderSignIn({
+        config,
+        error: err.message,
+        onOAuth: () => startSignIn(config),
+        onToken: (value) => {
+          signInWithToken(value);
+          window.location.reload();
+        },
+      });
+      return undefined;
+    });
+    if (!session) {
+      if (!document.querySelector(".signin")) {
+        renderSignIn({
+          config,
+          onOAuth: () => startSignIn(config),
+          onToken: (value) => {
+            signInWithToken(value);
+            window.location.reload();
+          },
+        });
+      }
+      return;
+    }
+    token = session.accessToken;
+  }
+
+  state.storage = await createStorage({ mode, token, ...config });
   const source = await state.storage.read(state.pagePath);
   if (source == null) throw new Error(`cannot read ${state.pagePath}`);
   state.page = await parsePage(source);
