@@ -107,6 +107,15 @@ call exactly; do not change it casually.
 
 ## Status
 
-The thin slice: three sections, one page, one theme, and the loop working end to end in
-local mode. GitHub mode is implemented (`src/lib/storage/github.mjs`) but not yet
-exercised against a real repository.
+The thin slice: three sections, one page, one theme, and the loop working end to end.
+
+- **Local mode** — verified in a real browser (`bun run test:e2e`, 23 checks): boot,
+  render, select, panel edit, inline edit, add section with its import, publish to the
+  working tree.
+- **GitHub mode** — verified against a real repository (`bun run test:github`): read,
+  missing-file, byte-identical write-back, and one commit per publish so it is a single
+  revertable step. Runs on a scratch branch and deletes it.
+- **Parity gate** — green: the editor's browser render matches `astro build`.
+
+Not yet done: sign-in through the GitHub App (the relay exists in the current noCMS repo),
+and enabling Pages via the API on a freshly created repository.

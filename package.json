@@ -14,7 +14,8 @@
     "test": "bun test tests/",
     "test:e2e": "bun tests/editor.e2e.mjs",
     "verify": "biome check . && bun run typecheck && bun run test && bun run build",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "test:github": "bun tests/github-storage.mjs"
   },
   "dependencies": {
     "astro": "7.2.8",
