@@ -97,6 +97,12 @@ shape), Astro's `interface Props` — so a union there becomes a real dropdown �
 same text is editable in place on the canvas. Text that lives in the page tree is
 editable where it sits, with no marking needed by the component author.
 
+The marker around that text is a plain inline span, deliberately **not**
+`display: contents`. A `display:contents` element generates no box, so it cannot be
+hit-tested or hold a caret — it reports `isContentEditable: true` while being impossible
+to click into. It was written that way first, and only a real click-and-type test found
+it.
+
 **Dropping is decided by roles.** A drop target is anywhere whose role accepts what is
 being dragged: a Button drops into a nav, a Hero does not drop inside a Button, and a
 bare Button is not offered as a page element. Hovering the middle of a container drops
@@ -176,6 +182,18 @@ Getting the compile options wrong is silent and specific — a section scoped
 `data-astro-cid-qsrilpog` by the build came out `:where(.astro-hndbj5yh)` in the editor,
 so every styled section rendered unstyled. `scripts/astro-plugin.mjs` mirrors Astro's own
 call exactly; do not change it casually.
+
+### Two parity gates, because markup is not enough
+
+`bun run gate` compares the editor's render with `astro build` — the same compiler, the
+same options, the same bytes.
+
+`bun run test:layout` compares the **geometry** of both at a fixed width. Markup parity
+strips the editor's own markers before comparing, so it is blind to a marker that shifts
+layout, and blind to CSS entirely. It found a real one: `nocms.config.styles` reached the
+canvas but was never injected into the built page, so a library's components were styled
+in the editor and shipped with class names and no rules behind them. `theme.css` had
+hidden it by being imported in the layout by hand.
 
 ### The editor is built from the same kind of component set
 

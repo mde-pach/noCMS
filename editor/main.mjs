@@ -112,9 +112,17 @@ async function refresh() {
   markDirty();
 }
 
+/**
+ * Two kinds of wiring, and conflating them was a bug: document listeners must be
+ * attached once, but per-element wiring has to run after EVERY render, because a morph
+ * replaces elements. Guarding the whole function meant text stopped being editable as
+ * soon as anything changed.
+ */
 function wireCanvas() {
   const doc = frameDoc();
-  if (!doc || doc.__nocmsWired) return;
+  if (!doc) return;
+  wireEditables(doc);
+  if (doc.__nocmsWired) return;
   doc.__nocmsWired = true;
 
   // The path wrapper is display:contents and cannot carry an outline, so the
@@ -161,9 +169,15 @@ function wireCanvas() {
     },
   );
 
+  // (per-element wiring lives in wireEditables, called on every render)
+}
+
+function wireEditables(doc) {
   // Text that lives in the page tree is editable where it sits — no marking needed by
   // the component author. This is what makes a library component's label editable.
   for (const el of doc.querySelectorAll("[data-nocms-text]")) {
+    if (el.dataset.nocmsBound) continue;
+    el.dataset.nocmsBound = "1";
     el.setAttribute("contenteditable", "plaintext-only");
     el.addEventListener("input", () => {
       const node = nodeAt(state.page, el.dataset.nocmsText.split(".").map(Number));
@@ -179,7 +193,8 @@ function wireCanvas() {
   // A component may also nominate a prop to edit in place, with data-edit="<prop>".
   for (const el of doc.querySelectorAll("[data-edit]")) {
     const holder = el.closest("[data-nocms-path]");
-    if (!holder) continue;
+    if (!holder || el.dataset.nocmsBound) continue;
+    el.dataset.nocmsBound = "1";
     el.setAttribute("contenteditable", "plaintext-only");
     el.addEventListener("input", () => {
       const path = holder.dataset.nocmsPath.split(".").map(Number);

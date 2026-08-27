@@ -114,20 +114,27 @@ try {
     (await frame().textContent(".nc-btn-ghost")).trim(),
   );
 
-  // The same text is editable in place, with no marking by the component author.
-  await frame().evaluate(() => {
-    const el = document.querySelector(".nc-btn-ghost [data-nocms-text]");
-    el.focus();
-    el.textContent = "Handbook";
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  });
-  await page.waitForTimeout(700);
+  // Real click and real keystrokes. A synthetic focus() + input event passes even when
+  // the element cannot be reached at all — which is exactly how a display:contents
+  // marker looked wired up while being impossible to click into.
+  await frame().click(".nc-btn-ghost");
+  await page.waitForTimeout(300);
+  const focusedMarker = await frame().evaluate(
+    () => document.activeElement?.hasAttribute?.("data-nocms-text") ?? false,
+  );
+  check("clicking text puts the caret in it", focusedMarker);
+
+  await page.keyboard.type("ZZ");
+  await page.waitForTimeout(600);
+  const typed = (await frame().textContent(".nc-btn-ghost")).trim();
+  check("typing on the canvas changes the text", typed !== "Guides", typed);
+
   const back = await page
     .locator("#e-panel .ed-field", { hasText: "Text" })
     .locator("input")
     .first()
     .inputValue();
-  check("the same text is editable in place on the canvas", back === "Handbook", back);
+  check("and the panel follows what was typed", back === typed, `${back} vs ${typed}`);
 
   const options = await page.$$eval("#e-panel select option", (o) =>
     o.map((x) => x.value),

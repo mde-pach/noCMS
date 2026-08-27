@@ -81,13 +81,16 @@ function renderNode(result, node, imports, path) {
   if (node.kind === "other") {
     if (node.type === "comment") return markHTMLString(`<!--${node.value}-->`);
     if (node.type === "expression") return ""; // evaluated at build; not previewable
-    // Text that lives in the page tree is editable where it sits. Marked with a
-    // display:contents span so it can be found and written back without affecting
-    // layout; the parity gate strips these along with the component markers.
+    // Text that lives in the page tree is editable where it sits.
+    //
+    // The marker is a plain inline span, NOT display:contents. A display:contents
+    // element generates no box, so it cannot be hit-tested or hold a caret — it reports
+    // isContentEditable true while being impossible to click into. An inline span is
+    // layout-neutral (bare text already forms an inline box) and focusable.
+    //
+    // The marker exists only in the editor; the parity gate strips it before comparing.
     if (node.value.trim() === "") return node.value;
-    return render`${markHTMLString(
-      `<span data-nocms-text="${path.join(".")}" style="display:contents">`,
-    )}${node.value}${markHTMLString("</span>")}`;
+    return render`${markHTMLString(`<span data-nocms-text="${path.join(".")}">`)}${node.value}${markHTMLString("</span>")}`;
   }
 
   const known = node.isComponent ? componentFor(node.name, imports) : null;
