@@ -157,6 +157,25 @@ Getting the compile options wrong is silent and specific — a section scoped
 so every styled section rendered unstyled. `scripts/astro-plugin.mjs` mirrors Astro's own
 call exactly; do not change it casually.
 
+### Search, and what a static host can honestly do
+
+Search is built with Pagefind: the index is produced from the published HTML at build
+time and queried in the visitor's browser. No server, no API key, no per-query cost,
+nothing to operate. The editor route is excluded from the index.
+
+That is the honest shape of §8.1 generally — build-time and client-side are free;
+anything that reacts to a visitor needs an endpoint the owner chooses to add.
+
+### Onboarding
+
+Three concepts cannot be hidden, because the owner will meet their names elsewhere:
+**an account, a folder for the site, and an address**. Everything else — branches,
+commits, Actions, tokens-as-a-concept — stays behind product language, and no SHA is
+ever shown. A test asserts the onboarding copy contains no tool vocabulary, so that
+cannot rot quietly.
+
+A repository that is not set up yet gets the teaching path rather than an error.
+
 ## Status
 
 The thin slice: three sections, one page, one theme, and the loop working end to end.
@@ -169,5 +188,5 @@ The thin slice: three sections, one page, one theme, and the loop working end to
   revertable step. Runs on a scratch branch and deletes it.
 - **Parity gate** — green: the editor's browser render matches `astro build`.
 
-Not yet done: sign-in through the GitHub App (the relay exists in the current noCMS repo),
-and enabling Pages via the API on a freshly created repository.
+Not yet done: enabling Pages via the API on a freshly created repository — it needs a
+token with rights this machine's does not have, so it is unverified rather than unwritten.

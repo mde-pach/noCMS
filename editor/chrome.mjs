@@ -87,7 +87,7 @@ export function mountChrome(api) {
       <button class="primary" id="e-save" disabled>Publish</button>
     </header>
     <main>
-      <aside class="left"><h2>Sections</h2><div class="lib" id="e-lib"></div></aside>
+      <aside class="left"><div class="lib" id="e-lib"></div></aside>
       <div class="canvas"><iframe id="nocms-canvas" title="Page preview"></iframe></div>
       <aside class="right">
         <div class="tabs">
@@ -474,6 +474,15 @@ function renderPanel(api, path) {
     row.append(b);
   }
   host.append(row);
+
+  if (!Object.keys(shape).length) {
+    const note = document.createElement("p");
+    note.className = "empty";
+    note.textContent = def
+      ? `${node.name} has no editable properties. Add a descriptor beside it to give it a panel.`
+      : `${node.name} is not a component the editor can resolve.`;
+    host.append(note);
+  }
 
   for (const [name, zodType] of Object.entries(shape)) {
     const prop = node.props[name];

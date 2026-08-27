@@ -81,6 +81,14 @@ try {
     selected,
   );
 
+  // An undescribed component explains itself rather than showing a blank panel.
+  const panelText = await page.textContent("#e-panel");
+  check(
+    "an undescribed component says why it has no fields",
+    /no editable properties/.test(panelText),
+    panelText.replace(/\s+/g, " ").slice(0, 70),
+  );
+
   // Roles: the nav is a container, the button is inline.
   const roles = await frame().evaluate(() =>
     [...document.querySelectorAll("[data-nocms-role]")].map((e) => e.dataset.nocmsRole),

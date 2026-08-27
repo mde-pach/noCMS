@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "bun run build:editor && astro dev",
     "build": "bun run build:editor && astro build && bun run gate",
-    "build:site": "astro build",
+    "build:site": "astro build && pagefind --site dist --output-subdir pagefind",
     "build:editor": "bun scripts/build-editor.mjs",
     "gate": "bun scripts/parity-gate.mjs",
     "lint": "biome check .",
@@ -19,9 +19,10 @@
     "test:signin": "bun tests/sign-in.e2e.mjs",
     "relay": "bun --env-file=apps/relay/.dev.vars run apps/relay/src/server.ts",
     "test:pages": "bun tests/pages.e2e.mjs",
-    "test:all": "bun run test && bun run test:e2e && bun run test:components && bun run test:pages && bun run test:images && bun run test:signin",
+    "test:all": "bun run test && bun run test:e2e && bun run test:components && bun run test:pages && bun run test:images && bun run test:search && bun run test:signin",
     "test:components": "bun tests/components.e2e.mjs",
-    "test:images": "bun tests/images.e2e.mjs"
+    "test:images": "bun tests/images.e2e.mjs",
+    "test:search": "bun tests/search.e2e.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.4",
@@ -41,6 +42,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "morphdom": "^2.7.7",
+    "pagefind": "^1.5.2",
     "playwright": "^1.62.1",
     "typescript": "^6",
     "vite": "^8.2.2"

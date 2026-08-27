@@ -27,6 +27,7 @@ import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.mjs";
 import { enableDrag } from "./drag.mjs";
 import { prepareImage } from "./images.mjs";
+import { nextStep, renderOnboarding } from "./onboarding.mjs";
 import { renderTree, sectionCss } from "./render.mjs";
 import {
   consumeRedirect,
@@ -443,6 +444,24 @@ async function boot() {
   }
 
   state.storage = await createStorage({ mode, token, ...config });
+
+  // A site that is not set up yet gets the teaching path, not an error. Local mode is
+  // already set up by definition — a developer running the dev server has all three.
+  if (mode === "github") {
+    const reachable = (await state.storage.read(state.pagePath)) != null;
+    const step = nextStep({
+      signedIn: true,
+      hasRepo: reachable,
+      hasAddress: reachable,
+    });
+    if (step) {
+      renderOnboarding({
+        state: { signedIn: true, hasRepo: reachable, hasAddress: reachable },
+        onStep: () => window.location.reload(),
+      });
+      return;
+    }
+  }
   const source = await state.storage.read(state.pagePath);
   if (source == null) throw new Error(`cannot read ${state.pagePath}`);
   state.page = await parsePage(source);

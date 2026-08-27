@@ -94,14 +94,23 @@ try {
     !/401|403|bad credentials/i.test(body),
     body.match(/cannot read \S+/)?.[0] ?? "read succeeded",
   );
+  // A repository without this layout is not an error — it is someone who has not set
+  // up yet, so they get the teaching path instead of a stack trace.
   const inEditor = await page2.isVisible("#nocms-canvas");
+  const onboarding = await page2.isVisible(".ob");
   check(
-    "editor opens when the page exists",
-    inEditor || /cannot read src\/pages\/index\.astro/.test(body),
-    inEditor
-      ? "editor mounted"
-      : "page absent in target repo (expected before the port)",
+    "a site that is not set up gets taught, not an error",
+    inEditor || onboarding,
+    inEditor ? "editor mounted" : "onboarding shown",
   );
+  if (onboarding) {
+    const headings = await page2.$$eval(".ob h2", (h) => h.map((x) => x.textContent));
+    check(
+      "it teaches exactly the three unavoidable concepts",
+      headings.length === 3,
+      headings.join(" · "),
+    );
+  }
 } catch (err) {
   check(err.message.slice(0, 140), false);
 } finally {
