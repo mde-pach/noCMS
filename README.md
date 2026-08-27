@@ -14,8 +14,8 @@ drift.
 ## Run it
 
 ```bash
-npm install
-npm run dev          # http://localhost:4321/edit/
+bun install
+bun run dev          # http://localhost:4321/edit/
 ```
 
 In local mode there is no token and no network: the editor writes straight to your
@@ -23,10 +23,21 @@ working tree, so you can edit pages visually while writing sections in your IDE.
 reloads as it goes.
 
 ```bash
-npm run build        # editor + site + parity gate
-npm test             # page tree and path guards
-npm run test:e2e     # drives the editor in a real browser
+bun run build        # editor + site + parity gate
+bun test tests/      # page tree and path guards
+bun run test:e2e     # drives the editor in a real browser
+bun run verify       # lint + typecheck + tests + build + gate
 ```
+
+### Biome does not touch `.astro`
+
+Biome only parses `.astro` frontmatter — it cannot see props or components used in the
+template below, so it reports every import and prop as unused. Run with `--unsafe` and it
+**deletes them**. `.astro` is therefore excluded in `biome.json` and checked by
+`astro check` instead. Do not add it back.
+
+`astro check` needs TypeScript 6.x; TypeScript 7's native compiler dropped the
+programmatic API it relies on.
 
 ## How it fits together
 

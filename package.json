@@ -3,23 +3,36 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/build-editor.mjs && astro dev",
-    "build": "node scripts/build-editor.mjs && astro build && node scripts/parity-gate.mjs",
+    "dev": "bun run build:editor && astro dev",
+    "build": "bun run build:editor && astro build && bun run gate",
     "build:site": "astro build",
-    "build:editor": "node scripts/build-editor.mjs",
-    "gate": "node scripts/parity-gate.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "test:e2e": "node tests/editor.e2e.mjs"
+    "build:editor": "bun scripts/build-editor.mjs",
+    "gate": "bun scripts/parity-gate.mjs",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome check --write .",
+    "test": "bun test tests/",
+    "test:e2e": "bun tests/editor.e2e.mjs",
+    "verify": "biome check . && bun run typecheck && bun run test && bun run build",
+    "typecheck": "astro check"
   },
   "dependencies": {
     "astro": "7.2.8",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.10",
     "@astrojs/compiler": "^4.0.0",
     "@astrojs/compiler-rs": "*",
+    "@biomejs/biome": "^2.5.1",
+    "@types/node": "^26.4.0",
     "morphdom": "^2.7.7",
     "playwright": "^1.62.1",
+    "typescript": "^6",
     "vite": "^8.2.2"
+  },
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.3.0"
   }
 }

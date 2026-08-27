@@ -5,12 +5,16 @@
  * installed pack. Built in from the first commit so packs are purely additive later
  * — retrofitting this would mean touching every site ever generated.
  */
-const local = import.meta.glob('/src/sections/*/index.astro', { eager: true });
-const localDefs = import.meta.glob('/src/sections/*/section.ts', { eager: true });
-const packs = import.meta.glob('/node_modules/@nocms-pack-*/sections/*/index.astro', { eager: true });
-const packDefs = import.meta.glob('/node_modules/@nocms-pack-*/sections/*/section.ts', { eager: true });
+const local = import.meta.glob("/src/sections/*/index.astro", { eager: true });
+const localDefs = import.meta.glob("/src/sections/*/section.ts", { eager: true });
+const packs = import.meta.glob("/node_modules/@nocms-pack-*/sections/*/index.astro", {
+  eager: true,
+});
+const packDefs = import.meta.glob("/node_modules/@nocms-pack-*/sections/*/section.ts", {
+  eager: true,
+});
 
-const idOf = (path) => path.replace(/.*\/sections\/([^/]+)\/.*/, '$1');
+const idOf = (path) => path.replace(/.*\/sections\/([^/]+)\/.*/, "$1");
 
 function collect(components, defs) {
   const out = {};
@@ -25,7 +29,9 @@ function collect(components, defs) {
 
 // Later spread wins: local overrides packs.
 export const registry = { ...collect(packs, packDefs), ...collect(local, localDefs) };
-export const byName = Object.fromEntries(Object.values(registry).map((s) => [s.meta.name, s]));
+export const byName = Object.fromEntries(
+  Object.values(registry).map((s) => [s.meta.name, s]),
+);
 export const list = () => Object.values(registry);
 
 /**
@@ -33,11 +39,11 @@ export const list = () => Object.values(registry);
  * shows the real page, and they are editable surfaces (a nav lives in one), but they
  * are not offered in the section library and are not wrapped as selectable blocks.
  */
-const layoutMods = import.meta.glob('/src/layouts/*.astro', { eager: true });
+const layoutMods = import.meta.glob("/src/layouts/*.astro", { eager: true });
 export const layouts = Object.fromEntries(
   Object.entries(layoutMods).map(([path, mod]) => [
-    path.replace(/.*\/layouts\/(.+)\.astro$/, '$1'),
-    { name: path.replace(/.*\/layouts\/(.+)\.astro$/, '$1'), component: mod.default },
+    path.replace(/.*\/layouts\/(.+)\.astro$/, "$1"),
+    { name: path.replace(/.*\/layouts\/(.+)\.astro$/, "$1"), component: mod.default },
   ]),
 );
 
@@ -75,7 +81,7 @@ export function isSection(tag, imports = {}) {
 }
 
 /** Where a section lives, for writing an import when one is added to a page. */
-export function importPathFor(id, pageDir = 'src/pages') {
-  const depth = pageDir.split('/').length - 1;
-  return '../'.repeat(depth) + `sections/${id}/index.astro`;
+export function importPathFor(id, pageDir = "src/pages") {
+  const depth = pageDir.split("/").length - 1;
+  return `${"../".repeat(depth)}sections/${id}/index.astro`;
 }

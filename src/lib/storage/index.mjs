@@ -8,15 +8,18 @@
  *   mode                  -> 'local' | 'github'
  */
 export async function createStorage(config) {
-  if (config.mode === 'local') return (await import('./local.mjs')).createLocalStorage(config);
-  return (await import('./github.mjs')).createGithubStorage(config);
+  if (config.mode === "local")
+    return (await import("./local.mjs")).createLocalStorage(config);
+  return (await import("./github.mjs")).createGithubStorage(config);
 }
 
 /** Local dev is detected, not configured — a dev server is present or it isn't. */
 export async function detectMode() {
   try {
-    const res = await fetch('/_nocms/fs?probe=1');
-    if (res.ok) return 'local';
-  } catch { /* no dev server */ }
-  return 'github';
+    const res = await fetch("/_nocms/fs?probe=1");
+    if (res.ok) return "local";
+  } catch {
+    /* no dev server */
+  }
+  return "github";
 }

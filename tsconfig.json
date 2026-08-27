@@ -1,1 +1,7 @@
-{ "extends": "astro/tsconfigs/strict", "include": ["src", "editor", "scripts"] }
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": ["src", "editor", "scripts"],
+  "compilerOptions": {
+    "types": ["node", "astro/client"]
+  }
+}

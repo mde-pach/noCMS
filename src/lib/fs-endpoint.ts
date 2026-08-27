@@ -2,19 +2,24 @@
  * Local-mode storage backend. DEV ONLY — the integration injects this route only when
  * `astro dev` is running, so it can never exist in a built site.
  */
-import type { APIRoute } from 'astro';
-import fs from 'node:fs/promises';
-import path from 'node:path';
+
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { APIRoute } from "astro";
 
 const ROOT = process.cwd();
-const WRITABLE = ['src/pages', 'src/layouts', 'src/styles', 'src/content', 'public'];
+const WRITABLE = ["src/pages", "src/layouts", "src/styles", "src/content", "public"];
 
 /** Never write outside the project, and never outside the directories the editor owns. */
 function resolveSafe(rel: string, forWrite: boolean): string {
   const full = path.resolve(ROOT, rel);
-  if (full !== ROOT && !full.startsWith(ROOT + path.sep)) throw new Error('path escapes project');
+  if (full !== ROOT && !full.startsWith(ROOT + path.sep))
+    throw new Error("path escapes project");
   const relative = path.relative(ROOT, full);
-  if (forWrite && !WRITABLE.some((dir) => relative === dir || relative.startsWith(dir + path.sep))) {
+  if (
+    forWrite &&
+    !WRITABLE.some((dir) => relative === dir || relative.startsWith(dir + path.sep))
+  ) {
     throw new Error(`not writable: ${relative}`);
   }
   return full;
@@ -33,30 +38,33 @@ async function walk(dir: string): Promise<string[]> {
 export const prerender = false;
 
 export const GET: APIRoute = () =>
-  new Response(JSON.stringify({ mode: 'local', root: path.basename(ROOT) }), {
-    headers: { 'content-type': 'application/json' },
+  new Response(JSON.stringify({ mode: "local", root: path.basename(ROOT) }), {
+    headers: { "content-type": "application/json" },
   });
 
 export const POST: APIRoute = async ({ request }) => {
   const json = (data: unknown, status = 200) =>
-    new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
   try {
     const body = await request.json();
     switch (body.op) {
-      case 'read': {
+      case "read": {
         const file = resolveSafe(body.path, false);
-        return json({ content: await fs.readFile(file, 'utf-8').catch(() => null) });
+        return json({ content: await fs.readFile(file, "utf-8").catch(() => null) });
       }
-      case 'list': {
-        const prefix = String(body.glob).split('*')[0].replace(/\/$/, '');
+      case "list": {
+        const prefix = String(body.glob).split("*")[0].replace(/\/$/, "");
         const paths = await walk(resolveSafe(prefix, false)).catch(() => []);
         return json({ paths });
       }
-      case 'write': {
+      case "write": {
         for (const f of body.files) {
           const file = resolveSafe(f.path, true);
           await fs.mkdir(path.dirname(file), { recursive: true });
-          await fs.writeFile(file, f.content, 'utf-8');
+          await fs.writeFile(file, f.content, "utf-8");
         }
         return json({ written: body.files.length });
       }

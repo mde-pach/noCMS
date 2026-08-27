@@ -42,7 +42,7 @@ const CSS = `
 `;
 
 export function mountChrome(api) {
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = CSS;
   document.head.append(style);
 
@@ -61,108 +61,128 @@ export function mountChrome(api) {
     </main>`;
 
   const $ = (id) => document.getElementById(id);
-  $('e-mode').textContent = api.state.storage.mode === 'local' ? 'local · working tree' : 'github';
+  $("e-mode").textContent =
+    api.state.storage.mode === "local" ? "local · working tree" : "github";
 
-  const lib = $('e-lib');
+  const lib = $("e-lib");
   for (const section of api.listSections()) {
-    const b = document.createElement('button');
-    b.innerHTML = `${section.meta.name}<small>${section.meta.description ?? ''}</small>`;
+    const b = document.createElement("button");
+    b.innerHTML = `${section.meta.name}<small>${section.meta.description ?? ""}</small>`;
     b.onclick = () => api.addSection(section.id);
     lib.append(b);
   }
 
   // In local mode a save lands in the working tree, which the dev server watches — so
   // the editor may reload underneath us. Carry the result across that reload.
-  const STATUS_KEY = 'nocms:last-status';
+  const STATUS_KEY = "nocms:last-status";
   const restored = sessionStorage.getItem(STATUS_KEY);
-  if (restored) { $('e-status').textContent = restored; sessionStorage.removeItem(STATUS_KEY); }
+  if (restored) {
+    $("e-status").textContent = restored;
+    sessionStorage.removeItem(STATUS_KEY);
+  }
 
-  const save = $('e-save');
+  const save = $("e-save");
   save.onclick = async () => {
     save.disabled = true;
-    $('e-status').textContent = 'publishing…';
+    $("e-status").textContent = "publishing…";
     try {
       const target = await api.save();
-      const msg = api.state.storage.mode === 'local' ? `written to ${target}` : `published to ${target}`;
+      const msg =
+        api.state.storage.mode === "local"
+          ? `written to ${target}`
+          : `published to ${target}`;
       sessionStorage.setItem(STATUS_KEY, msg);
-      $('e-status').textContent = msg;
+      $("e-status").textContent = msg;
     } catch (err) {
-      $('e-status').textContent = `failed: ${err.message}`;
+      $("e-status").textContent = `failed: ${err.message}`;
       save.disabled = false;
     }
   };
 
-  window.addEventListener('nocms:dirty', (e) => {
+  window.addEventListener("nocms:dirty", (e) => {
     save.disabled = !e.detail.dirty;
-    if (e.detail.dirty) $('e-status').textContent = 'unsaved changes';
+    if (e.detail.dirty) $("e-status").textContent = "unsaved changes";
   });
 
-  window.addEventListener('nocms:selected', (e) => renderPanel(api, e.detail.path));
-  window.addEventListener('nocms:tree-changed', () => {
+  window.addEventListener("nocms:selected", (e) => renderPanel(api, e.detail.path));
+  window.addEventListener("nocms:tree-changed", () => {
     if (api.state.selected) renderPanel(api, api.state.selected);
   });
 }
 
 function renderPanel(api, path) {
-  const host = document.getElementById('e-panel');
+  const host = document.getElementById("e-panel");
   const node = api.nodeAt(path);
-  if (!node) { host.innerHTML = '<p class="empty">Nothing selected.</p>'; return; }
+  if (!node) {
+    host.innerHTML = '<p class="empty">Nothing selected.</p>';
+    return;
+  }
 
   const def = api.componentFor(node.name);
   const shape = def?.schema?.shape ?? {};
-  host.innerHTML = '';
+  host.innerHTML = "";
 
-  const row = document.createElement('div');
-  row.className = 'row';
-  for (const [label, fn] of [['↑', () => api.moveSection(path, -1)], ['↓', () => api.moveSection(path, 1)], ['Remove', () => api.removeSection(path)]]) {
-    const b = document.createElement('button');
-    b.textContent = label; b.onclick = fn; row.append(b);
+  const row = document.createElement("div");
+  row.className = "row";
+  for (const [label, fn] of [
+    ["↑", () => api.moveSection(path, -1)],
+    ["↓", () => api.moveSection(path, 1)],
+    ["Remove", () => api.removeSection(path)],
+  ]) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = fn;
+    row.append(b);
   }
   host.append(row);
 
   for (const [name, zodType] of Object.entries(shape)) {
     const prop = node.props[name];
-    const ui = (typeof zodType.meta === 'function' ? zodType.meta() : null) ?? {};
+    const ui = (typeof zodType.meta === "function" ? zodType.meta() : null) ?? {};
     // .default()/.optional() wrap the real type, so unwrap before reading options.
     let core = zodType;
-    while (core && !core.options && typeof core.unwrap === 'function') core = core.unwrap();
-    const wrap = document.createElement('div');
-    wrap.className = 'field';
-    const label = document.createElement('label');
+    while (core && !core.options && typeof core.unwrap === "function")
+      core = core.unwrap();
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const label = document.createElement("label");
     label.textContent = ui.label ?? name;
     wrap.append(label);
 
     // A prop set in code stays visible but is not editable — dropping down is allowed,
     // being silently blocked is not.
-    if (prop?.kind === 'code') {
-      const locked = document.createElement('div');
-      locked.className = 'locked';
+    if (prop?.kind === "code") {
+      const locked = document.createElement("div");
+      locked.className = "locked";
       locked.textContent = `{${prop.source}} — set in code`;
       wrap.append(locked);
       host.append(wrap);
       continue;
     }
 
-    const value = prop?.value ?? '';
+    const value = prop?.value ?? "";
     let input;
-    if (ui.field === 'select') {
-      input = document.createElement('select');
+    if (ui.field === "select") {
+      input = document.createElement("select");
       for (const opt of core?.options ?? []) {
-        const o = document.createElement('option');
-        o.value = o.textContent = opt; input.append(o);
+        const o = document.createElement("option");
+        o.value = o.textContent = opt;
+        input.append(o);
       }
       input.value = value;
-    } else if (ui.field === 'richtext') {
-      input = document.createElement('textarea');
+    } else if (ui.field === "richtext") {
+      input = document.createElement("textarea");
       input.value = value;
-    } else if (ui.field === 'list') {
-      const summary = document.createElement('div');
-      summary.className = 'empty';
+    } else if (ui.field === "list") {
+      const summary = document.createElement("div");
+      summary.className = "empty";
       summary.textContent = `${(value || []).length} items — edit on the page`;
-      wrap.append(summary); host.append(wrap); continue;
+      wrap.append(summary);
+      host.append(wrap);
+      continue;
     } else {
-      input = document.createElement('input');
-      input.type = 'text';
+      input = document.createElement("input");
+      input.type = "text";
       input.value = value;
     }
     input.oninput = () => api.setProp(path, name, input.value);
@@ -170,10 +190,11 @@ function renderPanel(api, path) {
     host.append(wrap);
   }
 
-  const note = document.createElement('p');
-  note.className = 'note';
-  note.textContent = api.state.storage.mode === 'local'
-    ? 'Local mode: publishing writes straight to your working tree.'
-    : 'Unpublished edits live in this browser only.';
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent =
+    api.state.storage.mode === "local"
+      ? "Local mode: publishing writes straight to your working tree."
+      : "Unpublished edits live in this browser only.";
   host.append(note);
 }

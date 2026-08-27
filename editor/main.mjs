@@ -1,20 +1,30 @@
-import morphdom from 'morphdom';
-import { parsePage, serializePage, nodeAt, ensureImport, parseImports } from '../src/lib/page-tree.mjs';
-import { list as listSections, componentFor, importPathFor } from '../src/lib/registry.mjs';
-import { renderTree, sectionCss } from './render.mjs';
-import { createStorage, detectMode } from '../src/lib/storage/index.mjs';
-import { mountChrome } from './chrome.mjs';
+import morphdom from "morphdom";
+import {
+  ensureImport,
+  nodeAt,
+  parseImports,
+  parsePage,
+  serializePage,
+} from "../src/lib/page-tree.mjs";
+import {
+  componentFor,
+  importPathFor,
+  list as listSections,
+} from "../src/lib/registry.mjs";
+import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
+import { mountChrome } from "./chrome.mjs";
+import { renderTree, sectionCss } from "./render.mjs";
 
 const state = {
   storage: null,
-  pagePath: 'src/pages/index.astro',
-  page: null,        // { frontmatter, body }
-  published: null,   // serialized form as last saved, for the diff
-  selected: null,    // path array
+  pagePath: "src/pages/index.astro",
+  page: null, // { frontmatter, body }
+  published: null, // serialized form as last saved, for the diff
+  selected: null, // path array
   dirty: false,
 };
 
-const canvas = () => document.getElementById('nocms-canvas');
+const canvas = () => document.getElementById("nocms-canvas");
 const frameDoc = () => canvas().contentDocument;
 
 /** Build the iframe document once. Never rewritten — updates are DOM patches, because
@@ -27,17 +37,17 @@ const EDITOR_STYLES = `
 </style>`;
 
 async function mountCanvas() {
-  const theme = await state.storage.read('src/styles/theme.css');
+  const theme = await state.storage.read("src/styles/theme.css");
   // renderTree produces the page's own document, layout and all — so the canvas
   // literally contains what ships, not a reconstruction of it.
   const rendered = await renderTree(state.page.body, state.page.imports);
-  const head = `<style>${theme ?? ''}</style><style>${sectionCss()}</style>${EDITOR_STYLES}`;
-  const doc = rendered.includes('</head>')
-    ? rendered.replace('</head>', head + '</head>')
+  const head = `<style>${theme ?? ""}</style><style>${sectionCss()}</style>${EDITOR_STYLES}`;
+  const doc = rendered.includes("</head>")
+    ? rendered.replace("</head>", `${head}</head>`)
     : `<!doctype html><html><head>${head}</head><body>${rendered}</body></html>`;
   const frame = canvas();
   await new Promise((resolve) => {
-    frame.addEventListener('load', resolve, { once: true });
+    frame.addEventListener("load", resolve, { once: true });
     frame.srcdoc = doc;
   });
   wireCanvas();
@@ -48,15 +58,20 @@ async function mountCanvas() {
 async function refresh() {
   const rendered = await renderTree(state.page.body, state.page.imports);
   const doc = frameDoc();
-  const next = doc.createElement('body');
-  const open = rendered.indexOf('<body');
-  next.innerHTML = open === -1
-    ? rendered
-    : rendered.slice(rendered.indexOf('>', open) + 1, rendered.lastIndexOf('</body>'));
+  const next = doc.createElement("body");
+  const open = rendered.indexOf("<body");
+  next.innerHTML =
+    open === -1
+      ? rendered
+      : rendered.slice(
+          rendered.indexOf(">", open) + 1,
+          rendered.lastIndexOf("</body>"),
+        );
   morphdom(doc.body, next, {
     childrenOnly: true,
     onBeforeElUpdated(fromEl) {
-      if (fromEl.contains(doc.activeElement) && fromEl.hasAttribute('contenteditable')) return false;
+      if (fromEl.contains(doc.activeElement) && fromEl.hasAttribute("contenteditable"))
+        return false;
       return true;
     },
   });
@@ -73,33 +88,38 @@ function wireCanvas() {
   // highlight goes on the section's own first element.
   const paintable = (el) => el?.firstElementChild ?? el;
 
-  doc.addEventListener('mouseover', (e) => {
-    const el = e.target.closest?.('[data-nocms-path]');
-    doc.querySelectorAll('[data-nocms-hover]').forEach((n) => n.removeAttribute('data-nocms-hover'));
+  doc.addEventListener("mouseover", (e) => {
+    const el = e.target.closest?.("[data-nocms-path]");
+    for (const n of doc.querySelectorAll("[data-nocms-hover]")) {
+      n.removeAttribute("data-nocms-hover");
+    }
     const target = paintable(el);
-    if (target && !target.hasAttribute('data-nocms-active')) target.setAttribute('data-nocms-hover', '');
+    if (target && !target.hasAttribute("data-nocms-active"))
+      target.setAttribute("data-nocms-hover", "");
   });
 
-  doc.addEventListener('click', (e) => {
-    const el = e.target.closest?.('[data-nocms-path]');
+  doc.addEventListener("click", (e) => {
+    const el = e.target.closest?.("[data-nocms-path]");
     if (!el) return;
-    if (!e.target.hasAttribute?.('contenteditable')) e.preventDefault();
-    select(el.dataset.nocmsPath.split('.').map(Number));
+    if (!e.target.hasAttribute?.("contenteditable")) e.preventDefault();
+    select(el.dataset.nocmsPath.split(".").map(Number));
   });
 
   // Inline editing: a section marks its editable text with data-edit="<prop>".
-  for (const el of doc.querySelectorAll('[data-edit]')) {
-    const holder = el.closest('[data-nocms-path]');
+  for (const el of doc.querySelectorAll("[data-edit]")) {
+    const holder = el.closest("[data-nocms-path]");
     if (!holder) continue;
-    el.setAttribute('contenteditable', 'plaintext-only');
-    el.addEventListener('input', () => {
-      const path = holder.dataset.nocmsPath.split('.').map(Number);
+    el.setAttribute("contenteditable", "plaintext-only");
+    el.addEventListener("input", () => {
+      const path = holder.dataset.nocmsPath.split(".").map(Number);
       const node = nodeAt(state.page, path);
       const prop = node.props[el.dataset.edit];
-      if (!prop || prop.kind === 'code') return;
+      if (!prop || prop.kind === "code") return;
       prop.value = el.textContent;
       markDirty();
-      window.dispatchEvent(new CustomEvent('nocms:tree-changed', { detail: { silent: true } }));
+      window.dispatchEvent(
+        new CustomEvent("nocms:tree-changed", { detail: { silent: true } }),
+      );
     });
   }
 }
@@ -107,17 +127,21 @@ function wireCanvas() {
 function select(path) {
   state.selected = path;
   const doc = frameDoc();
-  doc.querySelectorAll('[data-nocms-active]').forEach((n) => n.removeAttribute('data-nocms-active'));
-  const wrapper = doc.querySelector(`[data-nocms-path="${path.join('.')}"]`);
+  for (const n of doc.querySelectorAll("[data-nocms-active]")) {
+    n.removeAttribute("data-nocms-active");
+  }
+  const wrapper = doc.querySelector(`[data-nocms-path="${path.join(".")}"]`);
   const el = wrapper?.firstElementChild ?? wrapper;
-  el?.setAttribute('data-nocms-active', '');
-  el?.removeAttribute('data-nocms-hover');
-  window.dispatchEvent(new CustomEvent('nocms:selected', { detail: { path } }));
+  el?.setAttribute("data-nocms-active", "");
+  el?.removeAttribute("data-nocms-hover");
+  window.dispatchEvent(new CustomEvent("nocms:selected", { detail: { path } }));
 }
 
 function markDirty() {
   state.dirty = serializePage(state.page) !== state.published;
-  window.dispatchEvent(new CustomEvent('nocms:dirty', { detail: { dirty: state.dirty } }));
+  window.dispatchEvent(
+    new CustomEvent("nocms:dirty", { detail: { dirty: state.dirty } }),
+  );
 }
 
 const api = {
@@ -131,8 +155,8 @@ const api = {
   async setProp(path, name, value) {
     const node = nodeAt(state.page, path);
     const prop = node.props[name];
-    if (prop && prop.kind === 'code') return false;
-    node.props[name] = { kind: typeof value === 'string' ? 'text' : 'data', value };
+    if (prop && prop.kind === "code") return false;
+    node.props[name] = { kind: typeof value === "string" ? "text" : "data", value };
     await refresh();
     return true;
   },
@@ -141,21 +165,33 @@ const api = {
   async addSection(id, at = null) {
     const def = componentFor(id, state.page.imports);
     if (!def) return;
-    const tag = id.split(/[-_]/).map((w) => w[0].toUpperCase() + w.slice(1)).join('');
-    const dir = state.pagePath.replace(/\/[^/]+$/, '');
+    const tag = id
+      .split(/[-_]/)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join("");
+    const dir = state.pagePath.replace(/\/[^/]+$/, "");
     ensureImport(state.page, tag, importPathFor(id, dir));
     state.page.imports = parseImports(state.page.frontmatter);
 
     const props = {};
     for (const [k, v] of Object.entries(def.meta?.defaults ?? {})) {
-      props[k] = { kind: typeof v === 'string' ? 'text' : 'data', value: v };
+      props[k] = { kind: typeof v === "string" ? "text" : "data", value: v };
     }
-    const node = { kind: 'tag', type: 'component', name: tag, isSection: true,
-                   props, selfClosing: true, children: [] };
+    const node = {
+      kind: "tag",
+      type: "component",
+      name: tag,
+      isSection: true,
+      props,
+      selfClosing: true,
+      children: [],
+    };
 
     // Sections go inside the layout when the page has one, not beside it.
-    const host = state.page.body.find((n) => n.kind === 'tag' && n.isSection && n.children.length)
-      ?? null;
+    const host =
+      state.page.body.find(
+        (n) => n.kind === "tag" && n.isSection && n.children.length,
+      ) ?? null;
     const list = host ? host.children : state.page.body;
     list.splice(at ?? list.length, 0, node);
     await refresh();
@@ -188,11 +224,13 @@ const api = {
   /** Plain-language diff: what changed, in the owner's words, not git's. */
   changes() {
     if (!state.dirty) return [];
-    return [`${state.page.body.filter((n) => n.isSection).length} sections on this page`,
-            'Unsaved edits in this browser'];
+    return [
+      `${state.page.body.filter((n) => n.isSection).length} sections on this page`,
+      "Unsaved edits in this browser",
+    ];
   },
 
-  async save(message = 'Update page') {
+  async save(message = "Update page") {
     const content = serializePage(state.page);
     await state.storage.write([{ path: state.pagePath, content }], message);
     state.published = content;
@@ -212,7 +250,10 @@ async function boot() {
   await mountCanvas();
   markDirty();
   // Exposed so the parity gate can render a page through the real editor bundle.
-  window.__nocms = { ...api, renderTree: () => renderTree(state.page.body, state.page.imports) };
+  window.__nocms = {
+    ...api,
+    renderTree: () => renderTree(state.page.body, state.page.imports),
+  };
 }
 
 boot().catch((err) => {

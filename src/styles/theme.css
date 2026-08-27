@@ -1,25 +1,25 @@
 /* The theme. The owner edits these VALUES through pickers; they never write rules.
    Sections reference the names, never raw values, so re-theming is complete. */
 :root {
-  --brand:        #1f6f5e;
-  --brand-ink:    #ffffff;
-  --ink:          #16201d;
-  --ink-muted:    #5c6a66;
-  --surface:      #ffffff;
+  --brand: #1f6f5e;
+  --brand-ink: #ffffff;
+  --ink: #16201d;
+  --ink-muted: #5c6a66;
+  --surface: #ffffff;
   --surface-sunk: #f2f4f2;
-  --border:       #dde2df;
+  --border: #dde2df;
 
   --font-display: "Spectral", Georgia, serif;
-  --font-body:    system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  --step--1: .875rem;
-  --step-0:  1rem;
-  --step-1:  1.25rem;
-  --step-2:  1.75rem;
-  --step-3:  2.5rem;
-  --step-4:  3.5rem;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.75rem;
+  --step-3: 2.5rem;
+  --step-4: 3.5rem;
 
-  --space-1: .5rem;
+  --space-1: 0.5rem;
   --space-2: 1rem;
   --space-3: 1.5rem;
   --space-4: 2.5rem;
@@ -30,16 +30,18 @@
 }
 
 :root[data-theme="dark"] {
-  --brand:        #4fbfa4;
-  --brand-ink:    #0d1412;
-  --ink:          #e7ebe9;
-  --ink-muted:    #9aa8a3;
-  --surface:      #0f1513;
+  --brand: #4fbfa4;
+  --brand-ink: #0d1412;
+  --ink: #e7ebe9;
+  --ink-muted: #9aa8a3;
+  --surface: #0f1513;
   --surface-sunk: #161d1b;
-  --border:       #26302d;
+  --border: #26302d;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0;
   background: var(--surface);
