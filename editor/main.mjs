@@ -21,7 +21,7 @@ import {
   list as listComponents,
   tagFor,
 } from "../src/lib/registry.mjs";
-import { roleOf, standsAlone } from "../src/lib/roles.mjs";
+import { accepts, roleOf, standsAlone } from "../src/lib/roles.mjs";
 import { createStorage, detectMode } from "../src/lib/storage/index.mjs";
 import { parseTheme, setToken } from "../src/lib/theme.mjs";
 import { mountChrome } from "./chrome.tsx";
@@ -131,22 +131,52 @@ function wireCanvas() {
       target.setAttribute("data-nocms-hover", "");
   });
 
+  // The canvas is an editing surface, not a page to browse: a click never navigates.
+  // Preventing the default on `click` still allows the caret to land, because that
+  // happens on pointerdown. Without this, clicking a link inside a component takes the
+  // canvas to that page and the editor loses its document.
   doc.addEventListener("click", (e) => {
+    e.preventDefault();
     const el = e.target.closest?.("[data-nocms-path]");
-    if (!el) return;
-    if (!e.target.hasAttribute?.("contenteditable")) e.preventDefault();
-    select(el.dataset.nocmsPath.split(".").map(Number));
+    if (el) select(el.dataset.nocmsPath.split(".").map(Number));
   });
 
-  enableDrag(doc, async (fromPath, toIndex) => {
-    const list = api.listFor(fromPath);
-    const [node] = list.splice(fromPath.at(-1), 1);
-    list.splice(toIndex, 0, node);
-    await refresh();
-    select([...fromPath.slice(0, -1), toIndex]);
-  });
+  // Submitting a form in the canvas would navigate too.
+  doc.addEventListener("submit", (e) => e.preventDefault());
 
-  // Inline editing: a section marks its editable text with data-edit="<prop>".
+  enableDrag(
+    doc,
+    async ({ from, toParent, toIndex }) => {
+      await api.moveNode(from, toParent, toIndex);
+    },
+    // Roles decide what may go where, so a Button drops into a nav and a Hero does not
+    // drop inside a Button — without any per-component rules.
+    (movedPath, hostPath) => {
+      const moved = nodeAt(state.page, movedPath);
+      const movedRole = roleOf(componentFor(moved?.name, state.page.imports));
+      if (!hostPath.length) return accepts("page", movedRole);
+      const host = nodeAt(state.page, hostPath);
+      const hostRole = roleOf(componentFor(host?.name, state.page.imports));
+      return accepts(hostRole, movedRole);
+    },
+  );
+
+  // Text that lives in the page tree is editable where it sits — no marking needed by
+  // the component author. This is what makes a library component's label editable.
+  for (const el of doc.querySelectorAll("[data-nocms-text]")) {
+    el.setAttribute("contenteditable", "plaintext-only");
+    el.addEventListener("input", () => {
+      const node = nodeAt(state.page, el.dataset.nocmsText.split(".").map(Number));
+      if (node?.kind !== "other") return;
+      node.value = el.textContent;
+      markDirty();
+      window.dispatchEvent(
+        new CustomEvent("nocms:tree-changed", { detail: { silent: true } }),
+      );
+    });
+  }
+
+  // A component may also nominate a prop to edit in place, with data-edit="<prop>".
   for (const el of doc.querySelectorAll("[data-edit]")) {
     const holder = el.closest("[data-nocms-path]");
     if (!holder) continue;
@@ -194,6 +224,27 @@ const api = {
   select,
   refresh,
   nodeAt: (path) => nodeAt(state.page, path),
+
+  /** The text between a component's tags, edited as if it were a property. */
+  async setText(path, value) {
+    const node = nodeAt(state.page, path);
+    const child = node?.children?.find((c) => c.kind === "other" && c.type === "text");
+    if (!child) {
+      node.children = [{ kind: "other", type: "text", value, children: [] }];
+      node.selfClosing = false;
+    } else {
+      child.value = value;
+    }
+    await refresh();
+    return true;
+  },
+
+  textOf(path) {
+    const node = nodeAt(state.page, path);
+    return (
+      node?.children?.find((c) => c.kind === "other" && c.type === "text")?.value ?? ""
+    );
+  },
 
   async setProp(path, name, value) {
     const node = nodeAt(state.page, path);
@@ -253,6 +304,34 @@ const api = {
     }
     list.splice(at ?? list.length, 0, node);
     await refresh();
+  },
+
+  /** Move a node anywhere it is allowed to go, not only among its siblings. */
+  async moveNode(from, toParent, toIndex) {
+    const listAt = (path) => {
+      let list = state.page.body;
+      for (const i of path) list = list[i].children;
+      return list;
+    };
+    const fromList = listAt(from.slice(0, -1));
+    const [node] = fromList.splice(from.at(-1), 1);
+
+    // Removing the node first shifts anything after it in the same list.
+    const sameList = from.slice(0, -1).join(".") === toParent.join(".");
+    const toList = listAt(toParent);
+    let index = toIndex ?? toList.length;
+    if (sameList && index > from.at(-1)) index -= 1;
+
+    if (node.selfClosing && toList === node.children) node.selfClosing = false;
+    toList.splice(index, 0, node);
+
+    // A component that gains children is no longer self-closing.
+    if (toParent.length) {
+      const host = nodeAt(state.page, toParent);
+      if (host) host.selfClosing = false;
+    }
+    await refresh();
+    select([...toParent, index]);
   },
 
   /** Resolve the sibling list a node lives in, so moves work at any depth. */

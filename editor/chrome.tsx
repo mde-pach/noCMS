@@ -313,6 +313,16 @@ function EditPanel({ api }: { api: EditorApi }) {
       {fields.length === 0 ? <Empty>{emptyReason(def, node)}</Empty> : null}
 
       {fields.map((field) => {
+        if (field.name === "__text") {
+          return (
+            <Field key="__text" label={field.label}>
+              <Input
+                value={api.textOf(path)}
+                onChange={(e) => api.setText(path, e.target.value)}
+              />
+            </Field>
+          );
+        }
         const prop: PropValue | undefined = node.props[field.name];
         const value = (prop?.value ?? "") as never;
 

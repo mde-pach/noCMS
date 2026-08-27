@@ -89,10 +89,18 @@ Fields come from three places, in order of authority:
 2. props inferred from the component's own source
 3. props present on this instance — someone wrote it by hand, so it stays editable
 
-A descriptor is therefore an **override**, not the price of admission. Inference reads
-TypeScript prop types (including `keyof typeof VARIANTS`, the shadcn shape) and
-`Astro.props` destructuring; `children`, `className` and `style` are excluded because
-they are composed on the canvas rather than typed into a sidebar.
+A descriptor is therefore an **override**, not the price of admission. Inference reads TypeScript prop types (including `keyof typeof VARIANTS`, the shadcn
+shape), Astro's `interface Props` — so a union there becomes a real dropdown — and
+`Astro.props` destructuring. `className` and `style` are excluded.
+
+**A component's text is a field.** `<Button>Docs</Button>` gets a `Text` field, and the
+same text is editable in place on the canvas. Text that lives in the page tree is
+editable where it sits, with no marking needed by the component author.
+
+**Dropping is decided by roles.** A drop target is anywhere whose role accepts what is
+being dragged: a Button drops into a nav, a Hero does not drop inside a Button, and a
+bare Button is not offered as a page element. Hovering the middle of a container drops
+*into* it; hovering an edge drops beside it.
 
 Where things may go is decided by a three-word vocabulary rather than per-component
 allow-lists, so a new library needs no new rules:

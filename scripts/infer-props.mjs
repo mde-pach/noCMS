@@ -156,11 +156,19 @@ export function inferFromTsx(source, filename = "component.tsx") {
   return props;
 }
 
-/** Props of an .astro component: what its frontmatter destructures from Astro.props. */
+/**
+ * Props of an .astro component.
+ *
+ * Astro's idiom is `interface Props { … }` in the frontmatter, which carries real types —
+ * so a union there becomes a proper choice rather than a text box. Falls back to whatever
+ * the frontmatter destructures when no interface is declared.
+ */
 export function inferFromAstro(source) {
   const frontmatter = source.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+  const declared = inferFromPropsInterface(frontmatter);
+
   const destructure = frontmatter.match(/const\s*\{([^}]*)\}\s*=\s*Astro\.props/);
-  if (!destructure) return {};
+  if (!destructure) return declared;
   const props = {};
   for (const part of destructure[1].split(",")) {
     const [rawName, rawDefault] = part.split("=").map((s) => s.trim());
@@ -175,15 +183,54 @@ export function inferFromAstro(source) {
       else if (/^-?\d+(\.\d+)?$/.test(rawDefault)) value = Number(rawDefault);
     }
     props[name] = {
-      field:
-        typeof value === "boolean"
-          ? "toggle"
-          : typeof value === "number"
-            ? "number"
-            : "text",
+      // A declared type beats a guess from the default value.
+      ...(declared[name] ?? {
+        field:
+          typeof value === "boolean"
+            ? "toggle"
+            : typeof value === "number"
+              ? "number"
+              : "text",
+      }),
       ...(value === undefined ? {} : { default: value }),
     };
   }
+  // Declared but not destructured is still a real prop.
+  for (const [name, meta] of Object.entries(declared)) props[name] ??= meta;
+  return props;
+}
+
+/** `interface Props { variant?: "solid" | "outline" }` — Astro's own idiom, with real types. */
+function inferFromPropsInterface(frontmatter) {
+  const file = ts.createSourceFile(
+    "props.ts",
+    `${frontmatter}\nexport {};`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const props = {};
+  const visit = (node) => {
+    const isProps =
+      (ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node)) &&
+      node.name.text === "Props";
+    if (isProps) {
+      const members = ts.isInterfaceDeclaration(node)
+        ? node.members
+        : ts.isTypeLiteralNode(node.type)
+          ? node.type.members
+          : [];
+      for (const member of members) {
+        if (!ts.isPropertySignature(member) || !member.name) continue;
+        const name = member.name.getText(file);
+        if (SKIP.has(name)) continue;
+        const described = describeType(member.type, file);
+        if (described) props[name] = described;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
   return props;
 }
 

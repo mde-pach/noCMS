@@ -17,6 +17,8 @@ export interface EditorApi {
   componentFor(tag: string): ComponentDef | null;
   nodeAt(path: number[]): { name: string; props: Record<string, PropValue> } | null;
   setProp(path: number[], name: string, value: unknown): Promise<boolean>;
+  setText(path: number[], value: string): Promise<boolean>;
+  textOf(path: number[]): string;
   addComponent(id: string, at?: number | null): Promise<void>;
   moveSection(path: number[], delta: number): Promise<void>;
   removeSection(path: number[]): Promise<void>;

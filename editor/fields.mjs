@@ -17,9 +17,24 @@ const label = (name) =>
     .toLowerCase()
     .replace(/^./, (c) => c.toUpperCase());
 
+/** A component whose children are just text — <Button>Docs</Button>. */
+export function textChild(node) {
+  const children = node?.children ?? [];
+  const text = children.filter((c) => c.kind === "other" && c.type === "text");
+  const others = children.filter((c) => !(c.kind === "other" && c.type === "text"));
+  if (others.length || text.length !== 1) return null;
+  return text[0];
+}
+
 export function fieldsFor(def, node) {
   const fields = [];
   const seen = new Set();
+
+  // Its label is the first thing anyone wants to change, so it comes first.
+  if (node?.isComponent && textChild(node)) {
+    fields.push({ name: "__text", source: "children", label: "Text", field: "text" });
+    seen.add("__text");
+  }
 
   const shape = def?.schema?.shape ?? {};
   for (const [name, zodType] of Object.entries(shape)) {

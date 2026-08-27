@@ -27,6 +27,7 @@ const PORT = Number(process.env.NOCMS_GATE_PORT ?? 41837);
  * marker has gained attributes before and silently broke this comparison.
  */
 const WRAPPER_OPEN = /<div\s[^>]*\bdata-nocms-path="[^"]*"[^>]*>/g;
+const TEXT_MARKER = /<span\s[^>]*\bdata-nocms-text="[^"]*"[^>]*>([\s\S]*?)<\/span>/g;
 
 function unwrap(html) {
   let out = "";
@@ -55,7 +56,13 @@ function unwrap(html) {
 }
 
 /** Differences that are deterministic and not semantic. */
-const normalise = (html) => html.replace(/\s+/g, " ").replace(/>\s+</g, "><").trim();
+const normalise = (html) =>
+  html
+    // Editor-only markers: text nodes are wrapped so they can be edited in place.
+    .replace(TEXT_MARKER, "$1")
+    .replace(/\s+/g, " ")
+    .replace(/>\s+</g, "><")
+    .trim();
 
 const pages = [{ route: "/", dist: "dist/index.html" }];
 

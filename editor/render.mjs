@@ -81,7 +81,13 @@ function renderNode(result, node, imports, path) {
   if (node.kind === "other") {
     if (node.type === "comment") return markHTMLString(`<!--${node.value}-->`);
     if (node.type === "expression") return ""; // evaluated at build; not previewable
-    return node.value;
+    // Text that lives in the page tree is editable where it sits. Marked with a
+    // display:contents span so it can be found and written back without affecting
+    // layout; the parity gate strips these along with the component markers.
+    if (node.value.trim() === "") return node.value;
+    return render`${markHTMLString(
+      `<span data-nocms-text="${path.join(".")}" style="display:contents">`,
+    )}${node.value}${markHTMLString("</span>")}`;
   }
 
   const known = node.isComponent ? componentFor(node.name, imports) : null;

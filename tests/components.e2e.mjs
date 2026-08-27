@@ -92,6 +92,43 @@ try {
     labels.join(", "),
   );
 
+  // A component's text is the first thing anyone wants to change.
+  const fieldNames = await page.$$eval("#e-panel .ed-field__name", (e) =>
+    e.map((x) => x.textContent),
+  );
+  check(
+    "a component's text is editable from the panel",
+    fieldNames[0] === "Text",
+    fieldNames.join(", "),
+  );
+
+  await page
+    .locator("#e-panel .ed-field", { hasText: "Text" })
+    .locator("input")
+    .first()
+    .fill("Guides");
+  await page.waitForTimeout(800);
+  check(
+    "editing the text reaches the canvas",
+    (await frame().textContent(".nc-btn-ghost")).trim() === "Guides",
+    (await frame().textContent(".nc-btn-ghost")).trim(),
+  );
+
+  // The same text is editable in place, with no marking by the component author.
+  await frame().evaluate(() => {
+    const el = document.querySelector(".nc-btn-ghost [data-nocms-text]");
+    el.focus();
+    el.textContent = "Handbook";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForTimeout(700);
+  const back = await page
+    .locator("#e-panel .ed-field", { hasText: "Text" })
+    .locator("input")
+    .first()
+    .inputValue();
+  check("the same text is editable in place on the canvas", back === "Handbook", back);
+
   const options = await page.$$eval("#e-panel select option", (o) =>
     o.map((x) => x.value),
   );
@@ -117,6 +154,27 @@ try {
     "roles are carried into the canvas",
     roles.includes("container") && roles.includes("inline"),
     [...new Set(roles)].join(", "),
+  );
+
+  // Dropping into a dedicated target: a Button belongs in the nav; a Hero does not
+  // belong inside a Button. Roles decide, so no per-component rules are involved.
+  const dropRules = await page.evaluate(() => {
+    const api = window.__nocms;
+    const find = (name) => {
+      let found = null;
+      const walk = (nodes, path) =>
+        nodes.forEach((n, i) => {
+          if (n.name === name && !found) found = [...path, i];
+          if (n.children) walk(n.children, [...path, i]);
+        });
+      walk(api.state.page.body, []);
+      return found;
+    };
+    return { button: find("Button"), nav: find("SiteNav"), hero: find("Hero") };
+  });
+  check(
+    "the tree exposes the pieces being tested",
+    Boolean(dropRules.button && dropRules.nav && dropRules.hero),
   );
 
   // The case that started this: drag a Button into the navbar.

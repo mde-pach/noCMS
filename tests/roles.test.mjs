@@ -34,3 +34,12 @@ test("a slot may override what it takes", () => {
   assert.equal(accepts("container", "block", ["inline"]), false);
   assert.equal(accepts("inline", "block", ["block"]), true);
 });
+
+test("a hero cannot be dropped inside a button, a button can go in a nav", () => {
+  // The two directions that matter for "components must be draggable in their
+  // dedicated targeted place".
+  assert.equal(accepts("container", "inline"), true, "Button into Nav");
+  assert.equal(accepts("inline", "block"), false, "Hero into Button");
+  assert.equal(accepts("page", "inline"), false, "a bare Button is not a page element");
+  assert.equal(accepts("page", "block"), true, "a Hero is");
+});
